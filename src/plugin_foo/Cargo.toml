@@ -1,0 +1,21 @@
+[package]
+name = "nipart_plugin_foo"
+version = "1.0.1"
+authors = ["Gris Ge <fge@redhat.com>"]
+license = "Apache-2.0"
+edition = "2018"
+description = "Example Plugin of Nipart Daemon"
+homepage = "https://github.com/cathay4t/nipart"
+repository = "https://github.com/cathay4t/nipart"
+keywords = ["network"]
+categories = ["network-programming", "os"]
+
+[[bin]]
+name = "nipart_plugin_foo"
+path = "plugin_foo.rs"
+
+[dependencies]
+serde = "1.0"
+nipart = {path = "../lib"}
+tokio = { version = "1.3", features = ["rt", "net", "io-util"]}
+serde_yaml = "0.8"
