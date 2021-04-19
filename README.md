@@ -57,8 +57,6 @@ cargo run --bin nipc query eth1
 * `nipartd` -- daemon
     * Provide plugin management.
     * Provide socket for plugin and API communication.
-    * Load config file.
-    * Checkpoint support.
     * Do not need to understand the detailed schema of each interface.
     * Do not need to verify whether plugin is doing its works.
     * Do not maintain cache.
