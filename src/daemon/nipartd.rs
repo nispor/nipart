@@ -146,11 +146,11 @@ async fn handle_save_conf(
 
     validate_conf(&connection.config, plugins).await?;
 
-    let mut ztl_con = connection.clone();
+    let mut nip_con = connection.clone();
 
     // Gen UUID if not defined
-    if ztl_con.uuid == None {
-        ztl_con.uuid = Some(format!(
+    if nip_con.uuid == None {
+        nip_con.uuid = Some(format!(
             "{}",
             Uuid::new_v4()
                 .to_hyphenated()
@@ -158,28 +158,28 @@ async fn handle_save_conf(
         ));
     }
 
-    if ztl_con.name == None {
-        ztl_con.name = Some(gen_connection_name(&ztl_con.config));
+    if nip_con.name == None {
+        nip_con.name = Some(gen_connection_name(&nip_con.config));
     }
 
-    let ipc_msg = NipartIpcMessage::new(NipartIpcData::SaveConf(ztl_con.clone()));
+    let ipc_msg = NipartIpcMessage::new(NipartIpcData::SaveConf(nip_con.clone()));
 
     let reply_ipc_msgs =
         ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Config).await;
 
-    let mut reply_ztl_cons = Vec::new();
+    let mut reply_nip_cons = Vec::new();
     for reply_ipc_msg in reply_ipc_msgs {
-        if let NipartIpcData::SaveConfReply(ztl_con) = reply_ipc_msg.data {
-            reply_ztl_cons.push(ztl_con);
+        if let NipartIpcData::SaveConfReply(nip_con) = reply_ipc_msg.data {
+            reply_nip_cons.push(nip_con);
         }
     }
-    if reply_ztl_cons.len() == 0 {
+    if reply_nip_cons.len() == 0 {
         Err(NipartError::plugin_error(format!(
             "No plugin has saved desired config"
         )))
     } else {
-        ztl_con.merge_from(&reply_ztl_cons)?;
-        Ok(NipartIpcMessage::new(NipartIpcData::SaveConfReply(ztl_con)))
+        nip_con.merge_from(&reply_nip_cons)?;
+        Ok(NipartIpcMessage::new(NipartIpcData::SaveConfReply(nip_con)))
     }
 }
 
@@ -239,24 +239,24 @@ async fn handle_query_saved_conf_all(
 
     let reply_ipc_msgs =
         ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Config).await;
-    let mut all_ztl_cons = HashMap::new();
+    let mut all_nip_cons = HashMap::new();
     for reply_ipc_msg in reply_ipc_msgs {
-        if let NipartIpcData::QuerySavedConfAllReply(ztl_cons) =
+        if let NipartIpcData::QuerySavedConfAllReply(nip_cons) =
             reply_ipc_msg.data
         {
-            for ztl_con in ztl_cons {
-                let uuid = match &ztl_con.uuid {
+            for nip_con in nip_cons {
+                let uuid = match &nip_con.uuid {
                     Some(u) => u.to_string(),
                     None => {
                         eprintln!(
                             "ERROR: plugin reply with None UUID: {:?}",
-                            ztl_con
+                            nip_con
                         );
                         continue;
                     }
                 };
-                if !all_ztl_cons.contains_key(&uuid) {
-                    all_ztl_cons.insert(uuid, ztl_con);
+                if !all_nip_cons.contains_key(&uuid) {
+                    all_nip_cons.insert(uuid, nip_con);
                 }
             }
         } else {
@@ -267,7 +267,7 @@ async fn handle_query_saved_conf_all(
         }
     }
     Ok(NipartIpcMessage::new(NipartIpcData::QuerySavedConfAllReply(
-        all_ztl_cons.iter().map(|(_, v)| v.clone()).collect(),
+        all_nip_cons.iter().map(|(_, v)| v.clone()).collect(),
     )))
 }
 
@@ -308,22 +308,22 @@ async fn handle_query_saved_conf(
     let reply_ipc_msgs =
         ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Config).await;
 
-    let mut reply_ztl_cons = Vec::new();
+    let mut reply_nip_cons = Vec::new();
     for reply_ip_msg in reply_ipc_msgs {
-        if let NipartIpcData::QuerySavedConfReply(ztl_con) = reply_ip_msg.data {
-            reply_ztl_cons.push(ztl_con)
+        if let NipartIpcData::QuerySavedConfReply(nip_con) = reply_ip_msg.data {
+            reply_nip_cons.push(nip_con)
         }
     }
-    if reply_ztl_cons.len() == 0 {
+    if reply_nip_cons.len() == 0 {
         Err(NipartError::invalid_argument(format!(
             "Connection {} not found",
             uuid
         )))
     } else {
-        let mut ztl_con = reply_ztl_cons[0].clone();
-        ztl_con.merge_from(&reply_ztl_cons)?;
+        let mut nip_con = reply_nip_cons[0].clone();
+        nip_con.merge_from(&reply_nip_cons)?;
         Ok(NipartIpcMessage::new(NipartIpcData::QuerySavedConfReply(
-            ztl_con,
+            nip_con,
         )))
     }
 }

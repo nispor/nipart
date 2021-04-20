@@ -118,8 +118,8 @@ async fn handle_msg(data: NipartIpcData) -> NipartIpcMessage {
                 vec![NipartPluginCapacity::Config],
             )),
         ),
-        NipartIpcData::SaveConf(ztl_con) => {
-            NipartIpcMessage::from_result(save_conf(ztl_con))
+        NipartIpcData::SaveConf(nip_con) => {
+            NipartIpcMessage::from_result(save_conf(nip_con))
         }
         NipartIpcData::QuerySavedConf(uuid) => {
             NipartIpcMessage::from_result(query(&uuid))
@@ -131,13 +131,13 @@ async fn handle_msg(data: NipartIpcData) -> NipartIpcMessage {
     }
 }
 
-fn save_conf(ztl_con: NipartConnection) -> Result<NipartIpcMessage, NipartError> {
-    let uuid = match &ztl_con.uuid {
+fn save_conf(nip_con: NipartConnection) -> Result<NipartIpcMessage, NipartError> {
+    let uuid = match &nip_con.uuid {
         Some(u) => u,
         None => {
             return Err(NipartError::bug(format!(
                 "Got None uuid from daemon for connection {:?}",
-                &ztl_con,
+                &nip_con,
             )))
         }
     };
@@ -153,15 +153,15 @@ fn save_conf(ztl_con: NipartConnection) -> Result<NipartIpcMessage, NipartError>
             }
         };
 
-    let ztl_con_yaml = nipart_connection_to_flat_string(&ztl_con)?;
+    let nip_con_yaml = nipart_connection_to_flat_string(&nip_con)?;
 
-    if let Err(e) = fd.write_all(ztl_con_yaml.as_bytes()) {
+    if let Err(e) = fd.write_all(nip_con_yaml.as_bytes()) {
         Err(NipartError::plugin_error(format!(
             "Failed to write file {}: {}",
             &file_path, e
         )))
     } else {
-        Ok(NipartIpcMessage::new(NipartIpcData::SaveConfReply(ztl_con)))
+        Ok(NipartIpcMessage::new(NipartIpcData::SaveConfReply(nip_con)))
     }
 }
 
@@ -180,7 +180,7 @@ fn create_conf_dir() -> Result<(), NipartError> {
 
 fn query_all() -> Result<NipartIpcMessage, NipartError> {
     let conf_dir_path = std::path::Path::new(CONF_FOLDER);
-    let mut ztl_cons: Vec<NipartConnection> = Vec::new();
+    let mut nip_cons: Vec<NipartConnection> = Vec::new();
     match std::fs::read_dir(CONF_FOLDER) {
         Ok(dir) => {
             for entry in dir {
@@ -212,7 +212,7 @@ fn query_all() -> Result<NipartIpcMessage, NipartError> {
                         continue;
                     }
                 };
-                let ztl_con: NipartConnection =
+                let nip_con: NipartConnection =
                     match nipart_connection_from_flat_string(&conn_str) {
                         Ok(c) => c,
                         Err(e) => {
@@ -223,10 +223,10 @@ fn query_all() -> Result<NipartIpcMessage, NipartError> {
                             continue;
                         }
                     };
-                ztl_cons.push(ztl_con);
+                nip_cons.push(nip_con);
             }
             Ok(NipartIpcMessage::new(NipartIpcData::QuerySavedConfAllReply(
-                ztl_cons,
+                nip_cons,
             )))
         }
         Err(e) => Err(NipartError::plugin_error(format!(
@@ -258,34 +258,34 @@ fn read_file(file_path: &str) -> Result<String, NipartError> {
 }
 
 fn nipart_connection_to_flat_string(
-    ztl_con: &NipartConnection,
+    nip_con: &NipartConnection,
 ) -> Result<String, NipartError> {
-    let uuid = match &ztl_con.uuid {
+    let uuid = match &nip_con.uuid {
         Some(u) => u,
         None => {
             return Err(NipartError::bug(format!(
                 "Got None uuid from daemon for connection {:?}",
-                &ztl_con,
+                &nip_con,
             )))
         }
     };
-    let name = match &ztl_con.name {
+    let name = match &nip_con.name {
         Some(u) => u,
         None => {
             return Err(NipartError::bug(format!(
                 "Got None name from daemon for connection {:?}",
-                &ztl_con,
+                &nip_con,
             )))
         }
     };
     let mut yaml_map: serde_yaml::Mapping =
-        match serde_yaml::from_str(&ztl_con.config) {
+        match serde_yaml::from_str(&nip_con.config) {
             Ok(o) => o,
             Err(e) => {
                 return Err(NipartError::bug(format!(
                     "This should never happen, \
                     got invalid YAML file from daemon for SaveConf: {}: {}",
-                    &ztl_con.config, e
+                    &nip_con.config, e
                 )));
             }
         };

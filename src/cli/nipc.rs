@@ -21,7 +21,7 @@ use nipart::{
 
 #[tokio::main]
 async fn main() {
-    let matches = App::new("ztl")
+    let matches = App::new("nip")
         .about("CLI to Nipart daemon")
         .subcommand(
             SubCommand::with_name("query")
@@ -121,17 +121,17 @@ async fn handle_connection(matches: &ArgMatches<'_>) {
 async fn handle_connection_import(file_path: &str) {
     let content = read_file(file_path);
     let mut connection = ipc_connect().await.unwrap();
-    let ztl_con = NipartConnection::new(content);
+    let nip_con = NipartConnection::new(content);
     match ipc_exec(
         &mut connection,
-        &NipartIpcMessage::new(NipartIpcData::SaveConf(ztl_con)),
+        &NipartIpcMessage::new(NipartIpcData::SaveConf(nip_con)),
     )
     .await
     {
         Ok(r) => {
-            if let NipartIpcData::SaveConfReply(new_ztl_con) = &r.data {
+            if let NipartIpcData::SaveConfReply(new_nip_con) = &r.data {
                 println!("Connection saved:");
-                print_connection(&new_ztl_con);
+                print_connection(&new_nip_con);
                 println!("");
             } else {
                 eprintln!("Unexpected reply {:?}", r);
@@ -158,13 +158,13 @@ async fn handle_connection_show_all() {
     .await
     {
         Ok(r) => {
-            if let NipartIpcData::QuerySavedConfAllReply(ztl_cons) = r.data {
+            if let NipartIpcData::QuerySavedConfAllReply(nip_cons) = r.data {
                 println!("{:>36} | name", "UUID              ");
-                for ztl_con in ztl_cons {
+                for nip_con in nip_cons {
                     println!(
                         "{}   {}",
-                        ztl_con.uuid.as_ref().unwrap(),
-                        ztl_con.name.as_ref().unwrap()
+                        nip_con.uuid.as_ref().unwrap(),
+                        nip_con.name.as_ref().unwrap()
                     );
                 }
                 println!("");
@@ -176,10 +176,10 @@ async fn handle_connection_show_all() {
     }
 }
 
-fn print_connection(ztl_con: &NipartConnection) {
-    println!("connection UUID: {}", ztl_con.uuid.as_ref().unwrap());
-    println!("connection name: {}", ztl_con.name.as_ref().unwrap());
-    println!("{}", &ztl_con.config);
+fn print_connection(nip_con: &NipartConnection) {
+    println!("connection UUID: {}", nip_con.uuid.as_ref().unwrap());
+    println!("connection name: {}", nip_con.name.as_ref().unwrap());
+    println!("{}", &nip_con.config);
 }
 
 async fn handle_connection_show(uuid: &str) {
@@ -191,8 +191,8 @@ async fn handle_connection_show(uuid: &str) {
     .await
     {
         Ok(r) => {
-            if let NipartIpcData::QuerySavedConfReply(ztl_con) = &r.data {
-                print_connection(&ztl_con);
+            if let NipartIpcData::QuerySavedConfReply(nip_con) = &r.data {
+                print_connection(&nip_con);
                 println!("");
             } else {
                 eprintln!("Unexpected reply {:?}", r);

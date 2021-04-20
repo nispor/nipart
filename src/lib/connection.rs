@@ -34,7 +34,7 @@ impl NipartConnection {
     }
     pub fn merge_from(
         &mut self,
-        ztl_cons: &[NipartConnection],
+        nip_cons: &[NipartConnection],
     ) -> Result<(), NipartError> {
         let mut conf_strs = Vec::new();
         conf_strs.push(self.config.as_str());
@@ -56,28 +56,28 @@ impl NipartConnection {
                 )))
             }
         };
-        for ztl_con in ztl_cons {
-            if let Some(name) = &ztl_con.name {
+        for nip_con in nip_cons {
+            if let Some(name) = &nip_con.name {
                 if name != self_name {
                     return Err(NipartError::plugin_error(format!(
                         "WARN: NipartConnection to merge is holding \
                         different name: origin {}, to merge {:?}",
-                        &self_name, &ztl_con.name
+                        &self_name, &nip_con.name
                     )));
                 }
             }
 
-            if let Some(uuid) = &ztl_con.uuid {
+            if let Some(uuid) = &nip_con.uuid {
                 if uuid != self_uuid {
                     return Err(NipartError::plugin_error(format!(
                         "WARN: NipartConnection to merge is holding \
                         different uuid: origin {}, to merge {:?}",
-                        &self_uuid, &ztl_con.uuid
+                        &self_uuid, &nip_con.uuid
                     )));
                 }
             }
 
-            conf_strs.push(ztl_con.config.as_str());
+            conf_strs.push(nip_con.config.as_str());
         }
         self.config = merge_yaml_mappings(conf_strs.as_slice())?;
         Ok(())
