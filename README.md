@@ -92,4 +92,3 @@ cargo run --bin nipc query eth1
 * ABI Backwards compatibility:
     * set default value if unknown when serialize and deserialize
     * Use function of struct/enum instead of itself.
-* Split `lib/nipart` to `lib/nipart` and `lib/nipart_plugin`.

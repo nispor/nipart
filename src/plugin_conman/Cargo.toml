@@ -1,12 +1,12 @@
 [package]
 name = "nipart_plugin_conman"
 version = "1.0.1"
-authors = ["Gris Ge <fge@redhat.com>"]
+authors = ["Gris Ge <cnfourt@gmail.com>"]
 license = "Apache-2.0"
 edition = "2018"
 description = "Connection Management Plugin of Nipart Daemon"
-homepage = "https://github.com/cathay4t/nipart"
-repository = "https://github.com/cathay4t/nipart"
+homepage = "https://github.com/nispor/nipart"
+repository = "https://github.com/nispor/nipart"
 keywords = ["network"]
 categories = ["network-programming", "os"]
 
