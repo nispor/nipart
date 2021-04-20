@@ -16,14 +16,14 @@ mod plugin;
 
 use std::collections::HashMap;
 
-use serde_yaml;
-use tokio::{self, io::AsyncWriteExt, net::UnixStream, task};
-use uuid::Uuid;
 use nipart::{
     ipc_bind, ipc_plugins_exec, ipc_recv_safe, ipc_send, merge_yaml_mappings,
     NipartConnection, NipartError, NipartIpcData, NipartIpcMessage,
     NipartPluginCapacity, NipartPluginInfo,
 };
+use serde_yaml;
+use tokio::{self, io::AsyncWriteExt, net::UnixStream, task};
+use uuid::Uuid;
 
 use crate::plugin::load_plugins;
 
@@ -124,7 +124,8 @@ async fn handle_query(
         NipartIpcMessage::new(NipartIpcData::QueryIfaceInfo(filter.into()));
 
     let reply_ipc_msg =
-        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Query).await;
+        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::NetQuery)
+            .await;
     let reply_strs = extract_strs_from_ipc_msg(&reply_ipc_msg);
 
     Ok(NipartIpcMessage::new(NipartIpcData::QueryIfaceInfoReply(
@@ -162,10 +163,15 @@ async fn handle_save_conf(
         nip_con.name = Some(gen_connection_name(&nip_con.config));
     }
 
-    let ipc_msg = NipartIpcMessage::new(NipartIpcData::SaveConf(nip_con.clone()));
+    let ipc_msg =
+        NipartIpcMessage::new(NipartIpcData::SaveConf(nip_con.clone()));
 
-    let reply_ipc_msgs =
-        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Config).await;
+    let reply_ipc_msgs = ipc_plugins_exec(
+        &ipc_msg,
+        plugins,
+        &NipartPluginCapacity::ConfigFileManage,
+    )
+    .await;
 
     let mut reply_nip_cons = Vec::new();
     for reply_ipc_msg in reply_ipc_msgs {
@@ -205,7 +211,8 @@ async fn validate_conf(
         };
 
     let reply_ipc_msgs =
-        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Apply).await;
+        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::NetApply)
+            .await;
     let reply_strs = extract_strs_from_ipc_msg(&reply_ipc_msgs);
     let merged_reply = merge_yaml_mappings(reply_strs.as_slice())?;
     let validated_yaml_mapping: serde_yaml::Value =
@@ -237,8 +244,12 @@ async fn handle_query_saved_conf_all(
 
     let ipc_msg = NipartIpcMessage::new(NipartIpcData::QuerySavedConfAll);
 
-    let reply_ipc_msgs =
-        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Config).await;
+    let reply_ipc_msgs = ipc_plugins_exec(
+        &ipc_msg,
+        plugins,
+        &NipartPluginCapacity::ConfigFileManage,
+    )
+    .await;
     let mut all_nip_cons = HashMap::new();
     for reply_ipc_msg in reply_ipc_msgs {
         if let NipartIpcData::QuerySavedConfAllReply(nip_cons) =
@@ -266,9 +277,11 @@ async fn handle_query_saved_conf_all(
             );
         }
     }
-    Ok(NipartIpcMessage::new(NipartIpcData::QuerySavedConfAllReply(
-        all_nip_cons.iter().map(|(_, v)| v.clone()).collect(),
-    )))
+    Ok(NipartIpcMessage::new(
+        NipartIpcData::QuerySavedConfAllReply(
+            all_nip_cons.iter().map(|(_, v)| v.clone()).collect(),
+        ),
+    ))
 }
 
 fn gen_connection_name(config: &str) -> String {
@@ -305,8 +318,12 @@ async fn handle_query_saved_conf(
     let ipc_msg =
         NipartIpcMessage::new(NipartIpcData::QuerySavedConf(uuid.to_string()));
 
-    let reply_ipc_msgs =
-        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::Config).await;
+    let reply_ipc_msgs = ipc_plugins_exec(
+        &ipc_msg,
+        plugins,
+        &NipartPluginCapacity::ConfigFileManage,
+    )
+    .await;
 
     let mut reply_nip_cons = Vec::new();
     for reply_ip_msg in reply_ipc_msgs {

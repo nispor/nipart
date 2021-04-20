@@ -31,12 +31,8 @@ pub enum NipartIpcData {
     QueryPluginInfoReply(NipartPluginInfo),
     QueryIfaceInfo(String),
     QueryIfaceInfoReply(String),
-    // Plugin with NipartPluginCapacity::Apply capacity should support
-    // ValidateConf and only reply with the supported portion of desire config.
     ValidateConf(String),
     ValidateConfReply(String),
-    // Plugin with NipartPluginCapacity::Config capacity should support
-    // SaveConf and reply with the UUID saved.
     SaveConf(NipartConnection),
     SaveConfReply(NipartConnection),
     QuerySavedConf(String),

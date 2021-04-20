@@ -16,13 +16,13 @@ mod iface;
 
 use std::env::args;
 
-use nispor::NetState;
-use serde_yaml;
-use tokio::{self, io::AsyncWriteExt, net::UnixStream};
 use nipart::{
     ipc_bind_with_path, ipc_recv, ipc_send, NipartError, NipartIpcData,
     NipartIpcMessage, NipartPluginCapacity, NipartPluginInfo,
 };
+use nispor::NetState;
+use serde_yaml;
+use tokio::{self, io::AsyncWriteExt, net::UnixStream};
 
 use crate::iface::NipartBaseIface;
 
@@ -112,7 +112,10 @@ async fn handle_msg(data: NipartIpcData) -> NipartIpcMessage {
         NipartIpcData::QueryPluginInfo => NipartIpcMessage::new(
             NipartIpcData::QueryPluginInfoReply(NipartPluginInfo::new(
                 PLUGIN_NAME,
-                vec![NipartPluginCapacity::Query, NipartPluginCapacity::Apply],
+                vec![
+                    NipartPluginCapacity::NetQuery,
+                    NipartPluginCapacity::NetApply,
+                ],
             )),
         ),
         NipartIpcData::ValidateConf(conf) => {
@@ -161,9 +164,9 @@ fn query_iface(iface_name: &str) -> Result<NipartIpcMessage, NipartError> {
 fn validate_conf(conf: &str) -> Result<NipartIpcMessage, NipartError> {
     if let Ok(nipart_iface) = serde_yaml::from_str::<NipartBaseIface>(conf) {
         if let Ok(s) = serde_yaml::to_string(&nipart_iface) {
-            return Ok(NipartIpcMessage::new(NipartIpcData::ValidateConfReply(
-                s,
-            )));
+            return Ok(NipartIpcMessage::new(
+                NipartIpcData::ValidateConfReply(s),
+            ));
         }
     }
     Ok(NipartIpcMessage::new(NipartIpcData::ValidateConfReply(

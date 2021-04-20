@@ -115,7 +115,7 @@ async fn handle_msg(data: NipartIpcData) -> NipartIpcMessage {
         NipartIpcData::QueryPluginInfo => NipartIpcMessage::new(
             NipartIpcData::QueryPluginInfoReply(NipartPluginInfo::new(
                 PLUGIN_NAME,
-                vec![NipartPluginCapacity::Config],
+                vec![NipartPluginCapacity::ConfigFileManage],
             )),
         ),
         NipartIpcData::SaveConf(nip_con) => {

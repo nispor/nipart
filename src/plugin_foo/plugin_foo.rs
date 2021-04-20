@@ -14,13 +14,13 @@
 
 use std::env::args;
 
-use serde::{Deserialize, Serialize};
-use serde_yaml;
-use tokio::{self, io::AsyncWriteExt, net::UnixStream};
 use nipart::{
     ipc_bind_with_path, ipc_recv, ipc_send, NipartError, NipartIpcData,
     NipartIpcMessage, NipartPluginCapacity, NipartPluginInfo,
 };
+use serde::{Deserialize, Serialize};
+use serde_yaml;
+use tokio::{self, io::AsyncWriteExt, net::UnixStream};
 
 const PLUGIN_NAME: &str = "foo";
 
@@ -118,7 +118,10 @@ async fn handle_msg(data: NipartIpcData) -> NipartIpcMessage {
         NipartIpcData::QueryPluginInfo => NipartIpcMessage::new(
             NipartIpcData::QueryPluginInfoReply(NipartPluginInfo::new(
                 PLUGIN_NAME,
-                vec![NipartPluginCapacity::Query, NipartPluginCapacity::Apply],
+                vec![
+                    NipartPluginCapacity::NetQuery,
+                    NipartPluginCapacity::NetApply,
+                ],
             )),
         ),
         NipartIpcData::ValidateConf(conf) => {
@@ -138,7 +141,9 @@ fn query_iface(iface_name: &str) -> Result<NipartIpcMessage, NipartError> {
         },
     };
     match serde_yaml::to_string(&iface) {
-        Ok(s) => Ok(NipartIpcMessage::new(NipartIpcData::QueryIfaceInfoReply(s))),
+        Ok(s) => {
+            Ok(NipartIpcMessage::new(NipartIpcData::QueryIfaceInfoReply(s)))
+        }
         Err(e) => Err(NipartError::plugin_error(format!(
             "Failed to convert NipartIfaceInfo to yml: {}",
             e
@@ -149,9 +154,9 @@ fn query_iface(iface_name: &str) -> Result<NipartIpcMessage, NipartError> {
 fn validate_conf(conf: &str) -> Result<NipartIpcMessage, NipartError> {
     if let Ok(foo_iface) = serde_yaml::from_str::<FooIface>(conf) {
         if let Ok(s) = serde_yaml::to_string(&foo_iface) {
-            return Ok(NipartIpcMessage::new(NipartIpcData::ValidateConfReply(
-                s,
-            )));
+            return Ok(NipartIpcMessage::new(
+                NipartIpcData::ValidateConfReply(s),
+            ));
         }
     }
     Ok(NipartIpcMessage::new(NipartIpcData::ValidateConfReply(

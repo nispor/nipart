@@ -22,9 +22,9 @@ use crate::{
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum NipartPluginCapacity {
-    Query,
-    Apply,
-    Config,
+    NetQuery,         // For querying network status
+    NetApply,         // For applying network config
+    ConfigFileManage, // For managing network config files
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
