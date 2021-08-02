@@ -16,12 +16,12 @@ use std::env::args;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 
-use serde_yaml;
-use tokio::{self, io::AsyncWriteExt, net::UnixStream};
 use nipart::{
     ipc_bind_with_path, ipc_recv, ipc_send, NipartConnection, NipartError,
     NipartIpcData, NipartIpcMessage, NipartPluginCapacity, NipartPluginInfo,
 };
+use serde_yaml;
+use tokio::{self, io::AsyncWriteExt, net::UnixStream};
 
 const PLUGIN_NAME: &str = "conman";
 const CONF_FOLDER: &str = "/tmp/nipart";
@@ -121,6 +121,9 @@ async fn handle_msg(data: NipartIpcData) -> NipartIpcMessage {
         NipartIpcData::SaveConf(nip_con) => {
             NipartIpcMessage::from_result(save_conf(nip_con))
         }
+        NipartIpcData::DeleteConf(uuid) => {
+            NipartIpcMessage::from_result(delete_conf(&uuid))
+        }
         NipartIpcData::QuerySavedConf(uuid) => {
             NipartIpcMessage::from_result(query(&uuid))
         }
@@ -131,7 +134,9 @@ async fn handle_msg(data: NipartIpcData) -> NipartIpcMessage {
     }
 }
 
-fn save_conf(nip_con: NipartConnection) -> Result<NipartIpcMessage, NipartError> {
+fn save_conf(
+    nip_con: NipartConnection,
+) -> Result<NipartIpcMessage, NipartError> {
     let uuid = match &nip_con.uuid {
         Some(u) => u,
         None => {
@@ -225,9 +230,9 @@ fn query_all() -> Result<NipartIpcMessage, NipartError> {
                     };
                 nip_cons.push(nip_con);
             }
-            Ok(NipartIpcMessage::new(NipartIpcData::QuerySavedConfAllReply(
-                nip_cons,
-            )))
+            Ok(NipartIpcMessage::new(
+                NipartIpcData::QuerySavedConfAllReply(nip_cons),
+            ))
         }
         Err(e) => Err(NipartError::plugin_error(format!(
             "Failed to read dir {}: {}",
@@ -424,4 +429,24 @@ fn query(uuid: &str) -> Result<NipartIpcMessage, NipartError> {
 
 fn gen_file_path(uuid: &str) -> String {
     format!("{}/{}{}", CONF_FOLDER, uuid, CONN_FILE_POSTFIX)
+}
+
+fn delete_conf(uuid: &str) -> Result<NipartIpcMessage, NipartError> {
+    let full_path = gen_file_path(uuid);
+    let file_path = std::path::Path::new(&full_path);
+    if file_path.exists() {
+        if let Err(e) = std::fs::remove_file(&file_path) {
+            Err(NipartError::plugin_error(format!(
+                "Failed to delete connection {}: {}",
+                &full_path, e
+            )))
+        } else {
+            Ok(NipartIpcMessage::new(NipartIpcData::DeleteConfReply))
+        }
+    } else {
+        Err(NipartError::invalid_argument(format!(
+            "Connection {} not found",
+            uuid
+        )))
+    }
 }

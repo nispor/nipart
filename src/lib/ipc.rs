@@ -35,6 +35,8 @@ pub enum NipartIpcData {
     ValidateConfReply(String),
     SaveConf(NipartConnection),
     SaveConfReply(NipartConnection),
+    DeleteConf(String),
+    DeleteConfReply,
     QuerySavedConf(String),
     QuerySavedConfReply(NipartConnection),
     QuerySavedConfAll,

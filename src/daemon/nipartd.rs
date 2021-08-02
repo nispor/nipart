@@ -80,6 +80,9 @@ async fn handle_client(mut stream: UnixStream, plugins: &[NipartPluginInfo]) {
                         NipartIpcData::QueryIfaceInfo(filter) => {
                             handle_query(&filter, plugins).await
                         }
+                        NipartIpcData::DeleteConf(uuid) => {
+                            handle_del_conf(&uuid, plugins).await
+                        }
                         NipartIpcData::SaveConf(connection) => {
                             handle_save_conf(&connection, plugins).await
                         }
@@ -343,4 +346,24 @@ async fn handle_query_saved_conf(
             nip_con,
         )))
     }
+}
+
+async fn handle_del_conf(
+    uuid: &str,
+    plugins: &[NipartPluginInfo],
+) -> Result<NipartIpcMessage, NipartError> {
+    eprintln!("DEBUG: handle_del_conf: {}", uuid);
+
+    let ipc_msg =
+        NipartIpcMessage::new(NipartIpcData::DeleteConf(uuid.to_string()));
+
+    ipc_plugins_exec(
+        &ipc_msg,
+        plugins,
+        &NipartPluginCapacity::ConfigFileManage,
+    )
+    .await;
+
+    // BUG: The ipc_plugins_exec should return error also
+    Ok(NipartIpcMessage::new(NipartIpcData::DeleteConfReply))
 }
