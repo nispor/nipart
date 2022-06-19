@@ -12,21 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod connection;
 mod error;
 mod ipc;
-mod logging;
 mod plugin;
-mod yaml;
 
-pub use crate::connection::NipartConnection;
-pub use crate::error::NipartError;
+pub use crate::error::{ErrorKind, NipartError};
 pub use crate::ipc::{
     ipc_bind, ipc_bind_with_path, ipc_connect, ipc_connect_with_path, ipc_exec,
-    ipc_recv, ipc_recv_safe, ipc_send, NipartIpcData, NipartIpcMessage,
+    ipc_recv, ipc_recv_safe, ipc_send, NipartApplyOption, NipartIpcMessage,
+    NipartQueryOption,
 };
-pub use crate::logging::{NipartLogEntry, NipartLogLevel};
 pub use crate::plugin::{
-    ipc_plugin_exec, ipc_plugins_exec, NipartPluginCapacity, NipartPluginInfo,
+    ipc_plugin_exec, ipc_plugins_exec, NipartPlugin, NipartPluginCapacity,
+    NipartPluginInfo, NipartPluginIpcMessage,
 };
-pub use crate::yaml::{merge_yaml_lists, merge_yaml_mappings};

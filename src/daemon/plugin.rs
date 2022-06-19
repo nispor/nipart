@@ -1,4 +1,4 @@
-//    Copyright 2021 Red Hat, Inc.
+//    Copyright 2021-2022 Red Hat, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 
 use std::os::unix::fs::PermissionsExt;
 
-use tokio::net::UnixStream;
 use nipart::{
-    ipc_connect_with_path, ipc_exec, NipartError, NipartIpcData, NipartIpcMessage,
+    ipc_connect_with_path, ipc_exec, ErrorKind, NipartError, NipartIpcMessage,
     NipartPluginInfo,
 };
+use tokio::net::UnixStream;
 
 const PLUGIN_PREFIX: &str = "nipart_plugin_";
 const PLUGIN_SOCKET_PREFIX: &str = "/tmp/nipart_plugin_";
@@ -120,10 +120,13 @@ async fn plugin_start(
 
             query_plugin_info(&socket_path).await
         }
-        Err(e) => Err(NipartError::plugin_error(format!(
-            "Failed to start plugin {} {}: {}",
-            plugin_exec_path, &socket_path, e
-        ))),
+        Err(e) => Err(NipartError::new(
+            ErrorKind::PluginError,
+            format!(
+                "Failed to start plugin {} {}: {}",
+                plugin_exec_path, &socket_path, e
+            ),
+        )),
     }
 }
 
@@ -151,24 +154,17 @@ async fn query_plugin_info(
 ) -> Result<NipartPluginInfo, NipartError> {
     // Plugin might not ready yet right after started, so retry is required.
     let mut stream = ipc_connect_with_retry(socket_path).await?;
-    let ipc_msg = ipc_exec(
-        &mut stream,
-        &NipartIpcMessage::new(NipartIpcData::QueryPluginInfo),
-    )
-    .await?;
+    let ipc_msg =
+        ipc_exec(&mut stream, &NipartIpcMessage::QueryPluginInfo).await?;
 
-    if let NipartIpcMessage {
-        data: NipartIpcData::QueryPluginInfoReply(mut plugin_info),
-        log: _,
-    } = ipc_msg
-    {
+    if let NipartIpcMessage::QueryPluginInfoReply(mut plugin_info) = ipc_msg {
         plugin_info.socket_path = socket_path.into();
         Ok(plugin_info)
     } else {
-        Err(NipartError::plugin_error(format!(
-            "Invalid plugin reply on QueryPluginInfo: {:?}",
-            ipc_msg
-        )))
+        Err(NipartError::new(
+            ErrorKind::PluginError,
+            format!("Invalid plugin reply on QueryPluginInfo: {:?}", ipc_msg),
+        ))
     }
 }
 
@@ -182,10 +178,13 @@ async fn ipc_connect_with_retry(
         match ipc_connect_with_path(socket_path).await {
             Err(e) => {
                 if i == PLUGIN_CONNECT_REPLY_COUNT - 1 {
-                    return Err(NipartError::plugin_error(format!(
-                        "Failed to connect plugin IPC socket {}: {}",
-                        socket_path, e
-                    )));
+                    return Err(NipartError::new(
+                        ErrorKind::PluginError,
+                        format!(
+                            "Failed to connect plugin IPC socket {}: {}",
+                            socket_path, e
+                        ),
+                    ));
                 } else {
                     eprintln!(
                         "DEBUG: Failed to connect plugin \
@@ -198,7 +197,8 @@ async fn ipc_connect_with_retry(
             Ok(s) => return Ok(s),
         }
     }
-    Err(NipartError::bug(
+    Err(NipartError::new(
+        ErrorKind::Bug,
         "This should never happen in ipc_connect_with_retry".into(),
     ))
 }

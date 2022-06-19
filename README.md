@@ -30,9 +30,8 @@ cargo run --bin nipc query eth1
 ```
 
 ## Design
-* Nispor providing __full__ network status of kernel for all interfaces
-  or single interface.
-* Nispor taking __single__ interface __full__ configuration to apply.
+* Use Nmstate `NetworkState` as nipart schema. Use `backend_specific` to store
+  own specific settings.
 * Nipart provides:
     * Point in time network state query, no caching.
     * Unified network state both from user space and kernel, so that

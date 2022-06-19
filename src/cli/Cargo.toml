@@ -19,3 +19,4 @@ serde = "1.0"
 nipart = {path = "../lib"}
 tokio = { version = "1.3", features = ["rt", "net", "io-util"]}
 clap = "2.33"
+serde_yaml = "0.8.24"

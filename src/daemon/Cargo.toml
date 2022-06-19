@@ -19,4 +19,5 @@ serde = "1.0"
 nipart = {path = "../lib"}
 tokio = {version = "1.3", features = ["rt", "net", "io-util"]}
 serde_yaml = "0.8"
-uuid = {version = "0.8", features = ["v4"]}
+log = "0.4.17"
+nmstate = { path = "/home/fge/Source/nmstate/rust/src/lib", version = "2.1.2" }

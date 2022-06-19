@@ -3,7 +3,6 @@ members = [
     "src/lib",
     "src/daemon",
     "src/cli",
-    "src/plugin_nispor",
-    "src/plugin_foo",
-    "src/plugin_conman",
+    "src/plugin_nmstate",
+#    "src/plugin_conman",
 ]

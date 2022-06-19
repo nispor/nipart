@@ -21,8 +21,9 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ErrorKind {
     InvalidArgument,
-    NipartBug,
+    Bug,
     PluginError,
+    NoSupport,
 }
 
 impl std::fmt::Display for ErrorKind {
@@ -38,24 +39,10 @@ pub struct NipartError {
 }
 
 impl NipartError {
-    pub fn bug(message: String) -> NipartError {
-        NipartError {
-            kind: ErrorKind::NipartBug,
-            msg: message,
-        }
+    pub fn new(kind: ErrorKind, msg: String) -> Self {
+        Self { kind, msg }
     }
-    pub fn invalid_argument(message: String) -> NipartError {
-        NipartError {
-            kind: ErrorKind::InvalidArgument,
-            msg: message,
-        }
-    }
-    pub fn plugin_error(message: String) -> NipartError {
-        NipartError {
-            kind: ErrorKind::PluginError,
-            msg: message,
-        }
-    }
+
 }
 
 impl std::fmt::Display for NipartError {
@@ -64,6 +51,4 @@ impl std::fmt::Display for NipartError {
     }
 }
 
-impl std::error::Error for NipartError {
-    /* TODO */
-}
+impl std::error::Error for NipartError {}

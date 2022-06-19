@@ -14,75 +14,42 @@
 
 use std::fs::remove_file;
 
+use nmstate::NetworkState;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
-use crate::{NipartConnection, NipartError, NipartLogEntry, NipartPluginInfo};
+use crate::{ErrorKind, NipartError, NipartPluginInfo, NipartPluginIpcMessage};
 
 const DEFAULT_SOCKET_PATH: &str = "/tmp/nipart_socket";
 const IPC_SAFE_SIZE: usize = 1024 * 1024 * 10; // 10 MiB
 
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
+pub struct NipartQueryOption {}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
+pub struct NipartApplyOption {}
+
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub enum NipartIpcData {
+pub enum NipartIpcMessage {
     Error(NipartError),
     QueryPluginInfo,
     QueryPluginInfoReply(NipartPluginInfo),
-    QueryIfaceInfo(String),
-    QueryIfaceInfoReply(String),
-    ValidateConf(String),
-    ValidateConfReply(String),
-    SaveConf(NipartConnection),
-    SaveConfReply(NipartConnection),
-    DeleteConf(String),
-    DeleteConfReply,
-    QuerySavedConf(String),
-    QuerySavedConfReply(NipartConnection),
-    QuerySavedConfAll,
-    QuerySavedConfAllReply(Vec<NipartConnection>),
+    QueryState(NipartQueryOption),
+    QueryStateReply(NetworkState),
+    ApplyState(NetworkState, NipartApplyOption),
+    ApplyStateReply,
     ConnectionClosed,
+    Plugin(NipartPluginIpcMessage),
     None,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct NipartIpcMessage {
-    pub data: NipartIpcData,
-    // TODO: include logs also
-    pub log: Option<Vec<NipartLogEntry>>,
-}
-
 impl NipartIpcMessage {
-    pub fn new(data: NipartIpcData) -> Self {
-        NipartIpcMessage {
-            data: data,
-            log: None,
-        }
-    }
-    pub fn new_with_log(data: NipartIpcData, log: Vec<NipartLogEntry>) -> Self {
-        NipartIpcMessage {
-            data: data,
-            log: Some(log),
-        }
-    }
-
     pub fn from_result(result: Result<Self, NipartError>) -> Self {
         match result {
             Ok(i) => i,
-            Err(e) => NipartIpcMessage::new(NipartIpcData::Error(e)),
-        }
-    }
-
-    pub fn get_data_str<'a>(&'a self) -> Result<&'a str, NipartError> {
-        match &self.data {
-            NipartIpcData::QueryIfaceInfo(s) => Ok(&s),
-            NipartIpcData::QueryIfaceInfoReply(s) => Ok(&s),
-            NipartIpcData::ValidateConf(s) => Ok(&s),
-            NipartIpcData::ValidateConfReply(s) => Ok(&s),
-            _ => Err(NipartError::invalid_argument(format!(
-                "{:?} does not holding string in data",
-                &self.data
-            ))),
+            Err(e) => NipartIpcMessage::Error(e),
         }
     }
 }
@@ -96,10 +63,10 @@ pub fn ipc_bind_with_path(
 ) -> Result<UnixListener, NipartError> {
     remove_file(socket_path).ok();
     match UnixListener::bind(socket_path) {
-        Err(e) => Err(NipartError::bug(format!(
-            "Failed to bind socket {}: {}",
-            socket_path, e
-        ))),
+        Err(e) => Err(NipartError::new(
+            ErrorKind::Bug,
+            format!("Failed to bind socket {}: {}", socket_path, e),
+        )),
         Ok(l) => Ok(l),
     }
 }
@@ -112,10 +79,10 @@ pub async fn ipc_connect_with_path(
     socket_path: &str,
 ) -> Result<UnixStream, NipartError> {
     match UnixStream::connect(socket_path).await {
-        Err(e) => Err(NipartError::bug(format!(
-            "Failed to connect socket {}: {}",
-            socket_path, e
-        ))),
+        Err(e) => Err(NipartError::new(
+            ErrorKind::Bug,
+            format!("Failed to connect socket {}: {}", socket_path, e),
+        )),
         Ok(l) => Ok(l),
     }
 }
@@ -127,27 +94,40 @@ pub async fn ipc_send(
     let message_string = match serde_yaml::to_string(message) {
         Ok(s) => s,
         Err(e) => {
-            return Err(NipartError::invalid_argument(format!(
-                "Invalid IPC message - failed to serialize {:?}: {}",
-                &message, e
-            )))
+            let e = NipartError::new(
+                ErrorKind::InvalidArgument,
+                format!(
+                    "Invalid IPC message - failed to serialize {:?}: {}",
+                    &message, e
+                ),
+            );
+            log::error!("{}", e);
+            return Err(e);
         }
     };
     let message_bytes = message_string.as_bytes();
     if let Err(e) = stream.write_u32(message_bytes.len() as u32).await {
-        return Err(NipartError::bug(format!(
-            "Failed to write message size {} to socket: {}",
-            message_bytes.len(),
-            e
-        )));
+        let e = NipartError::new(
+            ErrorKind::Bug,
+            format!(
+                "Failed to write message size {} to socket: {}",
+                message_bytes.len(),
+                e
+            ),
+        );
+        log::error!("{}", e);
+        return Err(e);
     };
     if let Err(e) = stream.write_all(message_bytes).await {
-        return Err(NipartError::bug(format!(
-            "Failed to write message to socket: {}",
-            e
-        )));
-    };
-    Ok(())
+        let e = NipartError::new(
+            ErrorKind::Bug,
+            format!("Failed to write message to socket: {}", e),
+        );
+        log::error!("{}", e);
+        Err(e)
+    } else {
+        Ok(())
+    }
 }
 
 async fn ipc_recv_get_size(
@@ -159,10 +139,10 @@ async fn ipc_recv_get_size(
                 return Ok(0); // connection closed.
             } else {
                 // TODO: Handle the client closed the connection.
-                return Err(NipartError::bug(format!(
-                    "Failed to read message size: {:?}",
-                    e
-                )));
+                return Err(NipartError::new(
+                    ErrorKind::Bug,
+                    format!("Failed to read message size: {:?}", e),
+                ));
             }
         }
         Ok(s) => Ok(s as usize),
@@ -177,23 +157,24 @@ async fn ipc_recv_get_data(
 
     if let Err(e) = stream.read_exact(&mut buffer).await {
         if e.kind() == std::io::ErrorKind::UnexpectedEof {
-            return Ok(NipartIpcMessage::new(NipartIpcData::ConnectionClosed));
+            return Ok(NipartIpcMessage::ConnectionClosed);
         } else {
-            return Err(NipartError::bug(format!(
-                "Failed to read message to buffer with size {}: {}",
-                message_size, e
-            )));
+            return Err(NipartError::new(
+                ErrorKind::Bug,
+                format!(
+                    "Failed to read message to buffer with size {}: {}",
+                    message_size, e
+                ),
+            ));
         }
     }
     match serde_yaml::from_slice::<NipartIpcMessage>(&buffer) {
-        Err(e) => Err(NipartError::bug(format!(
-            "Invalid message recieved: {:?}: {}",
-            buffer, e
-        ))),
-        Ok(m) => match &m.data {
-            NipartIpcData::Error(e) => Err(e.clone()),
-            _ => Ok(m),
-        },
+        Err(e) => Err(NipartError::new(
+            ErrorKind::Bug,
+            format!("Invalid message recieved: {:?}: {}", buffer, e),
+        )),
+        Ok(NipartIpcMessage::Error(e)) => Err(e.clone()),
+        Ok(m) => Ok(m),
     }
 }
 
@@ -202,25 +183,28 @@ pub async fn ipc_recv(
 ) -> Result<NipartIpcMessage, NipartError> {
     let message_size = ipc_recv_get_size(stream).await?;
     if message_size == 0 {
-        return Ok(NipartIpcMessage::new(NipartIpcData::ConnectionClosed));
+        return Ok(NipartIpcMessage::ConnectionClosed);
     }
     ipc_recv_get_data(stream, message_size).await
 }
 
-// Return error if data size execeed IPC_SAFE_SIZE
+// Return error if data size exceed IPC_SAFE_SIZE
 // Normally used by daemon where client can not be trusted.
 pub async fn ipc_recv_safe(
     stream: &mut UnixStream,
 ) -> Result<NipartIpcMessage, NipartError> {
     let message_size = ipc_recv_get_size(stream).await?;
     if message_size == 0 {
-        return Ok(NipartIpcMessage::new(NipartIpcData::ConnectionClosed));
+        return Ok(NipartIpcMessage::ConnectionClosed);
     }
     if message_size > IPC_SAFE_SIZE {
-        return Err(NipartError::invalid_argument(format!(
-            "Invalid IPC message: message size execeed the limit({})",
-            IPC_SAFE_SIZE
-        )));
+        return Err(NipartError::new(
+            ErrorKind::InvalidArgument,
+            format!(
+                "Invalid IPC message: message size execeed the limit({})",
+                IPC_SAFE_SIZE
+            ),
+        ));
     }
     ipc_recv_get_data(stream, message_size).await
 }
