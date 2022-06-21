@@ -63,6 +63,16 @@ pub trait NipartPlugin: Sized + std::fmt::Debug + std::marker::Send {
         ))
     }
 
+    // Mandatory for plugin with `NipartPluginCapacity:Config`
+    // Plugin is responsible to remove config for `state:absent` and also
+    // support incremental changes.
+    fn save_config(state: &NetworkState) -> Result<(), NipartError> {
+        Err(NipartError::new(
+            ErrorKind::NoSupport,
+            format!("save_config() not implemented by plugin {}", Self::name()),
+        ))
+    }
+
     async fn handle_query_dhcp(_opt: &NipartQueryOption) -> NipartIpcMessage {
         NipartIpcMessage::Error(NipartError::new(
             ErrorKind::NoSupport,
@@ -242,8 +252,30 @@ where
                 } else {
                     NipartIpcMessage::Error(NipartError::new(
                         ErrorKind::NoSupport,
-                        "Do not support NipartPluginIpcMessage::Query"
-                            .to_string(),
+                        format!(
+                            "Plugin {} do not support \
+                            NipartPluginIpcMessage::Query",
+                            T::name()
+                        ),
+                    ))
+                }
+            }
+            NipartPluginIpcMessage::SaveConf(state) => {
+                if caps.contains(&NipartPluginCapacity::Config) {
+                    match T::save_config(&state) {
+                        Ok(()) => NipartIpcMessage::Plugin(
+                            NipartPluginIpcMessage::Done(None),
+                        ),
+                        Err(e) => NipartIpcMessage::Error(e),
+                    }
+                } else {
+                    NipartIpcMessage::Error(NipartError::new(
+                        ErrorKind::NoSupport,
+                        format!(
+                            "Plugin {} does not support \
+                            NipartPluginIpcMessage::SaveConf",
+                            T::name()
+                        ),
                     ))
                 }
             }
