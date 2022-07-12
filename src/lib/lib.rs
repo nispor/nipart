@@ -15,6 +15,7 @@
 mod error;
 mod ipc;
 mod plugin;
+mod state;
 
 pub use crate::error::{ErrorKind, NipartError};
 pub use crate::ipc::{
@@ -26,3 +27,4 @@ pub use crate::plugin::{
     ipc_plugin_exec, ipc_plugins_exec, NipartPlugin, NipartPluginCapacity,
     NipartPluginInfo, NipartPluginIpcMessage,
 };
+pub use crate::state::NipartState;

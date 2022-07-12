@@ -31,27 +31,27 @@ const PLUGIN_CONNECT_REPLY_INTERVAL: u64 = 100; // 100ms
 // from plugin.
 //
 pub(crate) async fn load_plugins() -> Vec<NipartPluginInfo> {
-    eprintln!("DEBUG: Loading plugins");
+    log::debug!("Loading plugins");
     let mut plugins = Vec::new();
     let search_folder = match std::env::var("NIPART_PLUGIN_FOLDER") {
         Ok(d) => d,
         Err(_) => get_current_exec_folder(),
     };
-    eprintln!("DEBUG: Searching plugin at {}", search_folder);
+    log::debug!("Searching plugin at {}", search_folder);
     match std::fs::read_dir(&search_folder) {
         Ok(dir) => {
             for entry in dir {
                 let file_name = match entry {
                     Ok(f) => f.file_name(),
                     Err(e) => {
-                        eprintln!("FAIL: Failed to read dir entry: {}", e);
+                        log::error!("Failed to read dir entry: {}", e);
                         continue;
                     }
                 };
                 let file_name = match file_name.to_str() {
                     Some(n) => n,
                     None => {
-                        eprintln!("BUG: Failed to read file_name",);
+                        log::error!("Failed to read file_name",);
                         continue;
                     }
                 };
@@ -65,18 +65,19 @@ pub(crate) async fn load_plugins() -> Vec<NipartPluginInfo> {
                         match file_name.strip_prefix(PLUGIN_PREFIX) {
                             Some(n) => n,
                             None => {
-                                eprintln!(
-                                    "BUG: file_name {} not started with {}",
-                                    file_name, PLUGIN_PREFIX,
+                                log::error!(
+                                    "file_name {} not started with {}",
+                                    file_name,
+                                    PLUGIN_PREFIX,
                                 );
                                 continue;
                             }
                         };
-                    println!("DEBUG: Found plugin {}", &plugin_exec_path);
+                    log::debug!("Found plugin {}", &plugin_exec_path);
                     match plugin_start(&plugin_exec_path, &plugin_name).await {
                         Ok(plugin) => {
-                            eprintln!(
-                                "DEBUG: Plugin {} started at {} with \
+                            log::debug!(
+                                "Plugin {} started at {} with \
                                 capacities: {:?}",
                                 &plugin.name,
                                 &plugin.socket_path,
@@ -85,9 +86,10 @@ pub(crate) async fn load_plugins() -> Vec<NipartPluginInfo> {
                             plugins.push(plugin);
                         }
                         Err(e) => {
-                            eprintln!(
-                                "ERROR: Failed to start plugin {}: {}",
-                                &plugin_exec_path, e
+                            log::error!(
+                                "Failed to start plugin {}: {}",
+                                &plugin_exec_path,
+                                e
                             );
                             continue;
                         }
@@ -96,7 +98,7 @@ pub(crate) async fn load_plugins() -> Vec<NipartPluginInfo> {
             }
         }
         Err(e) => {
-            eprintln!("Faild to open plugin search dir /usr/bin: {}", e);
+            log::error!("Failed to open plugin search dir /usr/bin: {}", e);
         }
     };
     plugins
@@ -113,9 +115,10 @@ async fn plugin_start(
         .spawn()
     {
         Ok(_) => {
-            println!(
-                "DEBUG: Plugin {} started at {}",
-                plugin_exec_path, &socket_path
+            log::debug!(
+                "Plugin {} started at {}",
+                plugin_exec_path,
+                &socket_path
             );
 
             query_plugin_info(&socket_path).await
@@ -186,10 +189,11 @@ async fn ipc_connect_with_retry(
                         ),
                     ));
                 } else {
-                    eprintln!(
+                    log::debug!(
                         "DEBUG: Failed to connect plugin \
                         socket_path: {}: {}, retrying",
-                        socket_path, e
+                        socket_path,
+                        e
                     );
                     continue;
                 }

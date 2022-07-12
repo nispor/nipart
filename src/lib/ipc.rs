@@ -14,13 +14,15 @@
 
 use std::fs::remove_file;
 
-use nmstate::NetworkState;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 
-use crate::{ErrorKind, NipartError, NipartPluginInfo, NipartPluginIpcMessage};
+use crate::{
+    ErrorKind, NipartError, NipartPluginInfo, NipartPluginIpcMessage,
+    NipartState,
+};
 
 const DEFAULT_SOCKET_PATH: &str = "/tmp/nipart_socket";
 const IPC_SAFE_SIZE: usize = 1024 * 1024 * 10; // 10 MiB
@@ -37,8 +39,8 @@ pub enum NipartIpcMessage {
     QueryPluginInfo,
     QueryPluginInfoReply(NipartPluginInfo),
     QueryState(NipartQueryOption),
-    QueryStateReply(NetworkState),
-    ApplyState(NetworkState, NipartApplyOption),
+    QueryStateReply(NipartState),
+    ApplyState(NipartState, NipartApplyOption),
     ApplyStateReply,
     ConnectionClosed,
     Plugin(NipartPluginIpcMessage),

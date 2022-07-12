@@ -13,12 +13,11 @@
 // limitations under the License.
 
 use async_trait::async_trait;
-use nmstate::NetworkState;
-
 use nipart::{
-    ErrorKind, NipartError, NipartPlugin, NipartPluginCapacity,
-    NipartQueryOption,
+    ErrorKind, NipartApplyOption, NipartError, NipartPlugin,
+    NipartPluginCapacity, NipartQueryOption, NipartState,
 };
+use nmstate::NetworkState;
 
 #[derive(Debug)]
 struct NipartPluginNmstate {}
@@ -38,18 +37,35 @@ impl NipartPlugin for NipartPluginNmstate {
 
     async fn query_kernel(
         _opt: &NipartQueryOption,
-    ) -> Result<NetworkState, NipartError> {
+    ) -> Result<NipartState, NipartError> {
         // Nmstate is using nispor which has tokio block_on which conflict
         // with tokio::main(), so we have to start thread for nmstate query.
         std::thread::spawn(|| {
             let mut net_state = NetworkState::new();
             net_state.set_kernel_only(true);
             match net_state.retrieve() {
-                Ok(_) => Ok(net_state),
+                Ok(_) => Ok(net_state.into()),
                 Err(e) => {
                     Err(NipartError::new(ErrorKind::PluginError, e.to_string()))
                 }
             }
+        })
+        .join()
+        .expect("thread paniced")
+    }
+
+    async fn apply_kernel(
+        state: &NipartState,
+        _opt: &NipartApplyOption,
+    ) -> Result<(), NipartError> {
+        // Nmstate is using nispor which has tokio block_on which conflict
+        // with tokio::main(), so we have to start thread for nmstate query.
+        let mut net_state = state.nmstate.clone();
+        std::thread::spawn(move || {
+            net_state.set_kernel_only(true);
+            net_state.apply().map_err(|e| {
+                NipartError::new(ErrorKind::PluginError, e.to_string())
+            })
         })
         .join()
         .expect("thread paniced")

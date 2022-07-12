@@ -76,18 +76,3 @@ cargo run --bin nipc query eth1
  * Command plugin for converting user request or network events to serial
    of specific commands to other plugins. For example, command plugin
    can invoke script before or after interface activation done(DHCP succeeded).
-
-
-## TODO
-
-* Tests
-    * IPC request big size at daemon
-    * 1000+ concurrent IPC requests to daemon, daemon should queue them
-      instead of allocate big CPU/memeory to finish them concurrently.
-    * IPC timeout
-* Daemon for unix socket commands
-* Plugin interface
-* Handle concurrency on changing state.
-* ABI Backwards compatibility:
-    * set default value if unknown when serialize and deserialize
-    * Use function of struct/enum instead of itself.

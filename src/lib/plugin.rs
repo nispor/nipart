@@ -1,4 +1,4 @@
-//    Copyright 2021 Red Hat, Inc.
+//    Copyright 2021-2022 Red Hat, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,25 +14,23 @@
 
 use async_trait::async_trait;
 use futures::future::join_all;
-use nmstate::NetworkState;
 use serde::{Deserialize, Serialize};
 use tokio::{io::AsyncWriteExt, net::UnixStream};
 
 use crate::{
     ipc_bind_with_path, ipc_connect_with_path, ipc_recv, ipc_send, ErrorKind,
     NipartApplyOption, NipartError, NipartIpcMessage, NipartQueryOption,
+    NipartState,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub enum NipartPluginIpcMessage {
     Error(NipartError),
-    Done(Option<NetworkState>),
+    Done(Option<NipartState>),
     Query(NipartQueryOption),
-    ApplyKernel((NetworkState, NipartApplyOption)),
-    ApplyDhcp(NetworkState),
-    // ApplyOvs
-    // ApplyDns
-    SaveConf(NetworkState),
+    ApplyKernel(NipartState, NipartApplyOption),
+    ApplyDhcp(NipartState),
+    SaveConf(NipartState),
     ReadConf,
 }
 
@@ -53,7 +51,7 @@ pub trait NipartPlugin: Sized + std::fmt::Debug + std::marker::Send {
 
     async fn query_kernel(
         _opt: &NipartQueryOption,
-    ) -> Result<NetworkState, NipartError> {
+    ) -> Result<NipartState, NipartError> {
         Err(NipartError::new(
             ErrorKind::NoSupport,
             format!(
@@ -66,40 +64,40 @@ pub trait NipartPlugin: Sized + std::fmt::Debug + std::marker::Send {
     // Mandatory for plugin with `NipartPluginCapacity:Config`
     // Plugin is responsible to remove config for `state:absent` and also
     // support incremental changes.
-    fn save_config(state: &NetworkState) -> Result<(), NipartError> {
+    fn save_config(state: &NipartState) -> Result<(), NipartError> {
         Err(NipartError::new(
             ErrorKind::NoSupport,
             format!("save_config() not implemented by plugin {}", Self::name()),
         ))
     }
 
-    async fn handle_query_dhcp(_opt: &NipartQueryOption) -> NipartIpcMessage {
+    async fn query_dhcp(_opt: &NipartQueryOption) -> NipartIpcMessage {
         NipartIpcMessage::Error(NipartError::new(
             ErrorKind::NoSupport,
+            format!("query_dhcp() not implemented by plugin {}", Self::name()),
+        ))
+    }
+
+    async fn apply_kernel(
+        state: &NipartState,
+        _opt: &NipartApplyOption,
+    ) -> Result<(), NipartError> {
+        Err(NipartError::new(
+            ErrorKind::NoSupport,
             format!(
-                "handle_query_dhcp() not implemented by plugin {}",
+                "apply_kernel() not implemented by plugin {}",
                 Self::name()
             ),
         ))
     }
 
-    async fn handle_apply_kernel(_opt: &NipartApplyOption) -> NipartIpcMessage {
-        NipartIpcMessage::Error(NipartError::new(
+    async fn apply_dhcp(
+        state: &NipartState,
+        _opt: &NipartApplyOption,
+    ) -> Result<(), NipartError> {
+        Err(NipartError::new(
             ErrorKind::NoSupport,
-            format!(
-                "handle_apply_kernel() not implemented by plugin {}",
-                Self::name()
-            ),
-        ))
-    }
-
-    async fn handle_apply_dhcp(_opt: &NipartApplyOption) -> NipartIpcMessage {
-        NipartIpcMessage::Error(NipartError::new(
-            ErrorKind::NoSupport,
-            format!(
-                "handle_apply_dhcp() not implemented by plugin {}",
-                Self::name()
-            ),
+            format!("apply_dhcp() not implemented by plugin {}", Self::name()),
         ))
     }
 
@@ -113,7 +111,7 @@ pub trait NipartPlugin: Sized + std::fmt::Debug + std::marker::Send {
             return;
         }
         let mut log_builder = env_logger::Builder::new();
-        log_builder.filter(None, log::LevelFilter::Warn);
+        log_builder.filter(None, log::LevelFilter::Debug);
         log_builder.init();
 
         let socket_path = &argv[1];
@@ -121,7 +119,7 @@ pub trait NipartPlugin: Sized + std::fmt::Debug + std::marker::Send {
         let listener = match ipc_bind_with_path(socket_path) {
             Ok(l) => l,
             Err(e) => {
-                eprintln!("{}", e);
+                log::error!("{}", e);
                 return;
             }
         };
@@ -179,22 +177,30 @@ pub async fn ipc_plugins_exec(
     plugins: &[NipartPluginInfo],
     capacity: &NipartPluginCapacity,
 ) -> Vec<NipartIpcMessage> {
+    let mut supported_plugins = Vec::new();
     let mut replys_async = Vec::new();
     for plugin_info in plugins {
         if plugin_info.capacities.contains(capacity) {
+            supported_plugins.push(plugin_info);
             replys_async.push(ipc_plugin_exec(plugin_info, &ipc_msg));
         }
     }
-    let replys = join_all(replys_async).await;
+    let mut replys = join_all(replys_async).await;
 
     let mut reply_msgs = Vec::new();
-    for reply in replys {
-        match reply {
-            Ok(r) => reply_msgs.push(r),
+    for (i, reply) in replys.drain(..).enumerate() {
+        reply_msgs.push(match reply {
+            Ok(r) => r,
             Err(e) => {
-                eprintln!("WARN: got error from plugin: {:?}", e);
+                // TODO: find
+                log::error!(
+                    "Got error from plugin {}: {:?}",
+                    supported_plugins[i].name,
+                    e
+                );
+                NipartIpcMessage::Error(e.clone())
             }
-        }
+        });
     }
     reply_msgs
 }
@@ -248,7 +254,29 @@ where
                         Err(e) => NipartIpcMessage::Error(e),
                     }
                 } else if caps.contains(&NipartPluginCapacity::QueryDhcp) {
-                    T::handle_query_dhcp(&opts).await
+                    T::query_dhcp(&opts).await
+                } else {
+                    NipartIpcMessage::Error(NipartError::new(
+                        ErrorKind::NoSupport,
+                        format!(
+                            "Plugin {} do not support \
+                            NipartPluginIpcMessage::Query",
+                            T::name()
+                        ),
+                    ))
+                }
+            }
+            NipartPluginIpcMessage::ApplyKernel(state, opts) => {
+                if caps.contains(&NipartPluginCapacity::ApplyKernel) {
+                    match T::apply_kernel(&state, &opts).await {
+                        Ok(()) => NipartIpcMessage::ApplyStateReply,
+                        Err(e) => NipartIpcMessage::Error(e),
+                    }
+                } else if caps.contains(&NipartPluginCapacity::ApplyDhcp) {
+                    match T::apply_dhcp(&state, &opts).await {
+                        Ok(()) => NipartIpcMessage::ApplyStateReply,
+                        Err(e) => NipartIpcMessage::Error(e),
+                    }
                 } else {
                     NipartIpcMessage::Error(NipartError::new(
                         ErrorKind::NoSupport,

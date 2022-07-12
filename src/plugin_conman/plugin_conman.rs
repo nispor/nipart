@@ -13,9 +13,8 @@
 // limitations under the License.
 
 use async_trait::async_trait;
-use nmstate::NetworkState;
 
-use nipart::{NipartError, NipartPlugin, NipartPluginCapacity};
+use nipart::{NipartError, NipartPlugin, NipartPluginCapacity, NipartState};
 
 #[derive(Debug)]
 struct NipartPluginConnMan {}
@@ -30,7 +29,7 @@ impl NipartPlugin for NipartPluginConnMan {
         vec![NipartPluginCapacity::Config]
     }
 
-    fn save_config(_state: &NetworkState) -> Result<(), NipartError> {
+    fn save_config(_state: &NipartState) -> Result<(), NipartError> {
         log::warn!("save_config() not implemented, ignoring");
         Ok(())
     }

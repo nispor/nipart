@@ -17,15 +17,15 @@ mod plugin;
 use nipart::{
     ipc_bind, ipc_plugins_exec, ipc_recv_safe, ipc_send, ErrorKind,
     NipartApplyOption, NipartError, NipartIpcMessage, NipartPluginCapacity,
-    NipartPluginInfo, NipartPluginIpcMessage, NipartQueryOption,
+    NipartPluginInfo, NipartPluginIpcMessage, NipartQueryOption, NipartState,
 };
-use nmstate::NetworkState;
 use tokio::{self, io::AsyncWriteExt, net::UnixStream, task};
 
 use crate::plugin::load_plugins;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 50)]
 async fn main() {
+    init_logger();
     let listener = match ipc_bind() {
         Ok(l) => l,
         Err(e) => {
@@ -116,14 +116,30 @@ async fn handle_query(
         ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::QueryKernel)
             .await;
 
-    // TODO: merge NetworkState from plugins
+    // TODO: merge NipartState from plugins
     Ok(reply_ipc_msgs[0].clone())
 }
 
 async fn handle_apply(
-    state: &NetworkState,
+    state: &NipartState,
     plugins: &[NipartPluginInfo],
     opt: &NipartApplyOption,
 ) -> Result<NipartIpcMessage, NipartError> {
-    todo!()
+    log::debug!("handle_apply: {:?}", plugins);
+    let ipc_msg = NipartIpcMessage::Plugin(
+        NipartPluginIpcMessage::ApplyKernel(state.clone(), opt.clone()),
+    );
+
+    let reply_ipc_msgs =
+        ipc_plugins_exec(&ipc_msg, plugins, &NipartPluginCapacity::ApplyKernel)
+            .await;
+
+    // TODO: merge NipartState from plugins
+    Ok(reply_ipc_msgs[0].clone())
+}
+
+fn init_logger() {
+    let mut log_builder = env_logger::Builder::new();
+    log_builder.filter(Some("nipart"), log::LevelFilter::Debug);
+    log_builder.init();
 }
