@@ -19,12 +19,6 @@ pub(crate) struct CliError {
     msg: String,
 }
 
-impl CliError {
-    pub(crate) fn new(msg: String) -> Self {
-        Self { msg }
-    }
-}
-
 impl std::fmt::Display for CliError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.msg)

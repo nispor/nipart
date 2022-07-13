@@ -1,8 +1,9 @@
 [workspace]
 members = [
-    "src/lib",
-    "src/daemon",
     "src/cli",
-    "src/plugin_nmstate",
+    "src/daemon",
+    "src/lib",
     "src/plugin_conman",
+#    "src/plugin_mozim",
+    "src/plugin_nmstate",
 ]
