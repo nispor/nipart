@@ -19,7 +19,7 @@ pub struct NipartConnectionListener {
 }
 
 impl NipartConnectionListener {
-    pub async fn new(path: &str) -> Result<Self, NipartError> {
+    pub fn new(path: &str) -> Result<Self, NipartError> {
         remove_file(path).ok();
         Ok(Self {
             path: path.to_string(),
@@ -32,7 +32,7 @@ impl NipartConnectionListener {
         })
     }
 
-    pub async fn new_abstract(name: &str) -> Result<Self, NipartError> {
+    pub fn new_abstract(name: &str) -> Result<Self, NipartError> {
         let addr =
             std::os::unix::net::SocketAddr::from_abstract_name(name.as_bytes())
                 .map_err(|e| {
@@ -67,7 +67,7 @@ impl NipartConnectionListener {
                     ErrorKind::Bug,
                     format!(
                         "Failed to convert abstract UNIX socket {name} to \
-                    tokio UnixListener: {e}"
+                        tokio UnixListener: {e}"
                     ),
                 )
             })?,

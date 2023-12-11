@@ -2,16 +2,21 @@
 
 mod config;
 mod error;
+mod event;
 mod ipc;
+mod plugin;
+mod plugin_ipc;
 mod query;
 mod state;
-mod event;
-mod plugin_ipc;
 
 pub use self::config::NipartNetConfig;
 pub use self::error::{ErrorKind, NipartError};
+pub use self::event::{
+    NipartEvent, NipartEventAction, NipartEventAddress, NipartEventCommander,
+    NipartEventData, NipartPluginCommonEvent, NipartUserEvent,
+};
 pub use self::ipc::NipartConnection;
+pub use self::plugin::{NipartPlugin, NipartPluginInfo, NipartRole};
+pub use self::plugin_ipc::NipartConnectionListener;
 pub use self::query::{NipartQueryConfigOption, NipartQueryStateOption};
 pub use self::state::NipartNetState;
-pub use self::event::{NipartEvent, NipartUserEvent, NipartPluginCommonEvent};
-pub use self::plugin_ipc::NipartConnectionListener;

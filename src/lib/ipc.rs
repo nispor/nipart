@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::os::linux::net::SocketAddrExt;
+
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 use crate::{
     ErrorKind, NipartError, NipartEvent, NipartNetConfig, NipartNetState,
-    NipartQueryConfigOption, NipartQueryStateOption,
+    NipartQueryConfigOption, NipartQueryStateOption, NipartRole,
 };
 
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct NipartConnection {
-    pub(crate) path: String,
+    pub path: String,
     pub(crate) socket: UnixStream,
 }
 
@@ -31,6 +33,47 @@ impl NipartConnection {
                 NipartError::new(
                     ErrorKind::Bug,
                     format!("Failed to connect socket {}: {}", socket_path, e),
+                )
+            })?,
+        })
+    }
+
+    pub fn new_abstract(name: &str) -> Result<Self, NipartError> {
+        let addr =
+            std::os::unix::net::SocketAddr::from_abstract_name(name.as_bytes())
+                .map_err(|e| {
+                    NipartError::new(
+                        ErrorKind::InvalidArgument,
+                        format!(
+                            "Invalid name for abstract UNIX socket {name}: {e}"
+                        ),
+                    )
+                })?;
+        let socket = std::os::unix::net::UnixStream::connect_addr(&addr)
+            .map_err(|e| {
+                NipartError::new(
+                    ErrorKind::Bug,
+                    format!("Failed to abstract UNIX socket {name}: {e}"),
+                )
+            })?;
+        socket.set_nonblocking(true).map_err(|e| {
+            NipartError::new(
+                ErrorKind::Bug,
+                format!(
+                    "Failed to set abstract UNIX socket {name} \
+                    as non_blocking: {e}"
+                ),
+            )
+        })?;
+        Ok(Self {
+            path: name.to_string(),
+            socket: UnixStream::from_std(socket).map_err(|e| {
+                NipartError::new(
+                    ErrorKind::Bug,
+                    format!(
+                        "Failed to convert std UnixStream {name} to \
+                        tokio UnixStream {e}"
+                    ),
                 )
             })?,
         })
@@ -74,7 +117,6 @@ impl NipartConnection {
                 format!("Failed to send data to UnixStream: {e}",),
             )
         })?;
-        log::debug!("Sent JSON string to socket({}): {}", self.path, json_str);
         Ok(())
     }
 
@@ -83,8 +125,7 @@ impl NipartConnection {
         T: serde::de::DeserializeOwned + std::fmt::Debug,
     {
         let mut message_size_bytes = 0usize.to_ne_bytes();
-        let message_size = self
-            .socket
+        self.socket
             .read_exact(&mut message_size_bytes)
             .await
             .map_err(|e| {
@@ -93,6 +134,7 @@ impl NipartConnection {
                     format!("Failed to read socket message length: {e}"),
                 )
             })?;
+        let message_size = usize::from_ne_bytes(message_size_bytes);
         if message_size == 0 {
             return Err(NipartError::new(
                 ErrorKind::IpcClosed,
@@ -132,8 +174,10 @@ impl NipartConnection {
             NipartError::new(
                 ErrorKind::Bug,
                 format!(
-                    "Failed to convert received [u8] buffer to {}: {e}",
-                    std::any::type_name::<T>()
+                    "Failed to convert received [u8] buffer to {}: {e}, \
+                    {:?}",
+                    std::any::type_name::<T>(),
+                    std::str::from_utf8(&buffer),
                 ),
             )
         })?)
