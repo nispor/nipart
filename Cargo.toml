@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+#    "src/cli",
+#    "src/daemon",
+    "src/lib",
+#    "src/plugin_conman",
+#    "src/plugin_mozim",
+#    "src/plugin_nmstate",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Gris Ge"]
+description = "Linux Network Management Tool"
+documentation = "https://github.com/nispor/nipart"
+edition = "2021"
+license = "Apache-2.0"
+# Abstract Unix socket need 1.70.0
+# Async trait need 1.75.0
+rust-version = "1.75"
+
+[workspace.dependencies]
+serde = { version = "1.0.144", features = ["derive"] }
+env_logger = "0.9.0"
+log = "0.4.17"
+nix = { version = "0.25.0", default-features = false, features = ["poll"] }
+serde_json = "1.0.87"
+
+[workspace.dependencies.tokio]
+version ="1.35.0"
+default-fatures = false
+features = ["net", "io-util", "rt-multi-thread"]
