@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-#    "src/cli",
+    "src/cli",
     "src/daemon",
     "src/lib",
-    "src/plugin_cody",
-#    "src/plugin_mozim",
+    "src/commander_cody",
+    "src/plugin_nispor",
 #    "src/plugin_nmstate",
 ]
 
@@ -24,12 +24,13 @@ rust-version = "1.75"
 serde = { version = "1.0.144", features = ["derive"] }
 env_logger = "0.9.0"
 log = "0.4.17"
-nix = { version = "0.25.0", default-features = false, features = ["poll"] }
 serde_json = "1.0.87"
+serde_yaml = "0.9.27"
 uuid = { version = "1.6.1", default-features = false, features = ["std", "v7"] }
 futures = {version = "0.3.29", default-fatures = false, features = [ "std" ] }
+clap = { version = "4.4" }
 
 [workspace.dependencies.tokio]
 version ="1.35.0"
 default-fatures = false
-features = ["net", "io-util", "rt-multi-thread", "macros", "sync"]
+features = ["net", "io-util", "rt-multi-thread", "macros", "sync", "time"]

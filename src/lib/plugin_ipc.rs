@@ -85,9 +85,9 @@ impl NipartConnectionListener {
             "Accepted Unix socket({}) connection from {addr:?}",
             self.path,
         );
-        Ok(NipartConnection {
-            path: format!("{:?}", addr),
-            socket: stream,
-        })
+        Ok(NipartConnection::new_with_stream(
+            format!("{:?}", addr).as_str(),
+            stream,
+        ))
     }
 }

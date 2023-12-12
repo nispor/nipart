@@ -2,9 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    NipartEventCommander, NipartPluginCommonEvent, NipartRole, NipartUserEvent,
-};
+use crate::{NipartPluginInfo, NipartQueryStateOption, NipartRole};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -15,6 +13,8 @@ pub enum NipartEventAddress {
     Unicast(String),
     /// Daemon
     Daemon,
+    /// Commander,
+    Commander,
     /// Group of plugins holding specified [NipartRole]
     Group(NipartRole),
     /// All plugins except commander
@@ -24,9 +24,7 @@ pub enum NipartEventAddress {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct NipartEvent {
-    #[serde(skip_deserializing)]
     pub uuid: u128,
-    #[serde(skip_deserializing)]
     pub ref_uuid: Option<u128>,
     pub action: NipartEventAction,
     pub data: NipartEventData,
@@ -52,9 +50,13 @@ impl NipartEvent {
             dst,
         }
     }
+
+    pub(crate) fn is_done(&self) -> bool {
+        self.action == NipartEventAction::Done
+    }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum NipartEventAction {
     OneShot,
@@ -65,8 +67,15 @@ pub enum NipartEventAction {
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
+/// All event name with `User` prefix is reserved for nipart internal usage.
 pub enum NipartEventData {
-    User(NipartUserEvent),
-    PluginCommon(NipartPluginCommonEvent),
-    Commander(NipartEventCommander),
+    UserQueryPluginInfo,
+    UserQueryPluginInfoReply(Vec<NipartPluginInfo>),
+    UserQueryNetState(NipartQueryStateOption),
+
+    UpdateAllPluginInfo(Vec<NipartPluginInfo>),
+    QueryPluginInfo,
+    QueryPluginInfoReply(NipartPluginInfo),
+
+    PluginQuit,
 }

@@ -7,8 +7,7 @@ use std::sync::Mutex;
 
 use nipart::{
     ErrorKind, NipartConnection, NipartError, NipartEvent, NipartEventAction,
-    NipartEventAddress, NipartEventCommander, NipartEventData,
-    NipartPluginCommonEvent, NipartPluginInfo, NipartRole,
+    NipartEventAddress, NipartEventData, NipartPluginInfo, NipartRole,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -92,12 +91,32 @@ async fn run_event_switch(
         plugin_info_map.insert(plugin_info.name.to_string(), plugin_info);
     }
 
+    // Should only have single commander
+    let commander_name = match role_map.get(&NipartRole::Commander) {
+        Some(plugins) => {
+            if plugins.len() > 1 {
+                log::error!("Only support single commander plugin");
+                return;
+            } else if plugins.len() == 1 {
+                log::info!("Commander {} on duty", plugins[0]);
+                plugins[0].as_str()
+            } else {
+                log::error!("No commander plugin found");
+                return;
+            }
+        }
+        None => {
+            log::error!("No commander plugin found");
+            return;
+        }
+    };
+
     // Tell commander for all the plugins we got
     let event = NipartEvent::new(
         NipartEventAction::OneShot,
-        NipartEventData::Commander(NipartEventCommander::UpdateAllPluginInfo(
+        NipartEventData::UpdateAllPluginInfo(
             plugin_info_map.values().cloned().collect(),
-        )),
+        ),
         NipartEventAddress::Daemon,
         NipartEventAddress::Group(NipartRole::Commander),
     );
@@ -153,6 +172,16 @@ async fn run_event_switch(
             }
             NipartEventAddress::Daemon => {
                 log::error!("BUG: Got a event dst to Daemon: {event:?}");
+            }
+            NipartEventAddress::Commander => {
+                if let Some(np_conn) = np_conn_map.get_mut(commander_name) {
+                    if let Err(e) = np_conn.send(&event.clone()).await {
+                        log::warn!(
+                            "Failed to send event {event:?} to \
+                             commander {commander_name}: {e}",
+                        );
+                    }
+                }
             }
             NipartEventAddress::Unicast(plugin_name) => {
                 if let Some(np_conn) = np_conn_map.get_mut(plugin_name.as_str())
@@ -214,17 +243,14 @@ async fn get_plugin_info(
 ) -> Result<(NipartConnection, NipartPluginInfo), NipartError> {
     let event = NipartEvent::new(
         NipartEventAction::Request,
-        NipartEventData::PluginCommon(NipartPluginCommonEvent::QueryPluginInfo),
+        NipartEventData::QueryPluginInfo,
         NipartEventAddress::Daemon,
         NipartEventAddress::Unicast(plugin_name.to_string()),
     );
     let mut np_conn = NipartConnection::new_abstract(plugin_socket)?;
     np_conn.send(&event).await?;
     let reply: NipartEvent = np_conn.recv().await?;
-    if let NipartEventData::PluginCommon(
-        NipartPluginCommonEvent::QueryPluginInfoReply(i),
-    ) = reply.data
-    {
+    if let NipartEventData::QueryPluginInfoReply(i) = reply.data {
         Ok((np_conn, i))
     } else {
         Err(NipartError::new(

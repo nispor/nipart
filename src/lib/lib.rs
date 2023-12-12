@@ -12,8 +12,7 @@ mod state;
 pub use self::config::NipartNetConfig;
 pub use self::error::{ErrorKind, NipartError};
 pub use self::event::{
-    NipartEvent, NipartEventAction, NipartEventAddress, NipartEventCommander,
-    NipartEventData, NipartPluginCommonEvent, NipartUserEvent,
+    NipartEvent, NipartEventAction, NipartEventAddress, NipartEventData,
 };
 pub use self::ipc::NipartConnection;
 pub use self::plugin::{NipartPlugin, NipartPluginInfo, NipartRole};

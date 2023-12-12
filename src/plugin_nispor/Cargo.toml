@@ -1,8 +1,8 @@
 [package]
-name = "nipartd"
+name = "nipart-plugin-nispor"
 version.workspace = true
 authors.workspace = true
-description = "The daemon of nipart"
+description = "The nispor plugin for nipart"
 documentation.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,11 +12,9 @@ rust-version.workspace = true
 serde = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-serde_json = { workspace = true }
 tokio = { workspace = true }
 nipart = { path = "../lib", version = "0.1" }
-futures = { workspace = true }
 
 [[bin]]
-name = "nipartd"
-path = "nipartd.rs"
+name = "nipart_plugin_nispor"
+path = "nispor.rs"

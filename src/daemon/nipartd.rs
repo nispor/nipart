@@ -25,7 +25,6 @@ async fn main() -> Result<(), NipartError> {
     // To support that, we need a mutex protected Vec which is complex.
     // We assume the plugin can be trusted.
     let plugins = load_plugins();
-    println!("HAHA {:?}", plugins);
 
     let (mut from_api, to_api) = start_api_listener().await?;
     start_event_switch(plugins, from_api, to_api).await;

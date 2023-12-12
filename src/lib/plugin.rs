@@ -10,7 +10,6 @@ use tokio::net::{UnixListener, UnixStream};
 use crate::{
     ErrorKind, NipartConnection, NipartConnectionListener, NipartError,
     NipartEvent, NipartEventAction, NipartEventAddress, NipartEventData,
-    NipartPluginCommonEvent,
 };
 
 const DEFAULT_PLUGIN_SOCKET_PREFIX: &str = "nipart_plugin_";
@@ -59,9 +58,25 @@ struct NipartPluginRunner {
 pub trait NipartPlugin: Sized + Send + Sync + 'static {
     const PLUGIN_NAME: &'static str;
 
+    fn name(&self) -> &'static str {
+        Self::PLUGIN_NAME
+    }
+
     fn roles(&self) -> Vec<NipartRole>;
 
-    async fn init() -> Result<Self, NipartError>;
+    fn get_socket_path(&self) -> &str;
+
+    /// Please store the socket_path in your struct, no need to bind the socket
+    /// the run() will bind the socket.
+    async fn init(socket_path: &str) -> Result<Self, NipartError>;
+
+    fn get_plugin_info(&self) -> NipartPluginInfo {
+        NipartPluginInfo {
+            socket_path: self.get_socket_path().to_string(),
+            name: self.name().to_string(),
+            roles: self.roles(),
+        }
+    }
 
     async fn run() -> Result<(), NipartError> {
         let mut log_builder = env_logger::Builder::new();
@@ -77,8 +92,7 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
             socket_path
         );
         let runner = Arc::new(NipartPluginRunner::default());
-        let plugin = Arc::new(Self::init().await?);
-        let socket_path = Arc::new(socket_path);
+        let plugin = Arc::new(Self::init(socket_path.as_str()).await?);
 
         loop {
             if runner.quit_flag.load(std::sync::atomic::Ordering::Relaxed) {
@@ -94,13 +108,11 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                     //       from suspicious source, not daemon
                     let runner_clone = runner.clone();
                     let plugin_clone = plugin.clone();
-                    let socket_path_clone = socket_path.clone();
 
                     tokio::spawn(async move {
                         Self::handle_connection(
                             runner_clone,
                             plugin_clone,
-                            socket_path_clone,
                             np_conn,
                         )
                         .await
@@ -127,7 +139,6 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
     fn handle_connection(
         runner: Arc<NipartPluginRunner>,
         plugin: Arc<Self>,
-        socket_path: Arc<String>,
         mut np_conn: NipartConnection,
     ) -> impl std::future::Future<Output = ()> + Send {
         async move {
@@ -137,7 +148,7 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                     Err(e) => {
                         log::error!(
                             "Nipart plugin {} failed to receive \
-                        socket connection: {e}",
+                            socket connection: {e}",
                             Self::PLUGIN_NAME
                         );
                         return;
@@ -145,21 +156,16 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                 };
 
                 match event.data {
-                    NipartEventData::PluginCommon(
-                        NipartPluginCommonEvent::Quit,
-                    ) => {
+                    NipartEventData::PluginQuit => {
                         runner
                             .quit_flag
                             .store(true, std::sync::atomic::Ordering::Relaxed);
                     }
-                    NipartEventData::PluginCommon(
-                        NipartPluginCommonEvent::QueryPluginInfo,
-                    ) => {
+                    NipartEventData::QueryPluginInfo => {
                         handle_query_plugin_info(
                             &event,
                             &mut np_conn,
                             plugin.clone(),
-                            &socket_path,
                         )
                         .await
                     }
@@ -215,22 +221,16 @@ async fn handle_query_plugin_info<T>(
     event: &NipartEvent,
     np_conn: &mut NipartConnection,
     plugin: Arc<T>,
-    socket_path: &str,
 ) where
     T: NipartPlugin,
 {
-    let reply = NipartEvent::new(
+    let mut reply = NipartEvent::new(
         NipartEventAction::Done,
-        NipartEventData::PluginCommon(
-            NipartPluginCommonEvent::QueryPluginInfoReply(NipartPluginInfo {
-                socket_path: socket_path.to_string(),
-                name: T::PLUGIN_NAME.to_string(),
-                roles: plugin.roles().clone(),
-            }),
-        ),
+        NipartEventData::QueryPluginInfoReply(plugin.get_plugin_info()),
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         event.src.clone(),
     );
+    reply.ref_uuid = Some(event.uuid);
     if let Err(e) = np_conn.send(&reply).await {
         log::warn!("Failed to send event to daemon {event:?}: {e}");
     }
