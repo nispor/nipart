@@ -7,8 +7,8 @@
     * [User API request](#user-api-request)
     * [External event happens](#external-event-happens)
 * [NipartEvent](#nipartevent)
-* [Cody Plugin -- Commander](#cody-plugin----commander)
-* [Argus Plugin -- Monitor](#argus-plugin----monitor)
+* [Zhongshu Plugin -- Commander](#zhongshu-plugin----commander)
+* [Ducha Plugin -- Monitor](#ducha-plugin----monitor)
     * [Receive Event](#receive-event)
     * [Action](#action)
     * [Output Event](#output-event)
@@ -76,11 +76,11 @@ struct NipartEvent {
 }
 ```
 
-## Cody Plugin -- Commander
+## Zhongshu Plugin -- Commander
 
  * Convert NipartEvent to a set of NipartEvent
 
-## Argus Plugin -- Monitor
+## Ducha Plugin -- Monitor
 
 Monitor network state and generate NipartEvent base on requested
 `NipartMonitorRull`.

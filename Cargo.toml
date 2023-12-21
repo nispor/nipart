@@ -4,7 +4,6 @@ members = [
     "src/cli",
     "src/daemon",
     "src/lib",
-    "src/commander_cody",
     "src/plugin_nispor",
 #    "src/plugin_nmstate",
 ]

@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::fs::remove_file;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use tokio::net::{UnixListener, UnixStream};
 
 use crate::{
-    ErrorKind, NipartConnection, NipartConnectionListener, NipartError,
-    NipartEvent, NipartEventAction, NipartEventAddress, NipartEventData,
+    NipartConnection, NipartConnectionListener, NipartError, NipartEvent,
+    NipartEventAction, NipartEventAddress, NipartLogLevel, NipartPluginEvent,
+    NipartUserEvent,
 };
 
 const DEFAULT_PLUGIN_SOCKET_PREFIX: &str = "nipart_plugin_";
@@ -47,6 +46,26 @@ pub enum NipartRole {
     Monitor,
     State,
     Config,
+}
+
+impl std::fmt::Display for NipartRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Daemon => "daemon",
+                Self::Commander => "commander",
+                Self::Dhcp => "dhcp",
+                Self::Kernel => "kernel",
+                Self::Ovs => "ovs",
+                Self::Lldp => "lldp",
+                Self::Monitor => "monitor",
+                Self::State => "state",
+                Self::Config => "config",
+            }
+        )
+    }
 }
 
 #[derive(Debug, Default)]
@@ -155,15 +174,32 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                     }
                 };
 
-                match event.data {
-                    NipartEventData::PluginQuit => {
+                match event.plugin {
+                    NipartPluginEvent::Quit => {
                         runner
                             .quit_flag
                             .store(true, std::sync::atomic::Ordering::Relaxed);
                     }
-                    NipartEventData::QueryPluginInfo => {
+                    NipartPluginEvent::QueryPluginInfo => {
                         handle_query_plugin_info(
                             &event,
+                            &mut np_conn,
+                            plugin.clone(),
+                        )
+                        .await
+                    }
+                    NipartPluginEvent::ChangeLogLevel(l) => {
+                        handle_change_log_level(
+                            l,
+                            event.uuid,
+                            &mut np_conn,
+                            plugin.clone(),
+                        )
+                        .await
+                    }
+                    NipartPluginEvent::QueryLogLevel => {
+                        handle_query_log_level(
+                            event.uuid,
                             &mut np_conn,
                             plugin.clone(),
                         )
@@ -181,7 +217,7 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                                 if let Err(e) = np_conn.send(&event).await {
                                     log::warn!(
                                         "Failed to send event to \
-                                            daemon {event:?}: {e}"
+                                        daemon {event:?}: {e}"
                                     );
                                 }
                             }
@@ -189,7 +225,7 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                         Err(e) => {
                             log::error!(
                                 "Nipart plugin {} failed to process \
-                                    socket connection: {e}",
+                                socket connection: {e}",
                                 Self::PLUGIN_NAME
                             )
                         }
@@ -224,14 +260,60 @@ async fn handle_query_plugin_info<T>(
 ) where
     T: NipartPlugin,
 {
+    log::debug!("Querying plugin info of {}", T::PLUGIN_NAME);
     let mut reply = NipartEvent::new(
         NipartEventAction::Done,
-        NipartEventData::QueryPluginInfoReply(plugin.get_plugin_info()),
+        NipartUserEvent::None,
+        NipartPluginEvent::QueryPluginInfoReply(plugin.get_plugin_info()),
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         event.src.clone(),
     );
     reply.ref_uuid = Some(event.uuid);
     if let Err(e) = np_conn.send(&reply).await {
-        log::warn!("Failed to send event to daemon {event:?}: {e}");
+        log::warn!("Failed to send event {reply:?}: {e}");
+    }
+}
+
+async fn handle_change_log_level<T>(
+    log_level: NipartLogLevel,
+    ref_uuid: u128,
+    np_conn: &mut NipartConnection,
+    _plugin: Arc<T>,
+) where
+    T: NipartPlugin,
+{
+    log::debug!("Setting log level of {} to {log_level}", T::PLUGIN_NAME);
+    log::set_max_level(log_level.into());
+    let mut reply = NipartEvent::new(
+        NipartEventAction::Done,
+        NipartUserEvent::None,
+        NipartPluginEvent::QueryLogLevelReply(log_level),
+        NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
+        NipartEventAddress::Commander,
+    );
+    reply.ref_uuid = Some(ref_uuid);
+    if let Err(e) = np_conn.send(&reply).await {
+        log::warn!("Failed to send event {reply:?}: {e}");
+    }
+}
+
+async fn handle_query_log_level<T>(
+    ref_uuid: u128,
+    np_conn: &mut NipartConnection,
+    _plugin: Arc<T>,
+) where
+    T: NipartPlugin,
+{
+    log::debug!("Querying log level of {}", T::PLUGIN_NAME);
+    let mut reply = NipartEvent::new(
+        NipartEventAction::Done,
+        NipartUserEvent::None,
+        NipartPluginEvent::QueryLogLevelReply(log::max_level().into()),
+        NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
+        NipartEventAddress::Commander,
+    );
+    reply.ref_uuid = Some(ref_uuid);
+    if let Err(e) = np_conn.send(&reply).await {
+        log::warn!("Failed to send event {reply:?}: {e}");
     }
 }

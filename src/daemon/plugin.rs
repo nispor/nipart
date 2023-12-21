@@ -2,8 +2,7 @@
 
 use std::os::unix::fs::PermissionsExt;
 
-use nipart::{ErrorKind, NipartError, NipartPluginInfo};
-use std::os::unix::net::UnixStream;
+use nipart::{ErrorKind, NipartError};
 
 const PLUGIN_PREFIX: &str = "nipart_plugin_";
 
@@ -35,13 +34,13 @@ pub(crate) fn load_plugins() -> Vec<(String, String)> {
 
 fn plugin_start(
     plugin_exec_path: &str,
-    plugin_name: &str,
+    _plugin_name: &str,
     socket_path: &str,
 ) -> Result<(), NipartError> {
     // Invoke the plugin in child.
     match std::process::Command::new(plugin_exec_path)
-        .arg(&socket_path)
-        .arg("debug".to_string()) // TODO: configurable
+        .arg(socket_path)
+        .arg("debug") // TODO: configurable
         .spawn()
     {
         Ok(_) => {

@@ -4,14 +4,14 @@ use std::collections::HashMap;
 use std::os::linux::net::SocketAddrExt;
 use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 use crate::{
     ErrorKind, NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartEventData, NipartNetConfig, NipartNetState, NipartPluginInfo,
-    NipartQueryConfigOption, NipartQueryStateOption, NipartRole,
+    NipartLogLevel, NipartNetConfig, NipartPluginEvent, NipartPluginInfo,
+    NipartQueryConfigOption, NipartUserEvent,
 };
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl NipartConnection {
     pub const DEFAULT_SOCKET_PATH: &'static str = "/tmp/nipart_socket";
     // Only accept size smaller than 10 MiB
     pub const IPC_MAX_SIZE: usize = 1024 * 1024 * 10;
-    const BUFFER_SIZE: usize = 32;
+    const EVENT_BUFFER_SIZE: usize = 1024;
     const DEFAULT_TIMEOUT: u64 = 5000;
 
     pub async fn new() -> Result<Self, NipartError> {
@@ -54,7 +54,7 @@ impl NipartConnection {
         Self {
             path: path.to_string(),
             socket: stream,
-            buffer: HashMap::with_capacity(Self::BUFFER_SIZE),
+            buffer: HashMap::with_capacity(Self::EVENT_BUFFER_SIZE),
             timeout: Self::DEFAULT_TIMEOUT,
         }
     }
@@ -105,22 +105,62 @@ impl NipartConnection {
     ) -> Result<Vec<NipartPluginInfo>, NipartError> {
         let request = NipartEvent::new(
             NipartEventAction::Request,
-            NipartEventData::UserQueryPluginInfo,
+            NipartUserEvent::QueryPluginInfo,
+            NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,
         );
         self.send(&request).await?;
         for event in self.recv_reply(request.uuid, self.timeout, 0).await? {
-            if let NipartEventData::UserQueryPluginInfoReply(i) = event.data {
+            if let NipartUserEvent::QueryPluginInfoReply(i) = event.user {
                 return Ok(i);
             }
         }
         Ok(Vec::new())
     }
 
+    pub async fn query_log_level(
+        &mut self,
+    ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
+        let request = NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::QueryLogLevel,
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+        );
+        self.send(&request).await?;
+        for event in self.recv_reply(request.uuid, self.timeout, 0).await? {
+            if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
+                return Ok(i);
+            }
+        }
+        Ok(HashMap::new())
+    }
+
+    pub async fn set_log_level(
+        &mut self,
+        level: NipartLogLevel,
+    ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
+        let request = NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::ChangeLogLevel(level),
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+        );
+        self.send(&request).await?;
+        for event in self.recv_reply(request.uuid, self.timeout, 0).await? {
+            if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
+                return Ok(i);
+            }
+        }
+        Ok(HashMap::new())
+    }
+
     pub async fn query_saved_config(
         &mut self,
-        option: &NipartQueryConfigOption,
+        _option: &NipartQueryConfigOption,
     ) -> Result<NipartNetConfig, NipartError> {
         todo!()
     }
@@ -129,6 +169,7 @@ impl NipartConnection {
     where
         T: std::fmt::Debug + Serialize,
     {
+        log::trace!("Sending {data:?}");
         let json_str = serde_json::to_string(data).map_err(|e| {
             NipartError::new(
                 ErrorKind::Bug,
@@ -143,7 +184,7 @@ impl NipartConnection {
                 format!("Failed to send data size to UnixStream: {e}",),
             )
         })?;
-        self.socket.write_all(&data).await.map_err(|e| {
+        self.socket.write_all(data).await.map_err(|e| {
             NipartError::new(
                 ErrorKind::Bug,
                 format!("Failed to send data to UnixStream: {e}",),
@@ -199,18 +240,13 @@ impl NipartConnection {
                         if is_reply_enough(events.as_slice(), expected_count) {
                             return Ok(events);
                         }
+                    } else if let Some(ref_uuid) = event.ref_uuid {
+                        self.buffer.entry(ref_uuid).or_default().push(event);
                     } else {
-                        if let Some(ref_uuid) = event.ref_uuid {
-                            self.buffer
-                                .entry(ref_uuid)
-                                .or_insert(Vec::new())
-                                .push(event);
-                        } else {
-                            log::warn!(
-                                "Discarding reply event due to \
-                                missing ref_uuid: {event:?}"
-                            );
-                        }
+                        log::warn!(
+                            "Discarding reply event due to \
+                            missing ref_uuid: {event:?}"
+                        );
                     }
                 }
                 Ok(Err(e)) => {
@@ -289,7 +325,7 @@ impl NipartConnection {
                 ));
             }
         }
-        Ok(serde_json::from_slice::<T>(&buffer).map_err(|e| {
+        let ret = serde_json::from_slice::<T>(&buffer).map_err(|e| {
             NipartError::new(
                 ErrorKind::Bug,
                 format!(
@@ -299,16 +335,18 @@ impl NipartConnection {
                     std::str::from_utf8(&buffer),
                 ),
             )
-        })?)
+        });
+        if let Ok(ref t) = ret {
+            log::trace!("Received {t:?}");
+        }
+        ret
     }
 }
 
 fn is_reply_enough(events: &[NipartEvent], expected_count: usize) -> bool {
     if expected_count != 0 && events.len() == expected_count {
         true
-    } else if events.iter().any(|e| e.is_done()) {
-        true
     } else {
-        false
+        events.iter().any(|e| e.is_done())
     }
 }

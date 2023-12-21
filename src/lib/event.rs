@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{NipartPluginInfo, NipartQueryStateOption, NipartRole};
+use crate::{NipartLogLevel, NipartPluginInfo, NipartRole};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -17,8 +19,21 @@ pub enum NipartEventAddress {
     Commander,
     /// Group of plugins holding specified [NipartRole]
     Group(NipartRole),
-    /// All plugins except commander
-    AllPluginNoCommander,
+    /// All plugins
+    AllPlugins,
+}
+
+impl std::fmt::Display for NipartEventAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::User => write!(f, "user"),
+            Self::Unicast(v) => write!(f, "{v}"),
+            Self::Daemon => write!(f, "daemon"),
+            Self::Commander => write!(f, "commander"),
+            Self::Group(v) => write!(f, "group:{v}"),
+            Self::AllPlugins => write!(f, "all_plugins"),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -27,9 +42,9 @@ pub struct NipartEvent {
     pub uuid: u128,
     pub ref_uuid: Option<u128>,
     pub action: NipartEventAction,
-    pub data: NipartEventData,
+    pub user: NipartUserEvent,
+    pub plugin: NipartPluginEvent,
     pub src: NipartEventAddress,
-    /// None means broadcast to all plugins except commander
     pub dst: NipartEventAddress,
 }
 
@@ -37,7 +52,8 @@ impl NipartEvent {
     /// Generate a NipartEvent
     pub fn new(
         action: NipartEventAction,
-        data: NipartEventData,
+        user: NipartUserEvent,
+        plugin: NipartPluginEvent,
         src: NipartEventAddress,
         dst: NipartEventAddress,
     ) -> Self {
@@ -45,7 +61,8 @@ impl NipartEvent {
             uuid: uuid::Uuid::now_v7().as_u128(),
             ref_uuid: None,
             action,
-            data,
+            user,
+            plugin,
             src,
             dst,
         }
@@ -65,17 +82,31 @@ pub enum NipartEventAction {
     Cancle,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
 #[non_exhaustive]
-/// All event name with `User` prefix is reserved for nipart internal usage.
-pub enum NipartEventData {
-    UserQueryPluginInfo,
-    UserQueryPluginInfoReply(Vec<NipartPluginInfo>),
-    UserQueryNetState(NipartQueryStateOption),
+pub enum NipartUserEvent {
+    #[default]
+    None,
+    Quit,
+    QueryPluginInfo,
+    QueryPluginInfoReply(Vec<NipartPluginInfo>),
 
+    ChangeLogLevel(NipartLogLevel),
+    QueryLogLevel,
+    QueryLogLevelReply(HashMap<String, NipartLogLevel>),
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
+#[non_exhaustive]
+pub enum NipartPluginEvent {
+    #[default]
+    None,
+    Quit,
+    CommanderRefreshPlugins(usize),
     UpdateAllPluginInfo(Vec<NipartPluginInfo>),
     QueryPluginInfo,
     QueryPluginInfoReply(NipartPluginInfo),
-
-    PluginQuit,
+    ChangeLogLevel(NipartLogLevel),
+    QueryLogLevel,
+    QueryLogLevelReply(NipartLogLevel),
 }

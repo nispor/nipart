@@ -2,30 +2,32 @@
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::Mutex;
 
 use nipart::{
     ErrorKind, NipartConnection, NipartError, NipartEvent, NipartEventAction,
-    NipartEventAddress, NipartEventData, NipartPluginInfo, NipartRole,
+    NipartEventAddress, NipartPluginEvent, NipartPluginInfo, NipartRole,
+    NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
-
-use crate::MPSC_CHANNLE_SIZE;
 
 const QUERY_PLUGIN_RETRY: usize = 5;
 const QUERY_PLUGIN_RETRY_INTERAL: u64 = 500; // milliseconds
 
-pub(crate) async fn start_event_switch(
-    plugins: Vec<(String, String)>,
-    from_api: Receiver<NipartEvent>,
-    to_api: Sender<NipartEvent>,
+pub(crate) async fn start_event_switch_thread(
+    plugins: &[(String, String)],
+    user_to_switch: Receiver<NipartEvent>,
+    switch_to_user: Sender<NipartEvent>,
+    commander_to_switch: Receiver<NipartEvent>,
+    plugin_to_commander: Sender<NipartEvent>,
+    user_to_commander: Sender<NipartEvent>,
 ) {
     let mut plugin_infos: Vec<(NipartConnection, NipartPluginInfo)> =
         Vec::new();
 
     for (plugin_name, plugin_socket) in plugins {
-        match connect_plugin(&plugin_name, &plugin_socket).await {
+        // TODO: The plugin might not ready yet on slow system, we need retry
+        // here
+        match connect_plugin(plugin_name, plugin_socket).await {
             Ok(i) => plugin_infos.push(i),
             Err(e) => {
                 log::error!(
@@ -36,7 +38,18 @@ pub(crate) async fn start_event_switch(
         }
     }
 
-    run_event_switch(from_api, to_api, plugin_infos).await;
+    tokio::spawn(async move {
+        run_event_switch(
+            user_to_switch,
+            switch_to_user,
+            commander_to_switch,
+            plugin_to_commander,
+            user_to_commander,
+            plugin_infos,
+        )
+        .await;
+    });
+    log::debug!("switch started");
 }
 
 async fn connect_plugin(
@@ -66,16 +79,13 @@ async fn connect_plugin(
     ))
 }
 
-async fn plugin_conn_thread(
-    mut from_switch_rx: Receiver<NipartEvent>,
-    to_switch_tx: Sender<NipartEvent>,
-) {
-}
-
 async fn run_event_switch(
-    mut from_api: Receiver<NipartEvent>,
-    to_api: Sender<NipartEvent>,
-    mut plugins: Vec<(NipartConnection, NipartPluginInfo)>,
+    mut user_to_switch: Receiver<NipartEvent>,
+    switch_to_user: Sender<NipartEvent>,
+    mut commander_to_switch: Receiver<NipartEvent>,
+    plugin_to_commander: Sender<NipartEvent>,
+    user_to_commander: Sender<NipartEvent>,
+    plugins: Vec<(NipartConnection, NipartPluginInfo)>,
 ) {
     let mut np_conn_map: HashMap<String, NipartConnection> = HashMap::new();
     let mut role_map: HashMap<NipartRole, Vec<String>> = HashMap::new();
@@ -85,54 +95,10 @@ async fn run_event_switch(
         for role in plugin_info.roles.as_slice() {
             role_map
                 .entry(*role)
-                .or_insert(Vec::new())
+                .or_default()
                 .push(plugin_info.name.to_string());
         }
         plugin_info_map.insert(plugin_info.name.to_string(), plugin_info);
-    }
-
-    // Should only have single commander
-    let commander_name = match role_map.get(&NipartRole::Commander) {
-        Some(plugins) => {
-            if plugins.len() > 1 {
-                log::error!("Only support single commander plugin");
-                return;
-            } else if plugins.len() == 1 {
-                log::info!("Commander {} on duty", plugins[0]);
-                plugins[0].as_str()
-            } else {
-                log::error!("No commander plugin found");
-                return;
-            }
-        }
-        None => {
-            log::error!("No commander plugin found");
-            return;
-        }
-    };
-
-    // Tell commander for all the plugins we got
-    let event = NipartEvent::new(
-        NipartEventAction::OneShot,
-        NipartEventData::UpdateAllPluginInfo(
-            plugin_info_map.values().cloned().collect(),
-        ),
-        NipartEventAddress::Daemon,
-        NipartEventAddress::Group(NipartRole::Commander),
-    );
-    if let Some(commanders) = role_map.get(&NipartRole::Commander) {
-        for commander_name in commanders {
-            if let Some(np_conn) = np_conn_map.get_mut(commander_name.as_str())
-            {
-                if let Err(e) = np_conn.send(&event).await {
-                    log::warn!(
-                        "Failed to update plugin info in \
-                        commander {commander_name} {e}"
-                    );
-                    continue;
-                }
-            }
-        }
     }
 
     loop {
@@ -143,13 +109,15 @@ async fn run_event_switch(
 
         let event = tokio::select! {
             Some(Ok(event)) = plugin_futures.next() => {
+                log::trace!("run_event_switch(): from plugin {event:?}");
                 event
             },
-            Some(mut event) = from_api.recv() => {
-                event.src = NipartEventAddress::User;
-                // All API event should be process by commander, hence
-                // redirect API event to commander plugin(s)
-                event.dst = NipartEventAddress::Group(NipartRole::Commander);
+            Some(event) = user_to_switch.recv() => {
+                log::trace!("run_event_switch(): from daemon {event:?}");
+                event
+            }
+            Some(event) = commander_to_switch.recv() => {
+                log::trace!("run_event_switch(): from commander {event:?}");
                 event
             }
         };
@@ -164,23 +132,24 @@ async fn run_event_switch(
             continue;
         }
         match &event.dst {
-            NipartEventAddress::User => {
-                if let Err(e) = to_api.send(event.clone()).await {
-                    log::warn!("Failed to send event to user: {event:?}, {e}");
+            NipartEventAddress::User | NipartEventAddress::Daemon => {
+                if let Err(e) = switch_to_user.send(event.clone()).await {
+                    log::warn!("Failed to send event: {event:?}, {e}");
                     continue;
                 }
             }
-            NipartEventAddress::Daemon => {
-                log::error!("BUG: Got a event dst to Daemon: {event:?}");
-            }
             NipartEventAddress::Commander => {
-                if let Some(np_conn) = np_conn_map.get_mut(commander_name) {
-                    if let Err(e) = np_conn.send(&event.clone()).await {
-                        log::warn!(
-                            "Failed to send event {event:?} to \
-                             commander {commander_name}: {e}",
-                        );
+                if event.src == NipartEventAddress::User {
+                    if let Err(e) = user_to_commander.send(event.clone()).await
+                    {
+                        log::warn!("Failed to send event: {event:?}, {e}");
+                        continue;
                     }
+                } else if let Err(e) =
+                    plugin_to_commander.send(event.clone()).await
+                {
+                    log::warn!("Failed to send event: {event:?}, {e}");
+                    continue;
                 }
             }
             NipartEventAddress::Unicast(plugin_name) => {
@@ -195,7 +164,7 @@ async fn run_event_switch(
                 }
             }
             NipartEventAddress::Group(role) => {
-                if let Some(plugin_names) = role_map.get(&role) {
+                if let Some(plugin_names) = role_map.get(role) {
                     for plugin_name in plugin_names {
                         if let Some(np_conn) =
                             np_conn_map.get_mut(plugin_name.as_str())
@@ -210,21 +179,24 @@ async fn run_event_switch(
                     }
                 }
             }
-            NipartEventAddress::AllPluginNoCommander => {
+            NipartEventAddress::AllPlugins => {
                 for (role, plugin_names) in role_map.iter() {
-                    if *role != NipartRole::Commander {
-                        for plugin_name in plugin_names {
-                            if let Some(np_conn) =
-                                np_conn_map.get_mut(plugin_name.as_str())
-                            {
-                                if let Err(e) =
-                                    np_conn.send(&event.clone()).await
-                                {
-                                    log::warn!(
-                                        "Failed to send event {event:?} to \
-                                         plugin {plugin_name}: {e}",
-                                    );
-                                }
+                    if role == &NipartRole::Commander {
+                        continue;
+                    }
+                    for plugin_name in plugin_names {
+                        if let Some(np_conn) =
+                            np_conn_map.get_mut(plugin_name.as_str())
+                        {
+                            log::trace!(
+                                "run_event_switch(): to plugin \
+                                {plugin_name}, {event:?}"
+                            );
+                            if let Err(e) = np_conn.send(&event.clone()).await {
+                                log::warn!(
+                                    "Failed to send event {event:?} to \
+                                     plugin {plugin_name}: {e}",
+                                );
                             }
                         }
                     }
@@ -243,14 +215,16 @@ async fn get_plugin_info(
 ) -> Result<(NipartConnection, NipartPluginInfo), NipartError> {
     let event = NipartEvent::new(
         NipartEventAction::Request,
-        NipartEventData::QueryPluginInfo,
+        NipartUserEvent::None,
+        NipartPluginEvent::QueryPluginInfo,
         NipartEventAddress::Daemon,
         NipartEventAddress::Unicast(plugin_name.to_string()),
     );
     let mut np_conn = NipartConnection::new_abstract(plugin_socket)?;
     np_conn.send(&event).await?;
     let reply: NipartEvent = np_conn.recv().await?;
-    if let NipartEventData::QueryPluginInfoReply(i) = reply.data {
+    if let NipartPluginEvent::QueryPluginInfoReply(i) = reply.plugin {
+        log::debug!("Got plugin info {i:?}");
         Ok((np_conn, i))
     } else {
         Err(NipartError::new(

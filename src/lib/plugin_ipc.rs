@@ -5,9 +5,7 @@
 use std::fs::remove_file;
 use std::os::linux::net::SocketAddrExt;
 
-use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixListener;
 
 use crate::{ErrorKind, NipartConnection, NipartError};
 

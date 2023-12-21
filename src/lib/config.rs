@@ -4,6 +4,4 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
-pub struct NipartNetConfig {
-}
-
+pub struct NipartNetConfig {}

@@ -2,10 +2,9 @@
 
 mod error;
 
-use nipart::{
-    NipartConnection, NipartError, NipartEvent, NipartEventAction,
-    NipartEventAddress, NipartEventData,
-};
+use std::str::FromStr;
+
+use nipart::{NipartConnection, NipartEvent, NipartLogLevel};
 
 use crate::error::CliError;
 
@@ -21,6 +20,33 @@ async fn main() -> Result<(), CliError> {
             clap::Command::new("plugin-info")
                 .alias("pi")
                 .about("Query plugin info"),
+        )
+        .subcommand(
+            clap::Command::new("log")
+                .alias("l")
+                .about("Query/Change logging settings")
+                .subcommand(
+                    clap::Command::new("query")
+                        .alias("q")
+                        .about("Query logging level"),
+                )
+                .subcommand(
+                    clap::Command::new("set")
+                        .alias("s")
+                        .about("Set logging level")
+                        .arg(
+                            clap::Arg::new("level")
+                                .index(1)
+                                .value_parser(
+                                    clap::builder::PossibleValuesParser::new([
+                                        "off", "error", "info", "debug",
+                                        "trace",
+                                    ]),
+                                )
+                                .required(true)
+                                .help("Log level"),
+                        ),
+                ),
         )
         .subcommand(
             clap::Command::new("debug")
@@ -42,8 +68,10 @@ async fn main() -> Result<(), CliError> {
     log_builder.filter(None, log::LevelFilter::Debug);
     log_builder.init();
 
-    if let Some(_) = matches.subcommand_matches("plugin-info") {
+    if matches.subcommand_matches("plugin-info").is_some() {
         handle_plugin_info().await?;
+    } else if let Some(m) = matches.subcommand_matches("log") {
+        handle_log(m).await?;
     } else if let Some(matches) = matches.subcommand_matches("debug") {
         handle_debug(matches).await?;
     }
@@ -64,6 +92,22 @@ async fn handle_debug(matches: &clap::ArgMatches) -> Result<(), CliError> {
     conn.send(&event).await?;
     let replies = conn.recv_reply(event.uuid, IPC_TIMEOUT, 0).await?;
     println!("{}", serde_yaml::to_string(&replies)?);
+    Ok(())
+}
+
+async fn handle_log(matches: &clap::ArgMatches) -> Result<(), CliError> {
+    let mut conn = NipartConnection::new().await?;
+    if matches.subcommand_matches("query").is_some() {
+        let replies = conn.query_log_level().await?;
+        println!("{}", serde_yaml::to_string(&replies)?);
+    } else if let Some(m) = matches.subcommand_matches("set") {
+        let log_level_str: &String = m
+            .get_one("level")
+            .ok_or(CliError::from("Undefined log level"))?;
+        let log_level = NipartLogLevel::from_str(log_level_str.as_str())?;
+        let replies = conn.set_log_level(log_level).await?;
+        println!("{}", serde_yaml::to_string(&replies)?);
+    }
     Ok(())
 }
 

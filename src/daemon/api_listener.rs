@@ -4,68 +4,35 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use nipart::{
-    ErrorKind, NipartConnection, NipartConnectionListener, NipartError,
-    NipartEvent,
+    NipartConnection, NipartConnectionListener, NipartError, NipartEvent,
+    NipartEventAddress,
 };
-use tokio::net::UnixListener;
+
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::MPSC_CHANNLE_SIZE;
 
-pub(crate) async fn start_api_listener(
+// Each user API connection has a tokio spawn, then collect NipartEvent and
+// sent to switch.
+// For data from switch to user, we use ref_uuid to find the correct UnixStream
+// to reply.
+pub(crate) async fn start_api_listener_thread(
 ) -> Result<(Receiver<NipartEvent>, Sender<NipartEvent>), NipartError> {
-    let (from_api_thread_tx, mut from_api_thread_rx) =
+    let (switch_to_user_tx, switch_to_user_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (to_api_thread_tx, mut to_api_thread_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (from_switch_tx, from_switch_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (to_switch_tx, to_switch_rx) =
+    let (user_to_switch_tx, user_to_switch_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
 
     tokio::spawn(async move {
-        api_thread(to_api_thread_rx, from_api_thread_tx).await;
+        api_thread(switch_to_user_rx, user_to_switch_tx).await;
     });
 
-    tokio::spawn(async move {
-        api_message_exchange_thread(
-            to_api_thread_tx,
-            from_api_thread_rx,
-            to_switch_tx,
-            from_switch_rx,
-        )
-        .await
-    });
-
-    Ok((to_switch_rx, from_switch_tx))
-}
-
-async fn api_message_exchange_thread(
-    to_api_thread_tx: Sender<NipartEvent>,
-    mut from_api_thread_rx: Receiver<NipartEvent>,
-    to_switch_tx: Sender<NipartEvent>,
-    mut from_switch_rx: Receiver<NipartEvent>,
-) {
-    loop {
-        tokio::select! {
-            Some(event) = from_api_thread_rx.recv() => {
-                if let Err(e) = to_switch_tx.send(event.clone()).await {
-                    log::warn!("Failed to forward API user request \
-                    {event:?} to daemon");
-                }
-            }
-            Some(event) = from_switch_rx.recv() => {
-                if let Err(e) = to_api_thread_tx.send(event.clone()).await {
-                    log::warn!("Failed to reply to user {event:?}");
-                }
-            }
-        }
-    }
+    Ok((user_to_switch_rx, switch_to_user_tx))
 }
 
 async fn api_thread(
-    mut to_api_thread_rx: Receiver<NipartEvent>,
-    to_switch_tx: Sender<NipartEvent>,
+    mut switch_to_user: Receiver<NipartEvent>,
+    user_to_switch: Sender<NipartEvent>,
 ) {
     let listener = match NipartConnectionListener::new(
         NipartConnection::DEFAULT_SOCKET_PATH,
@@ -80,38 +47,33 @@ async fn api_thread(
     let tracking_queue: Arc<Mutex<BTreeMap<u128, Sender<NipartEvent>>>> =
         Arc::new(Mutex::new(BTreeMap::new()));
 
-    let (from_client_tx, from_client_rx) =
-        tokio::sync::mpsc::channel::<NipartEvent>(MPSC_CHANNLE_SIZE);
     loop {
         tokio::select! {
             Ok(np_conn) = listener.accept() => {
                 clean_up_tracking_queue(tracking_queue.clone());
                 let tracking_queue_clone = tracking_queue.clone();
-                let to_switch_tx_clone = to_switch_tx.clone();
+                let user_to_switch_clone = user_to_switch.clone();
                 tokio::task::spawn(async move {
                     handle_client(
                         tracking_queue_clone,
-                        to_switch_tx_clone,
+                        user_to_switch_clone,
                         np_conn
                     ).await
                 });
             }
 
-            Some(event) = to_api_thread_rx.recv() => {
+            Some(event) = switch_to_user.recv() => {
+                log::trace!("api_thread(): to user {:?}", event);
                 // Clean up the queue for dead senders
                 clean_up_tracking_queue(tracking_queue.clone());
                 // Need to search out the connection for event to send
                 let tx = if let Some(ref_uuid) = event.ref_uuid.as_ref() {
                     if let Ok(mut queue) =  tracking_queue.lock() {
-                        if let Some(tx) = queue.remove(ref_uuid) {
-                            Some(tx)
-                        } else {
-                            None
-                        }
+                        queue.remove(ref_uuid)
                     } else {None}
                 } else {None};
                 if let Some(tx) = tx {
-                    if let Err(e) = tx.send(event.clone()).await {
+                    if let Err(_e) = tx.send(event.clone()).await {
                         log::warn!("Failed to reply event to \
                                    user {event:?}") ;
                     }
@@ -125,26 +87,30 @@ async fn api_thread(
 
 async fn handle_client(
     tracking_queue: Arc<Mutex<BTreeMap<u128, Sender<NipartEvent>>>>,
-    to_switch_tx: Sender<NipartEvent>,
+    use_to_switch: Sender<NipartEvent>,
     mut np_conn: NipartConnection,
 ) {
-    let (to_client_tx, mut to_client_rx) =
+    let (switch_to_user_tx, mut switch_to_user_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
     loop {
         tokio::select! {
-            Ok(event) = np_conn.recv::<NipartEvent>() => {
+            Ok(mut event) = np_conn.recv::<NipartEvent>() => {
+                log::trace!("handle_client(): from user {event:?}");
+                // Redirect user request to Commander
+                event.dst = NipartEventAddress::Commander;
                 if let Ok(mut queue) =  tracking_queue.lock() {
-                    queue.insert(event.uuid, to_client_tx.clone());
+                    queue.insert(event.uuid, switch_to_user_tx.clone());
                 }
-                if let Err(e) = to_switch_tx.send(event.clone()).await {
+                if let Err(e) = use_to_switch.send(event.clone()).await {
                     log::warn!(
-                        "Failed to redirect user event to daemon \
+                        "Failed to send user event to switch \
                         {event:?}: {e}"
                     );
                     break;
                 }
             }
-            Some(event) = to_client_rx.recv() => {
+            Some(event) = switch_to_user_rx.recv() => {
+                log::trace!("handle_client(): to user {event:?}");
                 if let Err(e) = np_conn.send(&event).await {
                     log::warn!(
                         "Failed to send reply to user {event:?}: {e}"

@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::NipartEvent;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -34,12 +36,17 @@ impl NipartError {
     pub fn new(kind: ErrorKind, msg: String) -> Self {
         Self { kind, msg }
     }
-
 }
 
 impl std::fmt::Display for NipartError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.msg)
+    }
+}
+
+impl From<tokio::sync::mpsc::error::SendError<NipartEvent>> for NipartError {
+    fn from(e: tokio::sync::mpsc::error::SendError<NipartEvent>) -> Self {
+        Self::new(ErrorKind::Bug, format!("std::sync::mpsc::SendError: {e}"))
     }
 }
 
