@@ -2,7 +2,7 @@
 
 use std::os::unix::fs::PermissionsExt;
 
-use nipart::{ErrorKind, NipartError};
+use nipart::{ErrorKind, NipartError, NipartLogLevel};
 
 const PLUGIN_PREFIX: &str = "nipart_plugin_";
 
@@ -40,7 +40,7 @@ fn plugin_start(
     // Invoke the plugin in child.
     match std::process::Command::new(plugin_exec_path)
         .arg(socket_path)
-        .arg("debug") // TODO: configurable
+        .arg(NipartLogLevel::from(log::max_level()).as_str())
         .spawn()
     {
         Ok(_) => {

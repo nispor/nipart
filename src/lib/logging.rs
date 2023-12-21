@@ -17,7 +17,7 @@ pub enum NipartLogLevel {
 }
 
 impl NipartLogLevel {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Off => "off",
             Self::Error => "error",

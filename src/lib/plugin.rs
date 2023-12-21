@@ -13,14 +13,14 @@ use crate::{
 
 const DEFAULT_PLUGIN_SOCKET_PREFIX: &str = "nipart_plugin_";
 // const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Info;
-const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
+const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Trace;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct NipartPluginInfo {
-    pub socket_path: String,
     pub name: String,
     pub roles: Vec<NipartRole>,
+    pub socket_path: String,
 }
 
 #[derive(
