@@ -1,180 +1,76 @@
 <!-- vim-markdown-toc GFM -->
 
-* [Main daemon](#main-daemon)
-* [IPC](#ipc)
-* [Work flow](#work-flow)
-    * [Daemon Start up](#daemon-start-up)
-    * [User API request](#user-api-request)
-    * [External event happens](#external-event-happens)
-* [NipartEvent](#nipartevent)
-* [Zhongshu Plugin -- Commander](#zhongshu-plugin----commander)
-* [Ducha Plugin -- Monitor](#ducha-plugin----monitor)
-    * [Receive Event](#receive-event)
-    * [Action](#action)
-    * [Output Event](#output-event)
-* [Nispor Plugin -- Kernel](#nispor-plugin----kernel)
-* [Mallory Plugin -- State](#mallory-plugin----state)
-* [Mozim Plugin -- DHCP](#mozim-plugin----dhcp)
-    * [Receive Event](#receive-event-1)
-    * [Output Event](#output-event-1)
-* [OVS Plugin](#ovs-plugin)
-* [LLDP Plugin](#lldp-plugin)
-* [Librarian Plugin -- Conf](#librarian-plugin----conf)
+* [Code Layout](#code-layout)
+    * [Daemon](#daemon)
+        * [Daemon Start up](#daemon-start-up)
+        * [Daemon User API Thread](#daemon-user-api-thread)
+        * [Daemon Switch Thread](#daemon-switch-thread)
+    * [Nispor Plugin -- Kernel Query and Config](#nispor-plugin----kernel-query-and-config)
+    * [Mallory Plugin -- State](#mallory-plugin----state)
+    * [BaiZe Plugin -- Monitor](#baize-plugin----monitor)
+    * [Mozim Plugin -- DHCP](#mozim-plugin----dhcp)
+    * [OVS Plugin](#ovs-plugin)
+    * [LLDP Plugin](#lldp-plugin)
+    * [Librarian Plugin -- Conf](#librarian-plugin----conf)
 
 <!-- vim-markdown-toc -->
 
-## Main daemon
+# Code Layout
 
- * Invoke plugins
- * Provide public API via unix socket
- * NipartEvent switch between plugins.
-
-## IPC
-
- * Async
- * Safe size
- * Public IPC command to NipartEvent
- * Plugin
-
-## Work flow
+## Daemon
 
 ### Daemon Start up
 
  * Daemon invokes plugins base on config.
- * Daemon listen on public API UNIX socket.
- * The config plugin will read network config and generate `NipartMonitorRull`
-   with network config attached.
- * The monitor plugin will generate NipartEvent when monitored link up.
+ * Daemon start API thread listening on public API UNIX socket.
+ * Daemon start commander thread converting API event to/from plugin events.
+ * Daemon start switch thread forwarding events between api thread, commander
+   thread and plugins.
 
-### User API request
+### Daemon User API Thread
 
- * Daemon got Public IPC request as `NipartIpc::ConnectionAdd`.
- * Daemon send IPC request to the commander plugin.
- * The commander plugin convert IPC request to a set of `NipartEvent` and
-   send back to daemon.
- * Daemon redirect these events to correct plugins.
+ * The API thread invoke thread all each `NipartConnection`
+ * The `NipartEvent` received from user will changed the target to commander,
+   and send to switch thread.
+ * When switch send back event to API thread, search on which
+   `NipartConnection` should used to send using a tracking queue
+   shared between sub-threads of API thread.
 
-### External event happens
+### Daemon Switch Thread
 
- * The monitor plugin generate NipartEvent when matching external event
-   happens.
- * The daemon redirect NipartEvent to the commander plugin.
- * The commander plugin convert NipartEvent into a set of NipartEvent and
-   send out.
+ * Forward the `NipartEvent` base on its source and designation.
+ * The switch holds multiple tokio mpsc channels to daemon API thread and
+   commander thread.
+ * The switch holds `NipartConnection` to plugin socket.
 
-## NipartEvent
-
-```
-struct NipartEvent {
-    uuid: String,
-    ref_uuid: Option<String>,
-    state: Todo|Ongoing|Cancled|Done,
-    reciver: commander | daemon | dhcp | kernel | ovs | lldp | monitor |
-             state | config
-    data : enum NipartEventData {
-    }
-}
-```
-
-## Zhongshu Plugin -- Commander
-
- * Convert NipartEvent to a set of NipartEvent
-
-## Ducha Plugin -- Monitor
-
-Monitor network state and generate NipartEvent base on requested
-`NipartMonitorRull`.
-
-### Receive Event
-
-```
-struct NipartEvent {
-    state: Todo,
-    reciver: monitor,
-    data: NipartEventData::MonitorRull(
-        NipartMonitorRull::Link( NipartMonitorRullLink {
-            iface_index:  9,
-            interested: Up,
-            // What event should be emitted when it happens
-            followup: NipartEvent,
-        })
-    )
-}
-```
-
-### Action
-
-Hook on netlink socket and register for monitor, only generate NipartEvent
-when link state __changed__.
-
-### Output Event
-
-```
-struct NipartEvent {
-    state: Todo,
-    reciver: commander,
-    data: NipartEventData::LinkUp(
-        NipartEventLinkUp {
-            iface_index:  9,
-            iface_name: "eth1",
-        })
-    )
-}
-```
-
-## Nispor Plugin -- Kernel
- * Query kernel network state
- * Apply kernel network state
+## Nispor Plugin -- Kernel Query and Config
 
 ## Mallory Plugin -- State
 
+Mallory is name of `Man-in-the-middle`. In our case, it is a plugin alter the
+network state:
+
  * Validate user input state and sanitize
  * Convert state into state ready for other plugins to apply.
+ * Merge state from plugins and report to user.
+
+## BaiZe Plugin -- Monitor
+
+The [`Bai Ze`][baize_wiki] is a mythical beast in ancient China.  It can speak,
+understand the feelings of all things.
+(白泽神兽，能言，达于万物之情)
+
+The monitor plugin should send `NipartEvent` to commander when event of
+`NipartMonitorRule` happens.
 
 ## Mozim Plugin -- DHCP
 
-### Receive Event
-
-```
-struct NipartEvent {
-    state: Todo,
-    reciver: dhcp,
-    data: NipartEventData::StartDhcp(
-        NipartDhcpConfig {
-            iface_index:  9,
-            ... // other Dhcp configs
-        }
-    )
-}
-```
-
-### Output Event
-
-When lease acquired or updated, emit
-
-```
-struct NipartEvent {
-    state: Todo,
-    reciver: kernel,
-    data: NipartEventData::DhcpLeaseUpdate(
-        NipartDhcpLease {
-            iface_index:  9,
-            iface_name: "eth1",
-            ipv4_addr: "192.0.2.101",
-            ... // other DHCP lease config
-        }
-    )
-}
-```
-
 ## OVS Plugin
-
- *
 
 ## LLDP Plugin
 
- *
-
 ## Librarian Plugin -- Conf
 
-Persisting the config
+Librarian to keep the configurations.
+
+[baize_wiki]: https://en.wikipedia.org/wiki/Bai_Ze
