@@ -79,10 +79,7 @@ impl NipartConnectionListener {
                 format!("Failed to accept socket connection {e}"),
             )
         })?;
-        log::debug!(
-            "Accepted Unix socket({}) connection from {addr:?}",
-            self.path,
-        );
+        log::trace!("Accepted Unix socket({}) connection", self.path,);
         Ok(NipartConnection::new_with_stream(
             format!("{:?}", addr).as_str(),
             stream,

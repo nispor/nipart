@@ -9,14 +9,14 @@ use nipart::{ErrorKind, NipartError, NipartEvent};
 const QUEUE_INIT_CAPACITY: usize = 1024;
 
 #[derive(Debug, Clone)]
-pub(crate) struct CommanderSession {
+pub(crate) struct Session {
     pub(crate) request: NipartEvent,
-    expected_reply_count: usize,
+    pub(crate) expected_reply_count: usize,
     timeout: SystemTime,
     pub(crate) replies: Vec<NipartEvent>,
 }
 
-impl CommanderSession {
+impl Session {
     pub(crate) fn is_expired(&self) -> bool {
         SystemTime::now() >= self.timeout
     }
@@ -26,11 +26,11 @@ impl CommanderSession {
     }
 }
 
-pub(crate) struct CommanderSessionQueue {
-    data: HashMap<u128, CommanderSession>,
+pub(crate) struct SessionQueue {
+    data: HashMap<u128, Session>,
 }
 
-impl CommanderSessionQueue {
+impl SessionQueue {
     pub(crate) fn new() -> Self {
         Self {
             data: HashMap::with_capacity(QUEUE_INIT_CAPACITY),
@@ -44,9 +44,13 @@ impl CommanderSessionQueue {
         expected_reply_count: usize,
         timeout: u64,
     ) {
+        log::trace!(
+            "SessionQueue::new_session: {request:?}, \
+            expected_reply_count {expected_reply_count}, timeout {timeout}"
+        );
         self.data.insert(
             uuid,
-            CommanderSession {
+            Session {
                 request,
                 expected_reply_count,
                 timeout: SystemTime::now()
@@ -70,7 +74,7 @@ impl CommanderSessionQueue {
                 Err(NipartError::new(
                     ErrorKind::Bug,
                     format!(
-                        "CommanderSessionQueue::push got event does not have
+                        "SessionQueue::push got event does not have
                         session registered before {event:?}"
                     ),
                 ))
@@ -79,7 +83,7 @@ impl CommanderSessionQueue {
             Err(NipartError::new(
                 ErrorKind::Bug,
                 format!(
-                    "CommanderSessionQueue::push got event without ref_uuid \
+                    "SessionQueue::push got event without ref_uuid \
                     {event:?}"
                 ),
             ))
@@ -90,7 +94,7 @@ impl CommanderSessionQueue {
     // expected_reply_count
     pub(crate) fn get_timeout_or_finished(
         &mut self,
-    ) -> Result<Vec<CommanderSession>, NipartError> {
+    ) -> Result<Vec<Session>, NipartError> {
         let uuids_to_remove: Vec<u128> = self
             .data
             .iter()

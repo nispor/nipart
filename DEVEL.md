@@ -6,8 +6,7 @@
         * [Daemon User API Thread](#daemon-user-api-thread)
         * [Daemon Switch Thread](#daemon-switch-thread)
     * [Nispor Plugin -- Kernel Query and Config](#nispor-plugin----kernel-query-and-config)
-    * [Mallory Plugin -- State](#mallory-plugin----state)
-    * [BaiZe Plugin -- Monitor](#baize-plugin----monitor)
+    * [Baize Plugin -- Monitor](#baize-plugin----monitor)
     * [Mozim Plugin -- DHCP](#mozim-plugin----dhcp)
     * [OVS Plugin](#ovs-plugin)
     * [LLDP Plugin](#lldp-plugin)
@@ -45,16 +44,7 @@
 
 ## Nispor Plugin -- Kernel Query and Config
 
-## Mallory Plugin -- State
-
-Mallory is name of `Man-in-the-middle`. In our case, it is a plugin alter the
-network state:
-
- * Validate user input state and sanitize
- * Convert state into state ready for other plugins to apply.
- * Merge state from plugins and report to user.
-
-## BaiZe Plugin -- Monitor
+## Baize Plugin -- Monitor
 
 The [`Bai Ze`][baize_wiki] is a mythical beast in ancient China.  It can speak,
 understand the feelings of all things.

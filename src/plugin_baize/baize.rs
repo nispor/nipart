@@ -43,7 +43,7 @@ impl NipartPlugin for NipartPluginBaiZe {
         event: NipartEvent,
     ) -> impl std::future::Future<Output = Result<Vec<NipartEvent>, NipartError>>
            + Send {
-        log::debug!("Plugin baize got event {:?}", event);
+        log::trace!("Plugin baize got event {:?}", event);
         async move {
             {
                 log::warn!("Plugin baize got unknown event {event:?}");

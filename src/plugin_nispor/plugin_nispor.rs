@@ -37,19 +37,14 @@ impl NipartPlugin for NipartPluginNispor {
         })
     }
 
-    fn handle_event(
+    async fn handle_event(
         _plugin: Arc<Self>,
         _np_conn: &mut NipartConnection,
         event: NipartEvent,
-    ) -> impl std::future::Future<Output = Result<Vec<NipartEvent>, NipartError>>
-           + Send {
-        log::debug!("Plugin nispor got event {:?}", event);
-        async move {
-            {
-                log::warn!("Plugin nispor got unknown event {event:?}");
-                Ok(Vec::new())
-            }
-        }
+    ) -> Result<Vec<NipartEvent>, NipartError> {
+        log::trace!("Plugin nispor got event {:?}", event);
+        log::warn!("Plugin nispor got unknown event {event:?}");
+        Ok(Vec::new())
     }
 }
 

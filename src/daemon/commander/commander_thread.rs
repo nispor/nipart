@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
-
 use nipart::{
     NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartLogLevel, NipartPluginEvent, NipartRole, NipartUserEvent,
+    NipartPluginEvent, NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::MPSC_CHANNLE_SIZE;
-
-use super::session_queue::{CommanderSession, CommanderSessionQueue};
+use super::{
+    handle_change_log_level, handle_query_log_level, handle_query_net_state,
+    handle_query_plugin_infos, handle_refresh_plugin_infos,
+    process_query_log_level, process_query_net_state_reply,
+    process_query_plugin_info,
+};
+use crate::{Plugins, Session, SessionQueue, MPSC_CHANNLE_SIZE};
 
 // Check the session queue every 5 seconds
 const SESSION_QUEUE_CHECK_INTERVAL: u64 = 5000;
-const DEFAULT_TIMEOUT: u64 = 1000;
 
 pub(crate) async fn start_commander_thread(
     commander_to_daemon: Sender<NipartEvent>,
@@ -61,11 +62,11 @@ async fn commander_thread(
     mut plugin_to_commander: Receiver<NipartEvent>,
     mut user_to_commander: Receiver<NipartEvent>,
     mut daemon_to_commander: Receiver<NipartEvent>,
-    commander_to_daemon: Sender<NipartEvent>,
+    mut commander_to_daemon: Sender<NipartEvent>,
 ) {
-    let mut plugin_infos: HashMap<String, Vec<NipartRole>> = HashMap::new();
+    let mut plugins = Plugins::new();
 
-    let mut session_queue = CommanderSessionQueue::new();
+    let mut session_queue = SessionQueue::new();
 
     let mut session_queue_check_interval = tokio::time::interval(
         std::time::Duration::from_millis(SESSION_QUEUE_CHECK_INTERVAL),
@@ -75,280 +76,211 @@ async fn commander_thread(
     session_queue_check_interval.tick().await;
 
     loop {
-        tokio::select! {
-            _ = session_queue_check_interval.tick()  => {
-                if let Err(e) = process_session_queue(
+        if let Err(e) = tokio::select! {
+            _ = session_queue_check_interval.tick() => {
+                process_session_queue(
                     &mut session_queue,
                     &mut commander_to_switch,
-                    &mut plugin_infos).await {
-                    log::error!("{e}");
-                }
+                    &mut plugins,
+                ).await
             }
             Some(event) = daemon_to_commander.recv() => {
-                log::trace!("daemon_to_commander {event:?}");
-                match event.plugin {
-                    NipartPluginEvent::CommanderRefreshPlugins(i) => {
-                        plugin_infos.clear();
-                        if let Err(e) = handle_refresh_plugin_infos(
-                            &mut commander_to_switch,
-                            &mut session_queue,
-                            i).await {
-                            log::error!("{e}");
-                        }
-                    }
-                    _ => {
-                        log::error!(
-                            "commander_thread(): Unexpected \
-                            daemon_to_commander {event:?}");
-                    }
-                }
+                log::trace!("daemon_to_commander recv {event:?}");
+                handle_daemon_commands(event,
+                    &mut session_queue,
+                    &mut commander_to_switch).await
             }
-            // Here we might get notification event from plugin on
-            // changes like DHCP lease change) or reply from previous
-            // requests.
             Some(event) = plugin_to_commander.recv() => {
-                // Notification event from plugin
-                if event.ref_uuid.is_none() {
-                    log::error!("TODO: handle notification event \
-                                from plugin {event:?}");
-                } else {
-                    if let Err(e) = session_queue.push(event) {
-                        log::error!("{e}");
-                        continue;
-                    }
-                    if let Err(e) = process_session_queue(
-                        &mut session_queue,
-                        &mut commander_to_switch,
-                        &mut plugin_infos).await {
-                        log::error!("{e}");
-                    }
-                }
+                log::trace!("plugin_to_commander recv {event:?}");
+                handle_plugin_reply(
+                    &mut plugins,
+                    event,
+                    &mut session_queue,
+                    &mut commander_to_switch).await
             }
             Some(event) = user_to_commander.recv() => {
-                match event.user {
-                    NipartUserEvent::QueryPluginInfo => {
-                        if let Err(e) = handle_plugin_info_query(
-                            &mut commander_to_switch,
-                            &mut session_queue,
-                            &event,
-                            plugin_infos.len()).await {
-                            log::error!("{e}");
-                        }
-                    }
-                    NipartUserEvent::QueryLogLevel => {
-                        if let Err(e) = handle_query_log_level(
-                            &mut commander_to_switch,
-                            &mut session_queue,
-                            event.uuid,
-                            plugin_infos.len()
-                            ).await {
-                            log::error!("{e}");
-                        }
-                    }
-                    NipartUserEvent::ChangeLogLevel(l) => {
-                        if let Err(e) = handle_change_log_level(
-                            &mut commander_to_switch,
-                            &mut session_queue,
-                            l,
-                            event.uuid,
-                            plugin_infos.len()).await {
-                            log::error!("{e}");
-                        }
-                    }
-                    NipartUserEvent::Quit => {
-                        if let Err(e) = commander_to_daemon.send(event).await {
-                            log::error!("{e}");
-                        }
-                        break;
-                    }
-                    _ => {
-                        log::error!("Unknown event {event:?}");
-                    }
-                }
+                log::trace!("user_to_commander recv {event:?}");
+                handle_user_request(
+                    &plugins,
+                    event,
+                    &mut session_queue,
+                    &mut commander_to_daemon,
+                    &mut commander_to_switch).await
             }
+        } {
+            log::error!("{e}");
         }
     }
 }
 
-async fn handle_plugin_info_query(
+async fn process_session(
+    session_queue: &mut SessionQueue,
+    session: Session,
     commander_to_switch: &mut Sender<NipartEvent>,
-    session_queue: &mut CommanderSessionQueue,
-    event: &NipartEvent,
-    plugin_count: usize,
+    plugins: &mut Plugins,
 ) -> Result<(), NipartError> {
-    log::debug!("Sending QueryPluginInfo to {plugin_count} plugins");
-    let mut request = NipartEvent::new(
-        NipartEventAction::Request,
-        event.user.clone(),
-        NipartPluginEvent::QueryPluginInfo,
-        NipartEventAddress::Commander,
-        NipartEventAddress::AllPlugins,
-    );
-    request.uuid = event.uuid;
-    session_queue.new_session(
-        request.uuid,
-        request.clone(),
-        plugin_count,
-        DEFAULT_TIMEOUT,
-    );
-    commander_to_switch.send(request.clone()).await?;
-    Ok(())
-}
-
-async fn handle_query_log_level(
-    commander_to_switch: &mut Sender<NipartEvent>,
-    session_queue: &mut CommanderSessionQueue,
-    ref_uuid: u128,
-    plugin_count: usize,
-) -> Result<(), NipartError> {
-    log::debug!("Sending PluginQueryLogLevel to {plugin_count} plugins");
-    let mut request = NipartEvent::new(
-        NipartEventAction::Request,
-        NipartUserEvent::QueryLogLevel,
-        NipartPluginEvent::QueryLogLevel,
-        NipartEventAddress::Commander,
-        NipartEventAddress::AllPlugins,
-    );
-    request.uuid = ref_uuid;
-    session_queue.new_session(
-        request.uuid,
-        request.clone(),
-        plugin_count,
-        DEFAULT_TIMEOUT,
-    );
-    commander_to_switch.send(request.clone()).await?;
-    Ok(())
-}
-
-async fn handle_change_log_level(
-    commander_to_switch: &mut Sender<NipartEvent>,
-    session_queue: &mut CommanderSessionQueue,
-    log_level: NipartLogLevel,
-    ref_uuid: u128,
-    plugin_count: usize,
-) -> Result<(), NipartError> {
-    log::set_max_level(log_level.into());
-
-    log::debug!("Sending PluginChangeLogLevel to {plugin_count} plugins");
-    let mut request = NipartEvent::new(
-        NipartEventAction::Request,
-        NipartUserEvent::ChangeLogLevel(log_level),
-        NipartPluginEvent::ChangeLogLevel(log_level),
-        NipartEventAddress::Commander,
-        NipartEventAddress::AllPlugins,
-    );
-    request.uuid = ref_uuid;
-    session_queue.new_session(
-        request.uuid,
-        request.clone(),
-        plugin_count,
-        DEFAULT_TIMEOUT,
-    );
-    commander_to_switch.send(request.clone()).await?;
-    Ok(())
-}
-
-async fn handle_refresh_plugin_infos(
-    commander_to_switch: &mut Sender<NipartEvent>,
-    session_queue: &mut CommanderSessionQueue,
-    plugin_count: usize,
-) -> Result<(), NipartError> {
-    let request = NipartEvent::new(
-        NipartEventAction::Request,
-        NipartUserEvent::None,
-        NipartPluginEvent::QueryPluginInfo,
-        NipartEventAddress::Commander,
-        NipartEventAddress::AllPlugins,
-    );
-    session_queue.new_session(
-        request.uuid,
-        request.clone(),
-        plugin_count,
-        DEFAULT_TIMEOUT,
-    );
-    log::trace!("commander_to_switch {request:?}");
-    commander_to_switch.send(request.clone()).await?;
-    Ok(())
-}
-
-fn process_session(
-    session: CommanderSession,
-    plugin_infos: &mut HashMap<String, Vec<NipartRole>>,
-) -> Result<Option<NipartEvent>, NipartError> {
     match session.request.plugin {
         NipartPluginEvent::QueryPluginInfo => {
-            // Commander want to refresh its own knowledge of plugins
-            if session.request.user == NipartUserEvent::None {
-                plugin_infos.clear();
-                for reply in session.replies {
-                    if let NipartPluginEvent::QueryPluginInfoReply(i) =
-                        reply.plugin
-                    {
-                        log::debug!(
-                            "Commander is aware of plugin {} with roles {:?}",
-                            i.name,
-                            i.roles
-                        );
-                        plugin_infos.insert(i.name, i.roles);
-                    }
-                }
-                Ok(None)
-            } else {
-                let mut plugin_infos = Vec::new();
-                for reply in &session.replies {
-                    if let NipartPluginEvent::QueryPluginInfoReply(i) =
-                        &reply.plugin
-                    {
-                        plugin_infos.push(i.clone());
-                    }
-                }
-                let mut reply_event = NipartEvent::new(
-                    NipartEventAction::Done,
-                    NipartUserEvent::QueryPluginInfoReply(plugin_infos),
-                    NipartPluginEvent::None,
-                    NipartEventAddress::Daemon,
-                    NipartEventAddress::User,
-                );
-                reply_event.ref_uuid = Some(session.request.uuid);
-                Ok(Some(reply_event))
-            }
+            process_query_plugin_info(session, plugins, commander_to_switch)
+                .await?;
         }
         NipartPluginEvent::QueryLogLevel
         | NipartPluginEvent::ChangeLogLevel(_) => {
-            let mut log_levels = HashMap::new();
-            for reply in &session.replies {
-                if let NipartPluginEvent::QueryLogLevelReply(l) = &reply.plugin
-                {
-                    log_levels.insert(reply.src.to_string(), *l);
-                }
-            }
-            log_levels.insert("daemon".to_string(), log::max_level().into());
-            let mut reply_event = NipartEvent::new(
-                NipartEventAction::Done,
-                NipartUserEvent::QueryLogLevelReply(log_levels),
-                NipartPluginEvent::None,
-                NipartEventAddress::Daemon,
-                NipartEventAddress::User,
-            );
-            reply_event.ref_uuid = Some(session.request.uuid);
-            Ok(Some(reply_event))
+            process_query_log_level(session, commander_to_switch).await?;
         }
-        _ => Ok(None),
-    }
-}
-
-async fn process_session_queue(
-    session_queue: &mut CommanderSessionQueue,
-    commander_to_switch: &mut Sender<NipartEvent>,
-    plugin_infos: &mut HashMap<String, Vec<NipartRole>>,
-) -> Result<(), NipartError> {
-    for session in session_queue.get_timeout_or_finished()? {
-        if let Some(event) = process_session(session, plugin_infos)? {
-            if let Err(_e) = commander_to_switch.send(event.clone()).await {
-                log::error!("Failed to send event to switch {event:?}");
-                break;
-            }
+        NipartPluginEvent::QueryNetState(_) => {
+            process_query_net_state_reply(
+                session_queue,
+                session,
+                commander_to_switch,
+            )
+            .await?;
+        }
+        _ => {
+            log::error!("process_session(): Unexpected session {session:?}");
         }
     }
     Ok(())
+}
+
+async fn process_session_queue(
+    session_queue: &mut SessionQueue,
+    commander_to_switch: &mut Sender<NipartEvent>,
+    plugins: &mut Plugins,
+) -> Result<(), NipartError> {
+    for session in session_queue.get_timeout_or_finished()? {
+        if let Err(e) = process_session(
+            session_queue,
+            session,
+            commander_to_switch,
+            plugins,
+        )
+        .await
+        {
+            log::error!("{e}");
+        }
+    }
+    Ok(())
+}
+
+async fn handle_daemon_commands(
+    event: NipartEvent,
+    session_queue: &mut SessionQueue,
+    commander_to_switch: &mut Sender<NipartEvent>,
+) -> Result<(), NipartError> {
+    match event.plugin {
+        NipartPluginEvent::CommanderRefreshPlugins(i) => {
+            handle_refresh_plugin_infos(commander_to_switch, session_queue, i)
+                .await
+        }
+        _ => {
+            log::error!(
+                "commander_thread(): Unexpected daemon_to_commander {event:?}"
+            );
+            Ok(())
+        }
+    }
+}
+
+async fn handle_plugin_reply(
+    plugins: &mut Plugins,
+    event: NipartEvent,
+    session_queue: &mut SessionQueue,
+    commander_to_switch: &mut Sender<NipartEvent>,
+) -> Result<(), NipartError> {
+    // Notification event from plugin
+    if event.ref_uuid.is_none() {
+        log::error!("TODO: handle notification event from plugin {event:?}");
+        Ok(())
+    } else {
+        session_queue.push(event)?;
+        process_session_queue(session_queue, commander_to_switch, plugins).await
+    }
+}
+
+async fn handle_user_request(
+    plugins: &Plugins,
+    event: NipartEvent,
+    session_queue: &mut SessionQueue,
+    commander_to_daemon: &mut Sender<NipartEvent>,
+    commander_to_switch: &mut Sender<NipartEvent>,
+) -> Result<(), NipartError> {
+    match event.user {
+        NipartUserEvent::QueryPluginInfo => {
+            handle_query_plugin_infos(
+                commander_to_switch,
+                session_queue,
+                plugins.len(),
+                event.uuid,
+            )
+            .await
+        }
+        NipartUserEvent::QueryLogLevel => {
+            handle_query_log_level(
+                commander_to_switch,
+                session_queue,
+                event.uuid,
+                plugins.len(),
+            )
+            .await
+        }
+        NipartUserEvent::ChangeLogLevel(l) => {
+            handle_change_log_level(
+                commander_to_switch,
+                session_queue,
+                l,
+                event.uuid,
+                plugins.len(),
+            )
+            .await
+        }
+        NipartUserEvent::Quit => {
+            handle_quit(commander_to_daemon, commander_to_switch).await
+        }
+        NipartUserEvent::QueryNetState(opt) => {
+            handle_query_net_state(
+                commander_to_switch,
+                session_queue,
+                opt,
+                event.uuid,
+                plugins,
+            )
+            .await
+        }
+        _ => {
+            log::error!("Unknown event {event:?}");
+            Ok(())
+        }
+    }
+}
+
+async fn handle_quit(
+    commander_to_daemon: &mut Sender<NipartEvent>,
+    commander_to_switch: &mut Sender<NipartEvent>,
+) -> Result<(), NipartError> {
+    let plugin_quit_event = NipartEvent::new(
+        NipartEventAction::OneShot,
+        NipartUserEvent::Quit,
+        NipartPluginEvent::Quit,
+        NipartEventAddress::Commander,
+        NipartEventAddress::AllPlugins,
+    );
+    log::trace!("handle_quit(): sent to switch {plugin_quit_event:?}");
+    if let Err(e) = commander_to_switch.send(plugin_quit_event).await {
+        log::error!("{e}");
+    }
+    // Give switch some time to send out quit event to plugins.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    let daemon_quit_event = NipartEvent::new(
+        NipartEventAction::OneShot,
+        NipartUserEvent::Quit,
+        NipartPluginEvent::Quit,
+        NipartEventAddress::Commander,
+        NipartEventAddress::Daemon,
+    );
+    log::trace!("handle_quit(): sent to daemon {daemon_quit_event:?}");
+    commander_to_daemon.send(daemon_quit_event).await.ok();
+    // Wait a little bit for switch/daemon to process this information
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    std::process::exit(0)
 }

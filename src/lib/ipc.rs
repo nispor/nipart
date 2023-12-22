@@ -10,8 +10,8 @@ use tokio::net::UnixStream;
 
 use crate::{
     ErrorKind, NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartLogLevel, NipartNetConfig, NipartPluginEvent, NipartPluginInfo,
-    NipartQueryConfigOption, NipartUserEvent,
+    NipartLogLevel, NipartNetState, NipartPluginEvent, NipartPluginInfo,
+    NipartQueryStateOption, NipartUserEvent,
 };
 
 #[derive(Debug)]
@@ -20,7 +20,7 @@ pub struct NipartConnection {
     pub timeout: u64,
     pub path: String,
     pub(crate) socket: UnixStream,
-    pub buffer: HashMap<u128, Vec<NipartEvent>>,
+    pub buffer: HashMap<u128, NipartEvent>,
 }
 
 impl NipartConnection {
@@ -111,12 +111,16 @@ impl NipartConnection {
             NipartEventAddress::Daemon,
         );
         self.send(&request).await?;
-        for event in self.recv_reply(request.uuid, self.timeout, 0).await? {
-            if let NipartUserEvent::QueryPluginInfoReply(i) = event.user {
-                return Ok(i);
-            }
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+
+        if let NipartUserEvent::QueryPluginInfoReply(i) = event.user {
+            Ok(i)
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for QueryPluginInfo"),
+            ))
         }
-        Ok(Vec::new())
     }
 
     pub async fn query_log_level(
@@ -130,12 +134,15 @@ impl NipartConnection {
             NipartEventAddress::Daemon,
         );
         self.send(&request).await?;
-        for event in self.recv_reply(request.uuid, self.timeout, 0).await? {
-            if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
-                return Ok(i);
-            }
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+        if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
+            Ok(i)
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for QueryLogLevel"),
+            ))
         }
-        Ok(HashMap::new())
     }
 
     pub async fn set_log_level(
@@ -150,19 +157,50 @@ impl NipartConnection {
             NipartEventAddress::Daemon,
         );
         self.send(&request).await?;
-        for event in self.recv_reply(request.uuid, self.timeout, 0).await? {
-            if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
-                return Ok(i);
-            }
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+        if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
+            Ok(i)
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for ChangeLogLevel"),
+            ))
         }
-        Ok(HashMap::new())
     }
 
-    pub async fn query_saved_config(
+    pub async fn query_net_state(
         &mut self,
-        _option: &NipartQueryConfigOption,
-    ) -> Result<NipartNetConfig, NipartError> {
-        todo!()
+        option: NipartQueryStateOption,
+    ) -> Result<NipartNetState, NipartError> {
+        let request = NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::QueryNetState(option),
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+        );
+        self.send(&request).await?;
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+        if let NipartUserEvent::QueryNetStateReply(s) = event.user {
+            Ok(s)
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for QueryNetState"),
+            ))
+        }
+    }
+
+    pub async fn stop_daemon(&mut self) -> Result<(), NipartError> {
+        let request = NipartEvent::new(
+            NipartEventAction::OneShot,
+            NipartUserEvent::Quit,
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+        );
+        self.send(&request).await?;
+        Ok(())
     }
 
     pub async fn send<T>(&mut self, data: &T) -> Result<(), NipartError>
@@ -193,83 +231,68 @@ impl NipartConnection {
         Ok(())
     }
 
-    /// Since plugins are all working asynchronously, recv() might receive
+    /// Since daemon is working asynchronously, recv() might receive
     /// message we are not interested, this function will only store
     /// irrelevant reply to internal buffer.
     ///
     /// # Returns
     ///  * Function will return when a matching event with
     ///    `NipartEventAction::Done`received.
-    ///  * When `expected_count` is set to non-zero, function returns once got
-    ///    enough received event.
-    ///  * If timeout with any reply received, return `Ok(events)`.
     ///  * If timeout without any reply received, return `Err()` with
     ///    `ErrorKind::Timeout`.
     pub async fn recv_reply(
         &mut self,
         uuid: u128,
         timeout_ms: u64,
-        expected_count: usize,
-    ) -> Result<Vec<NipartEvent>, NipartError> {
-        // Search buffer first, we might already cached it
-        let mut events = if let Some(events) = self.buffer.remove(&uuid) {
-            if is_reply_enough(events.as_slice(), expected_count) {
-                return Ok(events);
-            } else {
-                events
-            }
+    ) -> Result<NipartEvent, NipartError> {
+        if let Some(event) = self.buffer.remove(&uuid) {
+            event.into_result()
         } else {
-            Vec::new()
-        };
-
-        let mut remain_time = Duration::from_millis(timeout_ms);
-        while remain_time > Duration::ZERO {
-            let now = std::time::Instant::now();
-            match tokio::time::timeout(remain_time, self.recv::<NipartEvent>())
+            let mut remain_time = Duration::from_millis(timeout_ms);
+            while remain_time > Duration::ZERO {
+                let now = std::time::Instant::now();
+                match tokio::time::timeout(
+                    remain_time,
+                    self.recv::<NipartEvent>(),
+                )
                 .await
-            {
-                Ok(Ok(event)) => {
-                    let elapsed = now.elapsed();
-                    if elapsed >= remain_time {
-                        remain_time = Duration::ZERO;
-                    } else {
-                        remain_time -= elapsed;
-                    }
-                    if event.ref_uuid == Some(uuid) {
-                        events.push(event);
-                        if is_reply_enough(events.as_slice(), expected_count) {
-                            return Ok(events);
+                {
+                    Ok(Ok(event)) => {
+                        let elapsed = now.elapsed();
+                        if elapsed >= remain_time {
+                            remain_time = Duration::ZERO;
+                        } else {
+                            remain_time -= elapsed;
                         }
-                    } else if let Some(ref_uuid) = event.ref_uuid {
-                        self.buffer.entry(ref_uuid).or_default().push(event);
-                    } else {
-                        log::warn!(
-                            "Discarding reply event due to \
-                            missing ref_uuid: {event:?}"
-                        );
+                        if event.ref_uuid == Some(uuid) {
+                            return event.into_result();
+                        } else if let Some(ref_uuid) = event.ref_uuid {
+                            self.buffer.insert(ref_uuid, event);
+                        } else {
+                            log::warn!(
+                                "Discarding reply event due to \
+                                missing ref_uuid: {event:?}"
+                            );
+                        }
                     }
-                }
-                Ok(Err(e)) => {
-                    let elapsed = now.elapsed();
-                    if elapsed >= remain_time {
-                        remain_time = Duration::ZERO;
-                    } else {
-                        remain_time -= elapsed;
+                    Ok(Err(e)) => {
+                        let elapsed = now.elapsed();
+                        if elapsed >= remain_time {
+                            remain_time = Duration::ZERO;
+                        } else {
+                            remain_time -= elapsed;
+                        }
+                        log::debug!("Got NipartConnection::recv() error {e}");
                     }
-                    log::debug!("Got NipartConnection::recv() error {e}");
-                }
-                Err(_) => {
-                    break;
+                    Err(_) => {
+                        break;
+                    }
                 }
             }
-        }
-        if events.is_empty() {
             Err(NipartError::new(
                 ErrorKind::Timeout,
-                format!("No reply for {uuid} received before time"),
+                format!("Timeout on waiting reply for event {uuid}"),
             ))
-        } else {
-            Ok(events)
         }
     }
 
@@ -340,13 +363,5 @@ impl NipartConnection {
             log::trace!("Received {t:?}");
         }
         ret
-    }
-}
-
-fn is_reply_enough(events: &[NipartEvent], expected_count: usize) -> bool {
-    if expected_count != 0 && events.len() == expected_count {
-        true
-    } else {
-        events.iter().any(|e| e.is_done())
     }
 }

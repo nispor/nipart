@@ -1,8 +1,43 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::HashMap;
 use std::os::unix::fs::PermissionsExt;
 
-use nipart::{ErrorKind, NipartError, NipartLogLevel};
+use nipart::{
+    ErrorKind, NipartError, NipartLogLevel, NipartPluginInfo, NipartRole,
+};
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Plugins {
+    data: HashMap<NipartRole, Vec<String>>,
+}
+
+impl Plugins {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    pub(crate) fn push(&mut self, plugin_info: NipartPluginInfo) {
+        for role in plugin_info.roles {
+            self.data
+                .entry(role)
+                .and_modify(|n| n.push(plugin_info.name.clone()))
+                .or_insert(vec![plugin_info.name.clone()]);
+        }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.data.clear();
+    }
+
+    pub(crate) fn get_plugin_count_with_role(&self, role: NipartRole) -> usize {
+        self.data.get(&role).map(|r| r.len()).unwrap_or_default()
+    }
+}
 
 const PLUGIN_PREFIX: &str = "nipart_plugin_";
 

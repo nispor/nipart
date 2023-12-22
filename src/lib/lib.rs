@@ -7,6 +7,7 @@ mod ipc;
 mod logging;
 mod plugin;
 mod plugin_ipc;
+mod plugin_trait;
 mod query;
 mod state;
 
@@ -18,7 +19,8 @@ pub use self::event::{
 };
 pub use self::ipc::NipartConnection;
 pub use self::logging::NipartLogLevel;
-pub use self::plugin::{NipartPlugin, NipartPluginInfo, NipartRole};
+pub use self::plugin::{NipartPluginInfo, NipartRole};
 pub use self::plugin_ipc::NipartConnectionListener;
+pub use self::plugin_trait::NipartPlugin;
 pub use self::query::{NipartQueryConfigOption, NipartQueryStateOption};
 pub use self::state::NipartNetState;

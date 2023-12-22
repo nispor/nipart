@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    NipartLogLevel, NipartNetState, NipartPluginInfo, NipartQueryStateOption,
-    NipartRole,
+    NipartError, NipartLogLevel, NipartNetState, NipartPluginInfo,
+    NipartQueryStateOption, NipartRole,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -71,8 +71,12 @@ impl NipartEvent {
         }
     }
 
-    pub(crate) fn is_done(&self) -> bool {
-        self.action == NipartEventAction::Done
+    pub(crate) fn into_result(self) -> Result<NipartEvent, NipartError> {
+        if let NipartUserEvent::Error(e) = self.user {
+            Err(e)
+        } else {
+            Ok(self)
+        }
     }
 }
 
@@ -91,6 +95,7 @@ pub enum NipartUserEvent {
     #[default]
     None,
     Quit,
+    Error(NipartError),
 
     QueryPluginInfo,
     QueryPluginInfoReply(Vec<NipartPluginInfo>),
@@ -110,10 +115,14 @@ pub enum NipartPluginEvent {
     None,
     Quit,
     CommanderRefreshPlugins(usize),
-    UpdateAllPluginInfo(Vec<NipartPluginInfo>),
+
     QueryPluginInfo,
     QueryPluginInfoReply(NipartPluginInfo),
+
     ChangeLogLevel(NipartLogLevel),
     QueryLogLevel,
     QueryLogLevelReply(NipartLogLevel),
+
+    QueryNetState(NipartQueryStateOption),
+    QueryNetStateReply(NipartNetState, u32),
 }

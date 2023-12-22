@@ -3,7 +3,11 @@
 mod api_listener;
 mod commander;
 mod plugin;
+mod session_queue;
 mod switch;
+
+pub(crate) use self::plugin::Plugins;
+pub(crate) use self::session_queue::{Session, SessionQueue};
 
 use nipart::{
     NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
@@ -16,14 +20,13 @@ use self::plugin::load_plugins;
 use self::switch::start_event_switch_thread;
 
 pub(crate) const MPSC_CHANNLE_SIZE: usize = 64;
+pub(crate) const DEFAULT_TIMEOUT: u64 = 1000; // 1 seconds
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 50)]
 async fn main() -> Result<(), NipartError> {
     init_logger();
 
-    // We don't plan to unload plugin during runtime when plugin is slow or bad.
-    // To support that, we need a mutex protected Vec which is complex.
-    // We assume the plugin can be trusted.
+    // TODO: Find a way to refresh plugins in switch
     let plugins = load_plugins();
     let plugin_count = plugins.len();
 
@@ -71,7 +74,7 @@ async fn main() -> Result<(), NipartError> {
                 }
             }
             None => {
-                log::error!("Stopping daemon because commander quited");
+                log::error!("Stopping daemon because commander stopped");
                 return Ok(());
             }
         }
