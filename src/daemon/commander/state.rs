@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartNetState, NipartPluginEvent, NipartQueryStateOption, NipartRole,
+    ErrorKind, NetworkState, NipartError, NipartEvent, NipartEventAction,
+    NipartEventAddress, NipartPluginEvent, NipartQueryStateOption, NipartRole,
     NipartUserEvent,
 };
 use tokio::sync::mpsc::Sender;
@@ -66,13 +66,13 @@ pub(crate) async fn process_query_net_state_reply(
             if let NipartPluginEvent::QueryNetStateReply(state, priority) =
                 reply.plugin
             {
-                states.push((state, priority));
+                states.push((*state, priority));
             }
         }
-        let state = NipartNetState::merge_states(states);
+        let state = NetworkState::merge_states(states);
         NipartEvent::new(
             NipartEventAction::Request,
-            NipartUserEvent::QueryNetStateReply(state),
+            NipartUserEvent::QueryNetStateReply(Box::new(state)),
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
             NipartEventAddress::User,

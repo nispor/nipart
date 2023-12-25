@@ -9,8 +9,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 use crate::{
-    ErrorKind, NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartLogLevel, NipartNetState, NipartPluginEvent, NipartPluginInfo,
+    ErrorKind, NetworkState, NipartError, NipartEvent, NipartEventAction,
+    NipartEventAddress, NipartLogLevel, NipartPluginEvent, NipartPluginInfo,
     NipartQueryStateOption, NipartUserEvent,
 };
 
@@ -171,7 +171,7 @@ impl NipartConnection {
     pub async fn query_net_state(
         &mut self,
         option: NipartQueryStateOption,
-    ) -> Result<NipartNetState, NipartError> {
+    ) -> Result<NetworkState, NipartError> {
         let request = NipartEvent::new(
             NipartEventAction::Request,
             NipartUserEvent::QueryNetState(option),
@@ -182,7 +182,7 @@ impl NipartConnection {
         self.send(&request).await?;
         let event = self.recv_reply(request.uuid, self.timeout).await?;
         if let NipartUserEvent::QueryNetStateReply(s) = event.user {
-            Ok(s)
+            Ok(*s)
         } else {
             Err(NipartError::new(
                 ErrorKind::Bug,

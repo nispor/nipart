@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    NipartError, NipartLogLevel, NipartNetState, NipartPluginInfo,
+    NetworkState, NipartError, NipartLogLevel, NipartPluginInfo,
     NipartQueryStateOption, NipartRole,
 };
 
@@ -105,7 +105,7 @@ pub enum NipartUserEvent {
     QueryLogLevelReply(HashMap<String, NipartLogLevel>),
 
     QueryNetState(NipartQueryStateOption),
-    QueryNetStateReply(NipartNetState),
+    QueryNetStateReply(Box<NetworkState>),
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
@@ -124,5 +124,5 @@ pub enum NipartPluginEvent {
     QueryLogLevelReply(NipartLogLevel),
 
     QueryNetState(NipartQueryStateOption),
-    QueryNetStateReply(NipartNetState, u32),
+    QueryNetStateReply(Box<NetworkState>, u32),
 }

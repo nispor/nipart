@@ -13,7 +13,12 @@ pub enum ErrorKind {
     InvalidArgument,
     Bug,
     PluginError,
-    NoSupport,
+    NotImplementedError,
+    DependencyError,
+    VerificationError,
+    NotSupportedError,
+    KernelIntegerRoundedError,
+    SrIovVfNotFound,
     Timeout,
 }
 
@@ -38,6 +43,8 @@ impl NipartError {
     }
 }
 
+impl std::error::Error for NipartError {}
+
 impl std::fmt::Display for NipartError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.msg)
@@ -50,4 +57,17 @@ impl From<tokio::sync::mpsc::error::SendError<NipartEvent>> for NipartError {
     }
 }
 
-impl std::error::Error for NipartError {}
+impl From<serde_json::Error> for NipartError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::new(ErrorKind::Bug, format!("serde_json::Error: {e}"))
+    }
+}
+
+impl From<std::net::AddrParseError> for NipartError {
+    fn from(e: std::net::AddrParseError) -> Self {
+        NipartError::new(
+            ErrorKind::InvalidArgument,
+            format!("Invalid IP address : {e}"),
+        )
+    }
+}
