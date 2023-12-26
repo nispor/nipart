@@ -110,10 +110,10 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
 
     fn handle_event(
         plugin: Arc<Self>,
-        connection: &mut NipartConnection,
         event: NipartEvent,
-    ) -> impl std::future::Future<Output = Result<Vec<NipartEvent>, NipartError>>
-           + Send;
+    ) -> impl std::future::Future<
+        Output = Result<Option<NipartEvent>, NipartError>,
+    > + Send;
 
     fn handle_connection(
         runner: Arc<NipartPluginRunner>,
@@ -165,15 +165,10 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                         )
                         .await
                     }
-                    _ => match Self::handle_event(
-                        plugin.clone(),
-                        &mut np_conn,
-                        event,
-                    )
-                    .await
-                    {
-                        Ok(events) => {
-                            for event in events {
+                    _ => {
+                        match Self::handle_event(plugin.clone(), event).await {
+                            Ok(None) => (),
+                            Ok(Some(event)) => {
                                 if let Err(e) = np_conn.send(&event).await {
                                     log::warn!(
                                         "Failed to send event to \
@@ -181,15 +176,15 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
                                     );
                                 }
                             }
-                        }
-                        Err(e) => {
-                            log::error!(
-                                "Nipart plugin {} failed to process \
+                            Err(e) => {
+                                log::error!(
+                                    "Nipart plugin {} failed to process \
                                 socket connection: {e}",
-                                Self::PLUGIN_NAME
-                            )
+                                    Self::PLUGIN_NAME
+                                )
+                            }
                         }
-                    },
+                    }
                 }
             }
         }

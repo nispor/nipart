@@ -87,7 +87,7 @@ fn plugin_start(
             Ok(())
         }
         Err(e) => Err(NipartError::new(
-            ErrorKind::PluginError,
+            ErrorKind::PluginFailure,
             format!(
                 "Failed to start plugin {} {}: {}",
                 plugin_exec_path, &socket_path, e

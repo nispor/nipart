@@ -20,6 +20,7 @@ NMSTATE_RUST_CODE_DIR = os.path.realpath(
     f"{SCRIPT_DIR}/../../../../nmstate/rust/src/lib"
 )
 
+
 def replace_crate_with_crate_state():
     subprocess.run(
         f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
@@ -102,12 +103,153 @@ def remove_feature_compile_line():
     )
 
 
+def change_merged_network_state_props_to_public():
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
+            "s/pub(crate) interfaces: MergedInterfaces/"
+            "pub interfaces: MergedInterfaces/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
+            "s/pub(crate) kernel_ifaces: HashMap<String, Interface>/"
+            "pub kernel_ifaces: HashMap<String, Interface>/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            r"s/pub(crate) fn new($/pub fn new(/",
+            f"{SCRIPT_DIR}/net_state.rs",
+        ],
+        check=True,
+    )
+
+
+def change_supported_list_to_public():
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) const SUPPORTED_LIST/pub const SUPPORTED_LIST/",
+            f"{SCRIPT_DIR}/query_apply/iface.rs",
+        ],
+        check=True,
+    )
+
+
+def change_prop_list_to_public():
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
+            "s/pub(crate) prop_list:/pub prop_list:/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+
+
+def change_is_controller_to_public():
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) fn is_controller/pub fn is_controller/",
+            f"{SCRIPT_DIR}/iface.rs",
+        ],
+        check=True,
+    )
+
+
+def change_merged_interfaces_props_to_public():
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) fn iter/pub fn iter/",
+            f"{SCRIPT_DIR}/ifaces/inter_ifaces.rs",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) kernel_ifaces:/pub kernel_ifaces:/",
+            f"{SCRIPT_DIR}/ifaces/inter_ifaces.rs",
+        ],
+        check=True,
+    )
+
+
+def change_merged_interface_props_to_public():
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) for_apply:/pub for_apply:/",
+            f"{SCRIPT_DIR}/iface.rs",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) merged:/pub merged:/",
+            f"{SCRIPT_DIR}/iface.rs",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) current:/pub current:/",
+            f"{SCRIPT_DIR}/iface.rs",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) fn is_changed(/pub fn is_changed(/",
+            f"{SCRIPT_DIR}/iface.rs",
+        ],
+        check=True,
+    )
+
+
+def change_base_iface_props_to_public():
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) up_priority:/pub up_priority:/",
+            f"{SCRIPT_DIR}/ifaces/base.rs",
+        ],
+        check=True,
+    )
+
+
+def change_func_ports_to_public():
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
+            "s/pub(crate) fn ports(/pub fn ports(/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+
+
 def main():
     for file in os.listdir(NMSTATE_RUST_CODE_DIR):
         if file not in DENY_LIST:
             src_path = f"{NMSTATE_RUST_CODE_DIR}/{file}"
             dst_path = f"{SCRIPT_DIR}/{file}"
-            print("HAHA ", src_path)
             if os.path.isdir(src_path):
                 shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
             else:
@@ -119,6 +261,14 @@ def main():
     replace_nmstate_error_with_nipart_error()
     fix_merge_json_value()
     remove_feature_compile_line()
+    change_merged_network_state_props_to_public()
+    change_supported_list_to_public()
+    change_prop_list_to_public()
+    change_is_controller_to_public()
+    change_merged_interfaces_props_to_public()
+    change_merged_interface_props_to_public()
+    change_func_ports_to_public()
+    change_base_iface_props_to_public()
 
 
 main()

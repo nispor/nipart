@@ -9,8 +9,8 @@ use crate::state::{
     BaseInterface, BondInterface, DummyInterface, ErrorKind, EthernetInterface,
     InfiniBandInterface, IpsecInterface, LinuxBridgeInterface,
     LoopbackInterface, MacSecInterface, MacVlanInterface, MacVtapInterface,
-    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface, VrfInterface,
-    VxlanInterface, XfrmInterface,
+    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface,
+    VrfInterface, VxlanInterface, XfrmInterface,
 };
 
 use super::json::merge_json_value;
@@ -177,7 +177,7 @@ impl InterfaceType {
         matches!(self, Self::Other(_))
     }
 
-    pub(crate) fn is_controller(&self) -> bool {
+    pub fn is_controller(&self) -> bool {
         Self::CONTROLLER_IFACES_TYPES.contains(self)
     }
 }
@@ -456,7 +456,7 @@ impl Interface {
         self.base_iface().iface_type.is_userspace()
     }
 
-    pub(crate) fn is_controller(&self) -> bool {
+    pub fn is_controller(&self) -> bool {
         self.base_iface().iface_type.is_controller()
     }
 
@@ -783,10 +783,10 @@ impl Default for Interface {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MergedInterface {
     pub(crate) for_verify: Option<Interface>,
-    pub(crate) for_apply: Option<Interface>,
-    pub(crate) merged: Interface,
+    pub for_apply: Option<Interface>,
+    pub merged: Interface,
     pub(crate) desired: Option<Interface>,
-    pub(crate) current: Option<Interface>,
+    pub current: Option<Interface>,
 }
 
 impl MergedInterface {
@@ -824,7 +824,7 @@ impl MergedInterface {
     }
 
     // desired or invoked `mark_as_changed()`.
-    pub(crate) fn is_changed(&self) -> bool {
+    pub fn is_changed(&self) -> bool {
         self.for_apply.is_some()
     }
 

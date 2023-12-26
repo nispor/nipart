@@ -14,5 +14,6 @@ pub(crate) use self::plugin_info::{
     process_query_plugin_info,
 };
 pub(crate) use self::state::{
-    handle_query_net_state, process_query_net_state_reply,
+    handle_apply_net_state, handle_query_net_state,
+    process_apply_net_state_reply, process_query_net_state_reply,
 };

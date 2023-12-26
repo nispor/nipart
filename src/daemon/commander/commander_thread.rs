@@ -7,8 +7,9 @@ use nipart::{
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use super::{
-    handle_change_log_level, handle_query_log_level, handle_query_net_state,
-    handle_query_plugin_infos, handle_refresh_plugin_infos,
+    handle_apply_net_state, handle_change_log_level, handle_query_log_level,
+    handle_query_net_state, handle_query_plugin_infos,
+    handle_refresh_plugin_infos, process_apply_net_state_reply,
     process_query_log_level, process_query_net_state_reply,
     process_query_plugin_info,
 };
@@ -129,12 +130,10 @@ async fn process_session(
             process_query_log_level(session, commander_to_switch).await?;
         }
         NipartPluginEvent::QueryNetState(_) => {
-            process_query_net_state_reply(
-                session_queue,
-                session,
-                commander_to_switch,
-            )
-            .await?;
+            process_query_net_state_reply(session, commander_to_switch).await?;
+        }
+        NipartPluginEvent::ApplyNetState(_, _) => {
+            process_apply_net_state_reply(session, commander_to_switch).await?;
         }
         _ => {
             log::error!("process_session(): Unexpected session {session:?}");
@@ -241,6 +240,19 @@ async fn handle_user_request(
             handle_query_net_state(
                 commander_to_switch,
                 session_queue,
+                opt,
+                event.uuid,
+                plugins,
+            )
+            .await
+        }
+        NipartUserEvent::ApplyNetState(states, opt) => {
+            let (desired_state, current_state) = *states;
+            handle_apply_net_state(
+                commander_to_switch,
+                session_queue,
+                desired_state,
+                current_state,
                 opt,
                 event.uuid,
                 plugins,

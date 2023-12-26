@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    NetworkState, NipartError, NipartLogLevel, NipartPluginInfo,
-    NipartQueryStateOption, NipartRole,
+    NetworkState, NipartApplyOption, NipartError, NipartLogLevel,
+    NipartPluginInfo, NipartQueryOption, NipartRole,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -104,8 +104,12 @@ pub enum NipartUserEvent {
     QueryLogLevel,
     QueryLogLevelReply(HashMap<String, NipartLogLevel>),
 
-    QueryNetState(NipartQueryStateOption),
+    QueryNetState(NipartQueryOption),
     QueryNetStateReply(Box<NetworkState>),
+
+    ApplyNetState(Box<(NetworkState, NetworkState)>, NipartApplyOption),
+    // TODO: Return applied state and revert state
+    ApplyNetStateReply,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
@@ -123,6 +127,12 @@ pub enum NipartPluginEvent {
     QueryLogLevel,
     QueryLogLevelReply(NipartLogLevel),
 
-    QueryNetState(NipartQueryStateOption),
+    QueryNetState(NipartQueryOption),
     QueryNetStateReply(Box<NetworkState>, u32),
+
+    // TODO: We should send MergedNetworkState, but it does not have
+    //       Serialize trait
+    //                 desired,      current
+    ApplyNetState(Box<(NetworkState, NetworkState)>, NipartApplyOption),
+    ApplyNetStateReply,
 }

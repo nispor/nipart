@@ -9,9 +9,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 use crate::{
-    ErrorKind, NetworkState, NipartError, NipartEvent, NipartEventAction,
-    NipartEventAddress, NipartLogLevel, NipartPluginEvent, NipartPluginInfo,
-    NipartQueryStateOption, NipartUserEvent,
+    ErrorKind, NetworkState, NipartApplyOption, NipartError, NipartEvent,
+    NipartEventAction, NipartEventAddress, NipartLogLevel, NipartPluginEvent,
+    NipartPluginInfo, NipartQueryOption, NipartUserEvent,
 };
 
 #[derive(Debug)]
@@ -170,7 +170,7 @@ impl NipartConnection {
 
     pub async fn query_net_state(
         &mut self,
-        option: NipartQueryStateOption,
+        option: NipartQueryOption,
     ) -> Result<NetworkState, NipartError> {
         let request = NipartEvent::new(
             NipartEventAction::Request,
@@ -187,6 +187,35 @@ impl NipartConnection {
             Err(NipartError::new(
                 ErrorKind::Bug,
                 format!("Invalid reply {event:?} for QueryNetState"),
+            ))
+        }
+    }
+
+    pub async fn apply_net_state(
+        &mut self,
+        state: NetworkState,
+        option: NipartApplyOption,
+    ) -> Result<(), NipartError> {
+        let current_state =
+            self.query_net_state(NipartQueryOption::default()).await?;
+        let request = NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::ApplyNetState(
+                Box::new((state, current_state)),
+                option,
+            ),
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+        );
+        self.send(&request).await?;
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+        if let NipartUserEvent::ApplyNetStateReply = event.user {
+            Ok(())
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for ApplyNetState"),
             ))
         }
     }

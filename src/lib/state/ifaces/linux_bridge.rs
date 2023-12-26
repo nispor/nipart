@@ -8,8 +8,8 @@ use std::str::FromStr;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize};
 
 use crate::state::{
-    BaseInterface, BridgePortVlanConfig, ErrorKind, InterfaceType, NipartError,
-    VlanProtocol,
+    BaseInterface, BridgePortVlanConfig, ErrorKind, InterfaceType,
+    NipartError, VlanProtocol,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,8 +17,8 @@ use crate::state::{
 /// Bridge interface provided by linux kernel.
 /// When serializing or deserializing, the [BaseInterface] will
 /// be flatted and [LinuxBridgeConfig] stored as `bridge` section. The yaml
-/// output [crate::state::NetworkState] containing an example linux bridge
-/// interface: ```yml
+/// output [crate::state::NetworkState] containing an example linux bridge interface:
+/// ```yml
 /// interfaces:
 /// - name: br0
 ///   type: linux-bridge
@@ -87,7 +87,7 @@ impl Default for LinuxBridgeInterface {
 
 impl LinuxBridgeInterface {
     // Return None when desire state does not mentioned ports.
-    pub(crate) fn ports(&self) -> Option<Vec<&str>> {
+    pub fn ports(&self) -> Option<Vec<&str>> {
         self.bridge
             .as_ref()
             .and_then(|br_conf| br_conf.port.as_ref())

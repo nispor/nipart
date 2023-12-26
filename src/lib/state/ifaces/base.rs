@@ -22,9 +22,7 @@ pub struct BaseInterface {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_name: Option<String>,
-    #[serde(
-        skip_serializing_if = "crate::state::serializer::is_option_string_empty"
-    )]
+    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
     /// Interface description stored in network backend. Not available for
     /// kernel only mode.
     pub description: Option<String>,
@@ -138,7 +136,7 @@ pub struct BaseInterface {
     // plus one.
     // The 0 means top controller or no controller.
     #[serde(skip)]
-    pub(crate) up_priority: u32,
+    pub up_priority: u32,
     #[serde(skip)]
     pub(crate) routes: Option<Vec<RouteEntry>>,
     #[serde(flatten)]

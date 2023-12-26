@@ -13,8 +13,8 @@ use crate::state::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch bridge interface. Example yaml output of
-/// [crate::state::NetworkState] with an OVS bridge:
+/// OpenvSwitch bridge interface. Example yaml output of [crate::state::NetworkState]
+/// with an OVS bridge:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -69,7 +69,7 @@ impl OvsBridgeInterface {
     }
 
     // Return None when desire state does not mention ports
-    pub(crate) fn ports(&self) -> Option<Vec<&str>> {
+    pub fn ports(&self) -> Option<Vec<&str>> {
         if let Some(br_conf) = &self.bridge {
             if let Some(port_confs) = &br_conf.ports {
                 let mut port_names = Vec::new();
@@ -363,8 +363,8 @@ impl OvsBridgePortConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch internal interface. Example yaml output of
-/// [crate::state::NetworkState] with an DPDK enabled OVS interface:
+/// OpenvSwitch internal interface. Example yaml output of [crate::state::NetworkState]
+/// with an DPDK enabled OVS interface:
 /// ```yml
 /// ---
 /// interfaces:
@@ -461,7 +461,10 @@ impl OvsInterface {
     // OVS patch interface cannot have MTU or IP configuration
     // OVS DPDK `n_rxq_desc` and `n_txq_desc` should be power of 2 within
     // 1-4096.
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired && self.patch.is_some() {
             if self.base.mtu.is_some() {
                 let e = NipartError::new(
@@ -567,7 +570,7 @@ impl OvsBridgeBondConfig {
         Self::default()
     }
 
-    pub(crate) fn ports(&self) -> Vec<&str> {
+    pub fn ports(&self) -> Vec<&str> {
         let mut port_names: Vec<&str> = Vec::new();
         if let Some(ports) = &self.ports {
             for port in ports {
@@ -702,7 +705,10 @@ fn validate_dpdk_queue_desc(
 }
 
 impl OvsDpdkConfig {
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if let Some(n_rxq_desc) = self.n_rxq_desc {
                 validate_dpdk_queue_desc(n_rxq_desc, "n_rxq_desc")?;

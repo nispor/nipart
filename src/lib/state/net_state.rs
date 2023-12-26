@@ -364,17 +364,17 @@ impl NetworkState {
 pub struct MergedNetworkState {
     pub(crate) hostname: MergedHostNameState,
     pub(crate) dns: MergedDnsState,
-    pub(crate) interfaces: MergedInterfaces,
+    pub interfaces: MergedInterfaces,
     pub(crate) ovn: MergedOvnConfiguration,
     pub(crate) ovsdb: MergedOvsDbGlobalConfig,
     pub(crate) routes: MergedRoutes,
     pub(crate) rules: MergedRouteRules,
     pub(crate) memory_only: bool,
-    pub(crate) prop_list: Vec<&'static str>,
+    pub prop_list: Vec<&'static str>,
 }
 
 impl MergedNetworkState {
-    pub(crate) fn new(
+    pub fn new(
         desired: NetworkState,
         current: NetworkState,
         gen_conf_mode: bool,

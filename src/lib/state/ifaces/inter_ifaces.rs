@@ -33,7 +33,7 @@ const COPY_MAC_ALLOWED_IFACE_TYPES: [InterfaceType; 3] = [
 /// For 5+ nested level, you need to place controller interface before its
 /// ports.
 pub struct Interfaces {
-    pub(crate) kernel_ifaces: HashMap<String, Interface>,
+    pub kernel_ifaces: HashMap<String, Interface>,
     pub(crate) user_ifaces: HashMap<(String, InterfaceType), Interface>,
     // The insert_order is allowing user to provided ordered interface
     // to support 5+ nested dependency.
@@ -605,7 +605,7 @@ fn is_opt_str_empty(opt_string: &Option<String>) -> bool {
 //    Self clean up.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MergedInterfaces {
-    pub(crate) kernel_ifaces: HashMap<String, MergedInterface>,
+    pub kernel_ifaces: HashMap<String, MergedInterface>,
     pub(crate) user_ifaces: HashMap<(String, InterfaceType), MergedInterface>,
     pub(crate) insert_order: Vec<(String, InterfaceType)>,
     pub(crate) ignored_ifaces: Vec<(String, InterfaceType)>,
@@ -747,11 +747,11 @@ impl MergedInterfaces {
         }
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &MergedInterface> {
+    pub fn iter(&self) -> impl Iterator<Item = &MergedInterface> {
         self.user_ifaces.values().chain(self.kernel_ifaces.values())
     }
 
-    pub(crate) fn iter_mut(
+    pub fn iter_mut(
         &mut self,
     ) -> impl Iterator<Item = &mut MergedInterface> {
         self.user_ifaces

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod error;
+mod state;
 
 use std::str::FromStr;
 
 use nipart::{
-    NipartConnection, NipartEvent, NipartLogLevel, NipartQueryStateOption,
+    NipartApplyOption, NipartConnection, NipartEvent, NipartLogLevel,
+    NipartQueryOption,
 };
 
-use crate::error::CliError;
+use crate::{error::CliError, state::state_from_file};
 
 // timeout on 5 seconds
 const IPC_TIMEOUT: u64 = 5000;
@@ -24,9 +26,21 @@ async fn main() -> Result<(), CliError> {
                 .about("Query plugin info"),
         )
         .subcommand(
-            clap::Command::new("query")
-                .alias("q")
+            clap::Command::new("show")
+                .alias("s")
                 .about("Query network state"),
+        )
+        .subcommand(
+            clap::Command::new("apply")
+                .alias("set")
+                .alias("a")
+                .about("Apply network config")
+                .arg(
+                    clap::Arg::new("STATE_FILE")
+                        .required(true)
+                        .index(1)
+                        .help("Network state file"),
+                ),
         )
         .subcommand(
             clap::Command::new("log")
@@ -87,15 +101,18 @@ async fn main() -> Result<(), CliError> {
 
     if matches.subcommand_matches("plugin-info").is_some() {
         handle_plugin_info().await?;
-    } else if matches.subcommand_matches("query").is_some() {
-        handle_query().await?;
+    } else if matches.subcommand_matches("show").is_some() {
+        handle_show().await?;
     } else if let Some(m) = matches.subcommand_matches("log") {
         handle_log(m).await?;
     } else if let Some(matches) = matches.subcommand_matches("debug") {
         handle_debug(matches).await?;
     } else if let Some(matches) = matches.subcommand_matches("daemon") {
         handle_daemon_cmd(matches).await?;
+    } else if let Some(matches) = matches.subcommand_matches("apply") {
+        handle_apply(matches).await?;
     }
+
     Ok(())
 }
 
@@ -106,12 +123,20 @@ async fn handle_plugin_info() -> Result<(), CliError> {
     Ok(())
 }
 
-async fn handle_query() -> Result<(), CliError> {
+async fn handle_show() -> Result<(), CliError> {
     let mut conn = NipartConnection::new().await?;
-    let replies = conn
-        .query_net_state(NipartQueryStateOption::default())
-        .await?;
+    let replies = conn.query_net_state(NipartQueryOption::default()).await?;
     println!("{}", serde_yaml::to_string(&replies)?);
+    Ok(())
+}
+
+async fn handle_apply(matches: &clap::ArgMatches) -> Result<(), CliError> {
+    let mut conn = NipartConnection::new().await?;
+    let file_path = matches.get_one::<String>("STATE_FILE").unwrap();
+    let state = state_from_file(file_path)?;
+    conn.apply_net_state(state.clone(), NipartApplyOption::default())
+        .await?;
+    println!("{}", serde_yaml::to_string(&state)?);
     Ok(())
 }
 

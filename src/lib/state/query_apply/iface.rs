@@ -234,7 +234,7 @@ impl Interface {
 }
 
 impl InterfaceType {
-    pub(crate) const SUPPORTED_LIST: [InterfaceType; 17] = [
+    pub const SUPPORTED_LIST: [InterfaceType; 17] = [
         InterfaceType::Bond,
         InterfaceType::LinuxBridge,
         InterfaceType::Dummy,

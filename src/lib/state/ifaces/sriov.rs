@@ -11,8 +11,8 @@ use crate::state::{
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 /// Single Root I/O Virtualization(SRIOV) configuration. The example yaml output
-/// of [crate::state::NetworkState] with SR-IOV enabled ethernet interface would
-/// be: ```yml
+/// of [crate::state::NetworkState] with SR-IOV enabled ethernet interface would be:
+/// ```yml
 /// interfaces:
 /// - name: ens1f1
 ///   type: ethernet

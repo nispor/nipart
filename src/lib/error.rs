@@ -12,7 +12,7 @@ pub enum ErrorKind {
     IpcMessageTooLarge,
     InvalidArgument,
     Bug,
-    PluginError,
+    PluginFailure,
     NotImplementedError,
     DependencyError,
     VerificationError,

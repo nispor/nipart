@@ -122,7 +122,7 @@ impl BondInterface {
     }
 
     // Return None when desire state does not mention ports
-    pub(crate) fn ports(&self) -> Option<Vec<&str>> {
+    pub fn ports(&self) -> Option<Vec<&str>> {
         let config = self.bond.clone().unwrap_or_default();
         if config.port.is_some() {
             self.bond

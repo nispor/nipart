@@ -37,18 +37,14 @@ impl NipartPlugin for NipartPluginBaiZe {
         })
     }
 
-    fn handle_event(
+    async fn handle_event(
         _plugin: Arc<Self>,
-        _np_conn: &mut NipartConnection,
         event: NipartEvent,
-    ) -> impl std::future::Future<Output = Result<Vec<NipartEvent>, NipartError>>
-           + Send {
+    ) -> Result<Option<NipartEvent>, NipartError> {
         log::trace!("Plugin baize got event {:?}", event);
-        async move {
-            {
-                log::warn!("Plugin baize got unknown event {event:?}");
-                Ok(Vec::new())
-            }
+        {
+            log::warn!("Plugin baize got unknown event {event:?}");
+            Ok(None)
         }
     }
 }

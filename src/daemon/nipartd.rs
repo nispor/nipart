@@ -19,6 +19,7 @@ use self::commander::start_commander_thread;
 use self::plugin::load_plugins;
 use self::switch::start_event_switch_thread;
 
+const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 pub(crate) const MPSC_CHANNLE_SIZE: usize = 64;
 pub(crate) const DEFAULT_TIMEOUT: u64 = 1000; // 1 seconds
 
@@ -83,6 +84,6 @@ async fn main() -> Result<(), NipartError> {
 
 fn init_logger() {
     let mut log_builder = env_logger::Builder::new();
-    log_builder.filter(Some("nipart"), log::LevelFilter::Trace);
+    log_builder.filter(Some("nipart"), DEFAULT_LOG_LEVEL);
     log_builder.init();
 }

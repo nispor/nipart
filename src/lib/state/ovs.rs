@@ -24,7 +24,7 @@ pub struct OvsDbGlobalConfig {
     )]
     pub other_config: Option<HashMap<String, Option<String>>>,
     #[serde(skip)]
-    pub(crate) prop_list: Vec<&'static str>,
+    pub prop_list: Vec<&'static str>,
 }
 
 impl OvsDbGlobalConfig {
