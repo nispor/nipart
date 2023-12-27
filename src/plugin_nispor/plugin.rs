@@ -117,24 +117,7 @@ async fn handle_apply(
     to_daemon: Sender<NipartEvent>,
     ref_uuid: u128,
 ) {
-    let merged_state = match MergedNetworkState::new(
-        desired_state,
-        current_state,
-        false,
-        false,
-    ) {
-        Ok(s) => s,
-        Err(e) => {
-            // TODO: This should never fails
-            log::error!(
-                "BUG plugin handle_apply() \
-                failed to create MergedNetworkState {e}"
-            );
-            return;
-        }
-    };
-
-    if let Err(e) = nispor_apply(&merged_state).await {
+    if let Err(e) = nispor_apply(desired_state, current_state, opt).await {
         // TODO: Need find a way to collect there errors and send back user
         log::error!("Failed to apply {e}");
         return;

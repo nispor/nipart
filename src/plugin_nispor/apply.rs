@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, Interface, InterfaceType, MergedInterface, MergedInterfaces,
-    MergedNetworkState, NipartError,
+    ErrorKind, Interface, InterfaceType, Interfaces, MergedInterface,
+    MergedInterfaces, MergedNetworkState, NetworkState, NipartApplyOption,
+    NipartError,
 };
 
 use crate::{
@@ -12,34 +13,20 @@ use crate::{
 };
 
 pub(crate) async fn nispor_apply(
-    merged_state: &MergedNetworkState,
+    des_state: NetworkState,
+    cur_state: NetworkState,
+    _opt: NipartApplyOption,
 ) -> Result<(), NipartError> {
-    delete_ifaces(&merged_state.interfaces).await?;
+    delete_ifaces(&des_state.interfaces, &cur_state.interfaces).await?;
 
-    let mut ifaces: Vec<&MergedInterface> = merged_state
-        .interfaces
-        .iter()
-        .filter(|i| i.is_changed())
-        .collect();
-
-    ifaces.sort_unstable_by_key(|iface| iface.merged.name());
-    // Use sort_by_key() instead of unstable one, do we can alphabet
-    // activation order which is required to simulate the OS boot-up.
-    ifaces.sort_by_key(|iface| {
-        if let Some(i) = iface.for_apply.as_ref() {
-            i.base_iface().up_priority
-        } else {
-            u32::MAX
-        }
-    });
+    let ifaces: Vec<&Interface> = des_state.interfaces.to_vec();
 
     let mut np_ifaces: Vec<nispor::IfaceConf> = Vec::new();
-    for merged_iface in ifaces.iter().filter(|i| {
-        i.merged.iface_type() != InterfaceType::Unknown && !i.merged.is_absent()
-    }) {
-        if let Some(iface) = merged_iface.for_apply.as_ref() {
-            np_ifaces.push(nipart_iface_to_np(iface)?);
-        }
+    for iface in ifaces
+        .iter()
+        .filter(|i| i.iface_type() != InterfaceType::Unknown && !i.is_absent())
+    {
+        np_ifaces.push(nipart_iface_to_np(iface)?);
     }
 
     let mut net_conf = nispor::NetConf::default();
@@ -111,21 +98,20 @@ fn nipart_iface_to_np(
 }
 
 async fn delete_ifaces(
-    merged_ifaces: &MergedInterfaces,
+    ifaces: &Interfaces,
+    cur_ifaces: &Interfaces,
 ) -> Result<(), NipartError> {
     let mut deleted_veths: Vec<&str> = Vec::new();
     let mut np_ifaces: Vec<nispor::IfaceConf> = Vec::new();
-    for iface in merged_ifaces
-        .kernel_ifaces
-        .values()
-        .filter(|i| i.merged.is_absent())
-    {
+    for iface in ifaces.kernel_ifaces.values().filter(|i| i.is_absent()) {
         // Deleting one end of veth peer is enough
-        if deleted_veths.contains(&iface.merged.name()) {
+        if deleted_veths.contains(&iface.name()) {
             continue;
         }
 
-        if let Some(Interface::Ethernet(eth_iface)) = &iface.current {
+        if let Some(Interface::Ethernet(eth_iface)) =
+            cur_ifaces.kernel_ifaces.get(iface.name())
+        {
             if let Some(peer_name) = eth_iface
                 .veth
                 .as_ref()
@@ -135,10 +121,8 @@ async fn delete_ifaces(
                 deleted_veths.push(peer_name);
             }
         }
-        if let Some(apply_iface) = iface.for_apply.as_ref() {
-            log::debug!("Deleting interface {}", apply_iface.name());
-            np_ifaces.push(nipart_iface_to_np(apply_iface)?);
-        }
+        log::debug!("Deleting interface {}", iface.name());
+        np_ifaces.push(nipart_iface_to_np(iface)?);
     }
 
     let mut net_conf = nispor::NetConf::default();
