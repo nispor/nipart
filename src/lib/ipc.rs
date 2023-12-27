@@ -241,10 +241,17 @@ impl NipartConnection {
         let data = json_str.as_bytes();
         let length = &data.len().to_ne_bytes();
         self.socket.write_all(length).await.map_err(|e| {
-            NipartError::new(
-                ErrorKind::Bug,
-                format!("Failed to send data size to UnixStream: {e}",),
-            )
+            if e.kind() == std::io::ErrorKind::BrokenPipe {
+                NipartError::new(
+                    ErrorKind::IpcClosed,
+                    "Connection closed".to_string(),
+                )
+            } else {
+                NipartError::new(
+                    ErrorKind::Bug,
+                    format!("Failed to send data size to UnixStream: {e}",),
+                )
+            }
         })?;
         self.socket.write_all(data).await.map_err(|e| {
             NipartError::new(

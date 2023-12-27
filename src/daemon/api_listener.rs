@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use nipart::{
-    NipartConnection, NipartConnectionListener, NipartError, NipartEvent,
-    NipartEventAddress,
+    ErrorKind, NipartConnection, NipartConnectionListener, NipartError,
+    NipartEvent, NipartEventAddress,
 };
 
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -73,9 +73,8 @@ async fn api_thread(
                     } else {None}
                 } else {None};
                 if let Some(tx) = tx {
-                    if let Err(_e) = tx.send(event.clone()).await {
-                        log::warn!("Failed to reply event to \
-                                   user {event:?}") ;
+                    if let Err(e) = tx.send(event.clone()).await {
+                        log::warn!("Failed to reply event to user {e}") ;
                     }
                 } else {
                     log::warn!("Discarding event without ref_uuid {event:?}");
@@ -112,9 +111,16 @@ async fn handle_client(
             Some(event) = switch_to_user_rx.recv() => {
                 log::trace!("handle_client(): to user {event:?}");
                 if let Err(e) = np_conn.send(&event).await {
-                    log::warn!(
-                        "Failed to send reply to user {event:?}: {e}"
-                    );
+                    if e.kind == ErrorKind::IpcClosed {
+                        log::info!(
+                            "Discard event {} {:?} as user disconnected",
+                            event.uuid, event.user
+                        );
+                    } else {
+                        log::warn!(
+                            "Failed to send reply to user {event:?}: {e}"
+                        );
+                    }
                     break;
                 }
             }
