@@ -9,8 +9,8 @@ use crate::state::{
     BaseInterface, BondInterface, DummyInterface, ErrorKind, EthernetInterface,
     InfiniBandInterface, IpsecInterface, LinuxBridgeInterface,
     LoopbackInterface, MacSecInterface, MacVlanInterface, MacVtapInterface,
-    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface,
-    VrfInterface, VxlanInterface, XfrmInterface,
+    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface, VrfInterface,
+    VxlanInterface, XfrmInterface,
 };
 
 use super::json::merge_json_value;

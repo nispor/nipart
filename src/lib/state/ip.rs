@@ -1288,9 +1288,7 @@ fn get_ip_prop_list(
     ret
 }
 
-pub(crate) fn sanitize_ip_network(
-    ip_net: &str,
-) -> Result<String, NipartError> {
+pub(crate) fn sanitize_ip_network(ip_net: &str) -> Result<String, NipartError> {
     let ip_nets: Vec<&str> = ip_net.split('/').collect();
     match ip_nets.len() {
         0 => Err(NipartError::new(

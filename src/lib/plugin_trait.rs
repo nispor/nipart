@@ -3,6 +3,8 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
+use tokio::sync::mpsc::{Receiver, Sender};
+
 use crate::{
     NipartConnection, NipartConnectionListener, NipartError, NipartEvent,
     NipartEventAction, NipartEventAddress, NipartLogLevel, NipartPluginEvent,
@@ -12,6 +14,7 @@ use crate::{
 const DEFAULT_PLUGIN_SOCKET_PREFIX: &str = "nipart_plugin_";
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Trace;
 const DEFAULT_QUIT_FLAG_CHECK_INTERVAL: u64 = 1000;
+const MPSC_CHANNLE_SIZE: usize = 64;
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -109,11 +112,10 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
     }
 
     fn handle_event(
-        plugin: Arc<Self>,
+        plugin: &Arc<Self>,
+        to_daemon: &Sender<NipartEvent>,
         event: NipartEvent,
-    ) -> impl std::future::Future<
-        Output = Result<Option<NipartEvent>, NipartError>,
-    > + Send;
+    ) -> impl std::future::Future<Output = Result<(), NipartError>> + Send;
 
     fn handle_connection(
         runner: Arc<NipartPluginRunner>,
@@ -121,67 +123,30 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
         mut np_conn: NipartConnection,
     ) -> impl std::future::Future<Output = ()> + Send {
         async move {
+            let (to_daemon_tx, mut to_daemon_rx) =
+                tokio::sync::mpsc::channel::<NipartEvent>(MPSC_CHANNLE_SIZE);
             loop {
-                let event: NipartEvent = match np_conn.recv().await {
-                    Ok(e) => e,
-                    Err(e) => {
-                        log::error!(
-                            "Nipart plugin {} failed to receive \
-                            socket connection: {e}",
-                            Self::PLUGIN_NAME
-                        );
-                        return;
-                    }
-                };
-
-                match event.plugin {
-                    NipartPluginEvent::Quit => {
-                        runner
-                            .quit_flag
-                            .store(true, std::sync::atomic::Ordering::Relaxed);
-                    }
-                    NipartPluginEvent::QueryPluginInfo => {
-                        handle_query_plugin_info(
-                            &event,
-                            &mut np_conn,
-                            plugin.clone(),
-                        )
-                        .await
-                    }
-                    NipartPluginEvent::ChangeLogLevel(l) => {
-                        handle_change_log_level(
-                            l,
-                            event.uuid,
-                            &mut np_conn,
-                            plugin.clone(),
-                        )
-                        .await
-                    }
-                    NipartPluginEvent::QueryLogLevel => {
-                        handle_query_log_level(
-                            event.uuid,
-                            &mut np_conn,
-                            plugin.clone(),
-                        )
-                        .await
-                    }
-                    _ => {
-                        match Self::handle_event(plugin.clone(), event).await {
-                            Ok(None) => (),
-                            Ok(Some(event)) => {
-                                if let Err(e) = np_conn.send(&event).await {
-                                    log::warn!(
-                                        "Failed to send event to \
-                                        daemon {event:?}: {e}"
-                                    );
-                                }
-                            }
+                tokio::select! {
+                    Some(event) = to_daemon_rx.recv() => {
+                        if let Err(e)  = np_conn.send(&event).await {
+                            log::warn!(
+                                "Failed to send to daemon {event:?}: {e}");
+                        }
+                    },
+                    result = np_conn.recv::<NipartEvent>() => {
+                        match result {
+                            Ok(event) => {
+                                handle_plugin_event(
+                                    &runner,
+                                    &plugin,
+                                    &to_daemon_tx,
+                                    event,
+                                ).await;
+                            },
                             Err(e) => {
-                                log::error!(
-                                    "Nipart plugin {} failed to process \
-                                socket connection: {e}",
-                                    Self::PLUGIN_NAME
-                                )
+                                // Connection might be disconnected
+                                log::debug!("{e}");
+                                return;
                             }
                         }
                     }
@@ -210,7 +175,7 @@ fn get_conf_from_argv(name: &str) -> (String, log::LevelFilter) {
 
 async fn handle_query_plugin_info<T>(
     event: &NipartEvent,
-    np_conn: &mut NipartConnection,
+    to_daemon: &Sender<NipartEvent>,
     plugin: Arc<T>,
 ) where
     T: NipartPlugin,
@@ -224,16 +189,16 @@ async fn handle_query_plugin_info<T>(
         event.src.clone(),
     );
     reply.ref_uuid = Some(event.uuid);
-    if let Err(e) = np_conn.send(&reply).await {
-        log::warn!("Failed to send event {reply:?}: {e}");
+    log::trace!("Sending reply {reply:?}");
+    if let Err(e) = to_daemon.send(reply).await {
+        log::warn!("Failed to send event: {e}");
     }
 }
 
 async fn handle_change_log_level<T>(
     log_level: NipartLogLevel,
     ref_uuid: u128,
-    np_conn: &mut NipartConnection,
-    _plugin: Arc<T>,
+    to_daemon: &Sender<NipartEvent>,
 ) where
     T: NipartPlugin,
 {
@@ -247,15 +212,15 @@ async fn handle_change_log_level<T>(
         NipartEventAddress::Commander,
     );
     reply.ref_uuid = Some(ref_uuid);
-    if let Err(e) = np_conn.send(&reply).await {
-        log::warn!("Failed to send event {reply:?}: {e}");
+    log::trace!("Sending reply {reply:?}");
+    if let Err(e) = to_daemon.send(reply).await {
+        log::warn!("Failed to send event: {e}");
     }
 }
 
 async fn handle_query_log_level<T>(
     ref_uuid: u128,
-    np_conn: &mut NipartConnection,
-    _plugin: Arc<T>,
+    to_daemon: &Sender<NipartEvent>,
 ) where
     T: NipartPlugin,
 {
@@ -268,7 +233,40 @@ async fn handle_query_log_level<T>(
         NipartEventAddress::Commander,
     );
     reply.ref_uuid = Some(ref_uuid);
-    if let Err(e) = np_conn.send(&reply).await {
-        log::warn!("Failed to send event {reply:?}: {e}");
+    log::trace!("Sending reply {reply:?}");
+    if let Err(e) = to_daemon.send(reply).await {
+        log::warn!("Failed to send event: {e}");
+    }
+}
+
+async fn handle_plugin_event<T>(
+    runner: &Arc<NipartPluginRunner>,
+    plugin: &Arc<T>,
+    to_daemon: &Sender<NipartEvent>,
+    event: NipartEvent,
+) where
+    T: NipartPlugin,
+{
+    match event.plugin {
+        NipartPluginEvent::Quit => {
+            runner
+                .quit_flag
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        NipartPluginEvent::QueryPluginInfo => {
+            handle_query_plugin_info::<T>(&event, to_daemon, plugin.clone())
+                .await;
+        }
+        NipartPluginEvent::ChangeLogLevel(l) => {
+            handle_change_log_level::<T>(l, event.uuid, to_daemon).await;
+        }
+        NipartPluginEvent::QueryLogLevel => {
+            handle_query_log_level::<T>(event.uuid, to_daemon).await;
+        }
+        _ => {
+            if let Err(e) = T::handle_event(plugin, to_daemon, event).await {
+                log::error!("{e}");
+            }
+        }
     }
 }

@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use nipart::{
     NipartConnection, NipartError, NipartEvent, NipartPlugin, NipartRole,
 };
+use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, Default)]
 struct NipartPluginBaiZeShareData {}
@@ -38,14 +39,12 @@ impl NipartPlugin for NipartPluginBaiZe {
     }
 
     async fn handle_event(
-        _plugin: Arc<Self>,
+        _plugin: &Arc<Self>,
+        to_daemon: &Sender<NipartEvent>,
         event: NipartEvent,
-    ) -> Result<Option<NipartEvent>, NipartError> {
-        log::trace!("Plugin baize got event {:?}", event);
-        {
-            log::warn!("Plugin baize got unknown event {event:?}");
-            Ok(None)
-        }
+    ) -> Result<(), NipartError> {
+        log::warn!("Plugin baize got unknown event {event:?}");
+        Ok(())
     }
 }
 

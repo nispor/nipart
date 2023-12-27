@@ -751,9 +751,7 @@ impl MergedInterfaces {
         self.user_ifaces.values().chain(self.kernel_ifaces.values())
     }
 
-    pub fn iter_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut MergedInterface> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MergedInterface> {
         self.user_ifaces
             .values_mut()
             .chain(self.kernel_ifaces.values_mut())

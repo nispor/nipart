@@ -3,10 +3,11 @@
 use std::sync::{Arc, Mutex};
 
 use nipart::{
-    MergedNetworkState, NipartConnection, NipartError, NipartEvent,
-    NipartEventAction, NipartEventAddress, NipartPlugin, NipartPluginEvent,
-    NipartRole, NipartUserEvent,
+    MergedNetworkState, NetworkState, NipartApplyOption, NipartConnection,
+    NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
+    NipartPlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
 };
+use tokio::sync::mpsc::Sender;
 
 use crate::{nispor_apply, nispor_retrieve};
 
@@ -44,9 +45,10 @@ impl NipartPlugin for NipartPluginNispor {
     }
 
     async fn handle_event(
-        _plugin: Arc<Self>,
+        plugin: &Arc<Self>,
+        to_daemon: &Sender<NipartEvent>,
         event: NipartEvent,
-    ) -> Result<Option<NipartEvent>, NipartError> {
+    ) -> Result<(), NipartError> {
         log::trace!("Plugin nispor got event {:?}", event);
         match event.plugin {
             NipartPluginEvent::QueryNetState(_) => {
@@ -62,7 +64,8 @@ impl NipartPlugin for NipartPluginNispor {
                     NipartEventAddress::Commander,
                 );
                 reply.ref_uuid = Some(event.uuid);
-                Ok(Some(reply))
+                to_daemon.send(reply).await?;
+                Ok(())
             }
             // TODO: Currently, we are returning full state, but we should
             // return       only related network state back
@@ -79,31 +82,75 @@ impl NipartPlugin for NipartPluginNispor {
                     NipartEventAddress::Commander,
                 );
                 reply.ref_uuid = Some(event.uuid);
-                Ok(Some(reply))
+                to_daemon.send(reply).await?;
+                Ok(())
             }
-            NipartPluginEvent::ApplyNetState(net_states, _opt) => {
+            NipartPluginEvent::ApplyNetState(net_states, opt) => {
+                // We spawn new thread for apply instead of blocking
+                // here
                 let (desire_state, current_state) = *net_states;
-                let merged_state = MergedNetworkState::new(
-                    desire_state,
-                    current_state,
-                    false,
-                    false,
-                )?;
-                nispor_apply(&merged_state).await?;
-                let mut reply = NipartEvent::new(
-                    NipartEventAction::Done,
-                    NipartUserEvent::None,
-                    NipartPluginEvent::ApplyNetStateReply,
-                    NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
-                    NipartEventAddress::Commander,
-                );
-                reply.ref_uuid = Some(event.uuid);
-                Ok(Some(reply))
+                let to_daemon_clone = to_daemon.clone();
+                tokio::spawn(async move {
+                    handle_apply(
+                        desire_state,
+                        current_state,
+                        opt,
+                        to_daemon_clone,
+                        event.uuid,
+                    )
+                    .await
+                });
+                Ok(())
             }
             _ => {
                 log::warn!("Plugin nispor got unknown event {event:?}");
-                Ok(None)
+                Ok(())
             }
         }
+    }
+}
+
+async fn handle_apply(
+    desired_state: NetworkState,
+    current_state: NetworkState,
+    opt: NipartApplyOption,
+    to_daemon: Sender<NipartEvent>,
+    ref_uuid: u128,
+) {
+    let merged_state = match MergedNetworkState::new(
+        desired_state,
+        current_state,
+        false,
+        false,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            // TODO: This should never fails
+            log::error!(
+                "BUG plugin handle_apply() \
+                failed to create MergedNetworkState {e}"
+            );
+            return;
+        }
+    };
+
+    if let Err(e) = nispor_apply(&merged_state).await {
+        // TODO: Need find a way to collect there errors and send back user
+        log::error!("Failed to apply {e}");
+        return;
+    }
+    let mut reply = NipartEvent::new(
+        NipartEventAction::Done,
+        NipartUserEvent::None,
+        NipartPluginEvent::ApplyNetStateReply,
+        NipartEventAddress::Unicast(
+            NipartPluginNispor::PLUGIN_NAME.to_string(),
+        ),
+        NipartEventAddress::Commander,
+    );
+    reply.ref_uuid = Some(ref_uuid);
+    log::trace!("Sending reply {reply:?}");
+    if let Err(e) = to_daemon.send(reply).await {
+        log::error!("Failed to reply {e}")
     }
 }

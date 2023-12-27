@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{ErrorKind, HostNameState, MergedHostNameState, NipartError};
+use crate::state::{
+    ErrorKind, HostNameState, MergedHostNameState, NipartError,
+};
 
 impl HostNameState {
     pub(crate) fn update(&mut self, other: &Self) {

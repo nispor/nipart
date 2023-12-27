@@ -12,8 +12,8 @@ use crate::state::{
 /// Ethernet(IEEE 802.3) interface.
 /// Besides [BaseInterface], optionally could hold [EthernetConfig] and/or
 /// [VethConfig].
-/// The yaml output of [crate::state::NetworkState] containing ethernet interface would
-/// be:
+/// The yaml output of [crate::state::NetworkState] containing ethernet
+/// interface would be:
 /// ```yml
 /// interfaces:
 /// - name: ens3
