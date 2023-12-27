@@ -117,20 +117,27 @@ async fn handle_apply(
     to_daemon: Sender<NipartEvent>,
     ref_uuid: u128,
 ) {
-    if let Err(e) = nispor_apply(desired_state, current_state, opt).await {
-        // TODO: Need find a way to collect there errors and send back user
-        log::error!("Failed to apply {e}");
-        return;
-    }
-    let mut reply = NipartEvent::new(
-        NipartEventAction::Done,
-        NipartUserEvent::None,
-        NipartPluginEvent::ApplyNetStateReply,
-        NipartEventAddress::Unicast(
-            NipartPluginNispor::PLUGIN_NAME.to_string(),
+    let mut reply = match nispor_apply(desired_state, current_state, opt).await
+    {
+        Ok(()) => NipartEvent::new(
+            NipartEventAction::Done,
+            NipartUserEvent::None,
+            NipartPluginEvent::ApplyNetStateReply,
+            NipartEventAddress::Unicast(
+                NipartPluginNispor::PLUGIN_NAME.to_string(),
+            ),
+            NipartEventAddress::Commander,
         ),
-        NipartEventAddress::Commander,
-    );
+        Err(e) => NipartEvent::new(
+            NipartEventAction::Done,
+            NipartUserEvent::Error(e),
+            NipartPluginEvent::ApplyNetStateReply,
+            NipartEventAddress::Unicast(
+                NipartPluginNispor::PLUGIN_NAME.to_string(),
+            ),
+            NipartEventAddress::Commander,
+        ),
+    };
     reply.ref_uuid = Some(ref_uuid);
     log::trace!("Sending reply {reply:?}");
     if let Err(e) = to_daemon.send(reply).await {

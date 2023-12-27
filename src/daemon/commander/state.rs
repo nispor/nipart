@@ -218,13 +218,29 @@ pub(crate) async fn process_apply_net_state_reply(
         );
     }
     // TODO verify state and rollback
-    let mut reply = NipartEvent::new(
-        NipartEventAction::Request,
-        NipartUserEvent::ApplyNetStateReply,
-        NipartPluginEvent::None,
-        NipartEventAddress::Daemon,
-        NipartEventAddress::User,
-    );
+    let mut reply = if let Some(e) = session
+        .replies
+        .as_slice()
+        .iter()
+        .find_map(|e| e.clone().into_result().err())
+    {
+        NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::Error(e),
+            NipartPluginEvent::None,
+            NipartEventAddress::Daemon,
+            NipartEventAddress::User,
+        )
+    } else {
+        NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::ApplyNetStateReply,
+            NipartPluginEvent::None,
+            NipartEventAddress::Daemon,
+            NipartEventAddress::User,
+        )
+    };
+
     reply.ref_uuid = Some(session.request.uuid);
     log::trace!("commander_to_switch sending {reply:?}");
     commander_to_switch.send(reply).await?;

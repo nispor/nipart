@@ -71,7 +71,11 @@ impl NipartEvent {
         }
     }
 
-    pub(crate) fn into_result(self) -> Result<NipartEvent, NipartError> {
+    pub fn is_err(&self) -> bool {
+        matches!(self.user, NipartUserEvent::Error(_))
+    }
+
+    pub fn into_result(self) -> Result<NipartEvent, NipartError> {
         if let NipartUserEvent::Error(e) = self.user {
             Err(e)
         } else {
