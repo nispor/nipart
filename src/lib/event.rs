@@ -107,7 +107,7 @@ pub enum NipartUserEvent {
     QueryNetState(NipartQueryOption),
     QueryNetStateReply(Box<NetworkState>),
 
-    ApplyNetState(Box<(NetworkState, NetworkState)>, NipartApplyOption),
+    ApplyNetState(Box<NetworkState>, NipartApplyOption),
     // TODO: Return applied state and revert state
     ApplyNetStateReply,
 }
@@ -130,9 +130,12 @@ pub enum NipartPluginEvent {
     QueryNetState(NipartQueryOption),
     QueryNetStateReply(Box<NetworkState>, u32),
 
+    QueryRelatedNetState(Box<NetworkState>),
+    QueryRelatedNetStateReply(Box<NetworkState>, u32),
+
     // TODO: We should send MergedNetworkState, but it does not have
     //       Serialize trait
-    //                 desired,      current
+    //                 for_apply,      current
     ApplyNetState(Box<(NetworkState, NetworkState)>, NipartApplyOption),
     ApplyNetStateReply,
 }

@@ -21,7 +21,7 @@ use self::switch::start_event_switch_thread;
 
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 pub(crate) const MPSC_CHANNLE_SIZE: usize = 64;
-pub(crate) const DEFAULT_TIMEOUT: u64 = 1000; // 1 seconds
+pub(crate) const DEFAULT_TIMEOUT: u64 = 30000; // 30 seconds
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 50)]
 async fn main() -> Result<(), NipartError> {

@@ -12,9 +12,6 @@ use nipart::{
 
 use crate::{error::CliError, state::state_from_file};
 
-// timeout on 5 seconds
-const IPC_TIMEOUT: u64 = 5000;
-
 #[tokio::main]
 async fn main() -> Result<(), CliError> {
     let matches = clap::Command::new("nipc")
@@ -145,7 +142,7 @@ async fn handle_debug(matches: &clap::ArgMatches) -> Result<(), CliError> {
     let event_file_path = matches.get_one::<String>("EVENT").unwrap();
     let event = read_event_from_file(event_file_path.as_str())?;
     conn.send(&event).await?;
-    let replie = conn.recv_reply(event.uuid, IPC_TIMEOUT).await?;
+    let replie = conn.recv_reply(event.uuid, conn.timeout).await?;
     println!("{}", serde_yaml::to_string(&replie)?);
     Ok(())
 }

@@ -136,6 +136,7 @@ async fn delete_ifaces(
             }
         }
         if let Some(apply_iface) = iface.for_apply.as_ref() {
+            log::debug!("Deleting interface {}", apply_iface.name());
             np_ifaces.push(nipart_iface_to_np(apply_iface)?);
         }
     }

@@ -27,11 +27,10 @@ pub enum NipartRole {
     Daemon,
     Commander,
     Dhcp,
-    Kernel,
+    QueryAndApply,
     Ovs,
     Lldp,
     Monitor,
-    State,
     Config,
 }
 
@@ -44,11 +43,10 @@ impl std::fmt::Display for NipartRole {
                 Self::Daemon => "daemon",
                 Self::Commander => "commander",
                 Self::Dhcp => "dhcp",
-                Self::Kernel => "kernel",
+                Self::QueryAndApply => "query_and_apply",
                 Self::Ovs => "ovs",
                 Self::Lldp => "lldp",
                 Self::Monitor => "monitor",
-                Self::State => "state",
                 Self::Config => "config",
             }
         )

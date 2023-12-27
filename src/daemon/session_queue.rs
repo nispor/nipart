@@ -18,7 +18,7 @@ pub(crate) struct Session {
 
 impl Session {
     pub(crate) fn is_expired(&self) -> bool {
-        SystemTime::now() >= self.timeout
+        SystemTime::now() >= self.timeout && !self.is_done()
     }
 
     pub(crate) fn is_done(&self) -> bool {
@@ -69,16 +69,13 @@ impl SessionQueue {
         if let Some(uuid) = event.ref_uuid {
             if let Some(session) = self.data.get_mut(&uuid) {
                 session.replies.push(event);
-                Ok(())
             } else {
-                Err(NipartError::new(
-                    ErrorKind::Bug,
-                    format!(
-                        "SessionQueue::push got event does not have
-                        session registered before {event:?}"
-                    ),
-                ))
+                log::info!(
+                    "SessionQueue::push() got event which session is \
+                            already timeout or unregistered"
+                );
             }
+            Ok(())
         } else {
             Err(NipartError::new(
                 ErrorKind::Bug,

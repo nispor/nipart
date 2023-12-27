@@ -28,7 +28,7 @@ impl NipartConnection {
     // Only accept size smaller than 10 MiB
     pub const IPC_MAX_SIZE: usize = 1024 * 1024 * 10;
     const EVENT_BUFFER_SIZE: usize = 1024;
-    const DEFAULT_TIMEOUT: u64 = 5000;
+    pub const DEFAULT_TIMEOUT: u64 = 30000;
 
     pub async fn new() -> Result<Self, NipartError> {
         Self::new_with_path(Self::DEFAULT_SOCKET_PATH).await
@@ -196,14 +196,9 @@ impl NipartConnection {
         state: NetworkState,
         option: NipartApplyOption,
     ) -> Result<(), NipartError> {
-        let current_state =
-            self.query_net_state(NipartQueryOption::default()).await?;
         let request = NipartEvent::new(
             NipartEventAction::Request,
-            NipartUserEvent::ApplyNetState(
-                Box::new((state, current_state)),
-                option,
-            ),
+            NipartUserEvent::ApplyNetState(Box::new(state), option),
             NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,

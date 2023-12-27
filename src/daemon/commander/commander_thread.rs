@@ -11,7 +11,7 @@ use super::{
     handle_query_net_state, handle_query_plugin_infos,
     handle_refresh_plugin_infos, process_apply_net_state_reply,
     process_query_log_level, process_query_net_state_reply,
-    process_query_plugin_info,
+    process_query_plugin_info, process_query_related_net_state_reply,
 };
 use crate::{Plugins, Session, SessionQueue, MPSC_CHANNLE_SIZE};
 
@@ -135,6 +135,15 @@ async fn process_session(
         NipartPluginEvent::ApplyNetState(_, _) => {
             process_apply_net_state_reply(session, commander_to_switch).await?;
         }
+        NipartPluginEvent::QueryRelatedNetState(_) => {
+            process_query_related_net_state_reply(
+                session_queue,
+                session,
+                commander_to_switch,
+                plugins,
+            )
+            .await?;
+        }
         _ => {
             log::error!("process_session(): Unexpected session {session:?}");
         }
@@ -246,13 +255,11 @@ async fn handle_user_request(
             )
             .await
         }
-        NipartUserEvent::ApplyNetState(states, opt) => {
-            let (desired_state, current_state) = *states;
+        NipartUserEvent::ApplyNetState(desired_state, opt) => {
             handle_apply_net_state(
                 commander_to_switch,
                 session_queue,
-                desired_state,
-                current_state,
+                *desired_state,
                 opt,
                 event.uuid,
                 plugins,

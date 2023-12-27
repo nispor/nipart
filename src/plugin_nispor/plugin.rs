@@ -33,7 +33,7 @@ impl NipartPlugin for NipartPluginNispor {
     }
 
     fn roles(&self) -> Vec<NipartRole> {
-        vec![NipartRole::Kernel]
+        vec![NipartRole::QueryAndApply]
     }
 
     async fn init(socket_path: &str) -> Result<Self, NipartError> {
@@ -55,6 +55,23 @@ impl NipartPlugin for NipartPluginNispor {
                     NipartEventAction::Done,
                     NipartUserEvent::None,
                     NipartPluginEvent::QueryNetStateReply(
+                        Box::new(state),
+                        STATE_PRIORITY,
+                    ),
+                    NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
+                    NipartEventAddress::Commander,
+                );
+                reply.ref_uuid = Some(event.uuid);
+                Ok(Some(reply))
+            }
+            // TODO: Currently, we are returning full state, but we should
+            // return       only related network state back
+            NipartPluginEvent::QueryRelatedNetState(_) => {
+                let state = nispor_retrieve(false).await?;
+                let mut reply = NipartEvent::new(
+                    NipartEventAction::Done,
+                    event.user.clone(),
+                    NipartPluginEvent::QueryRelatedNetStateReply(
                         Box::new(state),
                         STATE_PRIORITY,
                     ),

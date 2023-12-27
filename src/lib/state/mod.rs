@@ -21,7 +21,7 @@ mod route;
 mod route_rule;
 mod serializer;
 // This one is not copy from nmstate
-mod merge_state;
+mod not_synced;
 
 pub use self::dispatch::DispatchConfig;
 pub use self::dns::{DnsClientState, DnsState, MergedDnsState};
