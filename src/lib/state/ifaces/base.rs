@@ -11,7 +11,6 @@ use crate::state::{
 
 const MINIMUM_IPV6_MTU: u64 = 1280;
 
-// TODO: Use prop_list to Serialize like InterfaceIpv4 did
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
@@ -22,25 +21,20 @@ pub struct BaseInterface {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_name: Option<String>,
-    #[serde(
-        skip_serializing_if = "crate::state::serializer::is_option_string_empty"
-    )]
+    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
     /// Interface description stored in network backend. Not available for
     /// kernel only mode.
     pub description: Option<String>,
-    #[serde(skip)]
-    /// TODO: internal use only. Hide this.
-    pub prop_list: Vec<&'static str>,
     #[serde(rename = "type", default = "default_iface_type")]
     /// Interface type. Serialize and deserialize to/from `type`
     pub iface_type: InterfaceType,
     #[serde(default = "default_state")]
     /// Interface state. Default to [InterfaceState::Up] when applying.
     pub state: InterfaceState,
-    #[serde(default, skip_serializing_if = "InterfaceIdentifier::is_default")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Define network backend matching method on choosing network interface.
     /// Default to [InterfaceIdentifier::Name].
-    pub identifier: InterfaceIdentifier,
+    pub identifier: Option<InterfaceIdentifier>,
     /// When applying with `[InterfaceIdentifier::MacAddress]`,
     /// nmstate will store original desired interface name as `profile_name`
     /// here and store the real interface name as `name` property.
@@ -110,7 +104,7 @@ pub struct BaseInterface {
     /// accept all packages, also known as promiscuous mode.
     /// Serialize and deserialize to/from `accpet-all-mac-addresses`.
     pub accept_all_mac_addresses: Option<bool>,
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     /// Copy the MAC address from specified interface.
     /// Ignored during serializing.
     /// Deserialize from `copy-mac-from`.

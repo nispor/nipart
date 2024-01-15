@@ -3,7 +3,10 @@
 use crate::state::{MergedNetworkState, NetworkState, NipartError};
 
 impl NetworkState {
-    pub fn generate_revert(&self, current: &Self) -> Result<Self, NipartError> {
+    pub fn generate_revert(
+        &self,
+        current: &Self,
+    ) -> Result<Self, NipartError> {
         let merged_state = MergedNetworkState::new(
             self.clone(),
             current.clone(),
@@ -18,7 +21,6 @@ impl NetworkState {
             ovsdb: merged_state.ovsdb.generate_revert(),
             ovn: merged_state.ovn.generate_revert(),
             hostname: merged_state.hostname.generate_revert(),
-            prop_list: vec!["interfaces"],
             ..Default::default()
         })
     }

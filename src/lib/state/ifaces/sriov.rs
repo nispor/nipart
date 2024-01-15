@@ -4,15 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::{
     ErrorKind, Interface, InterfaceType, Interfaces, MergedInterface,
-    NipartError,
+    NipartError, VlanProtocol,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 /// Single Root I/O Virtualization(SRIOV) configuration. The example yaml output
-/// of [crate::state::NetworkState] with SR-IOV enabled ethernet interface would
-/// be: ```yml
+/// of [crate::state::NetworkState] with SR-IOV enabled ethernet interface would be:
+/// ```yml
 /// interfaces:
 /// - name: ens1f1
 ///   type: ethernet
@@ -69,15 +69,30 @@ impl SrIovConfig {
 
     // * Convert VF MAC address to upper case
     // * Sort by VF ID
-    pub(crate) fn sanitize(&mut self) {
+    pub(crate) fn sanitize(&mut self) -> Result<(), NipartError> {
         if let Some(vfs) = self.vfs.as_mut() {
             for vf in vfs.iter_mut() {
                 if let Some(address) = vf.mac_address.as_mut() {
                     address.make_ascii_uppercase()
                 }
+
+                if let Some(VlanProtocol::Ieee8021Ad) = vf.vlan_proto {
+                    if vf.vlan_id.unwrap_or_default() == 0
+                        && vf.qos.unwrap_or_default() == 0
+                    {
+                        let e = NipartError::new(
+                                ErrorKind::InvalidArgument,
+                                "VLAN protocol 802.1ad is not allowed when both VLAN ID and VLAN QoS are zero or unset"
+                                    .to_string(),);
+                        log::error!("VF ID {}: {}", vf.id, e);
+                        return Err(e);
+                    }
+                }
             }
             vfs.sort_unstable_by(|a, b| a.id.cmp(&b.id));
         }
+
+        Ok(())
     }
 
     // * Auto fill unmentioned VF ID
@@ -174,6 +189,9 @@ pub struct SrIovVfConfig {
         deserialize_with = "crate::state::deserializer::option_u32_or_string"
     )]
     pub qos: Option<u32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vlan_proto: Option<VlanProtocol>,
 }
 
 impl SrIovVfConfig {

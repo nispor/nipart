@@ -51,7 +51,10 @@ impl MacSecInterface {
         Self::default()
     }
 
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if let Some(conf) = &self.macsec {
                 if conf.mka_cak.is_none() ^ conf.mka_ckn.is_none() {

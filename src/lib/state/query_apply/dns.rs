@@ -3,7 +3,7 @@
 use crate::state::{DnsState, ErrorKind, MergedDnsState, NipartError};
 
 impl MergedDnsState {
-    pub(crate) fn verify(&self, current: &DnsState) -> Result<(), NipartError> {
+    pub(crate) fn verify(&self, current: DnsState) -> Result<(), NipartError> {
         if !self.is_changed() {
             return Ok(());
         }

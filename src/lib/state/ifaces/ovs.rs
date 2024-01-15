@@ -13,8 +13,8 @@ use crate::state::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch bridge interface. Example yaml output of
-/// [crate::state::NetworkState] with an OVS bridge:
+/// OpenvSwitch bridge interface. Example yaml output of [crate::state::NetworkState]
+/// with an OVS bridge:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -246,14 +246,14 @@ impl OvsBridgeInterface {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 pub struct OvsBridgeConfig {
-    #[serde(skip_serializing, default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     /// Only validate for applying, when set to `true`, extra OVS patch ports
     /// will not fail the verification. Default is false.
     /// This property will not be persisted, every time you modify
     /// ports of specified OVS bridge, you need to explicitly define this
     /// property if not using default value.
     /// Deserialize from `allow-extra-patch-ports`.
-    pub allow_extra_patch_ports: bool,
+    pub allow_extra_patch_ports: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub options: Option<OvsBridgeOptions>,
     #[serde(
@@ -363,8 +363,8 @@ impl OvsBridgePortConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch internal interface. Example yaml output of
-/// [crate::state::NetworkState] with an DPDK enabled OVS interface:
+/// OpenvSwitch internal interface. Example yaml output of [crate::state::NetworkState]
+/// with an DPDK enabled OVS interface:
 /// ```yml
 /// ---
 /// interfaces:
@@ -461,7 +461,10 @@ impl OvsInterface {
     // OVS patch interface cannot have MTU or IP configuration
     // OVS DPDK `n_rxq_desc` and `n_txq_desc` should be power of 2 within
     // 1-4096.
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired && self.patch.is_some() {
             if self.base.mtu.is_some() {
                 let e = NipartError::new(
@@ -702,7 +705,10 @@ fn validate_dpdk_queue_desc(
 }
 
 impl OvsDpdkConfig {
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if let Some(n_rxq_desc) = self.n_rxq_desc {
                 validate_dpdk_queue_desc(n_rxq_desc, "n_rxq_desc")?;
@@ -804,7 +810,7 @@ impl MergedInterfaces {
         for merged_iface in self.iter_mut().filter(|i| {
             if let Some(Interface::OvsBridge(o)) = i.desired.as_ref() {
                 o.base.state == InterfaceState::Up
-                    && o.bridge.as_ref().map(|c| c.allow_extra_patch_ports)
+                    && o.bridge.as_ref().and_then(|c| c.allow_extra_patch_ports)
                         == Some(true)
             } else {
                 false

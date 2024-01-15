@@ -72,7 +72,7 @@ impl SessionQueue {
             } else {
                 log::info!(
                     "SessionQueue::push() got event which session is \
-                            already timeout or unregistered"
+                    already timeout or unregistered"
                 );
             }
             Ok(())
@@ -87,8 +87,6 @@ impl SessionQueue {
         }
     }
 
-    // Return Some(Vec<Event>) when for Event timeout or reach
-    // expected_reply_count
     pub(crate) fn get_timeout_or_finished(
         &mut self,
     ) -> Result<Vec<Session>, NipartError> {

@@ -99,7 +99,10 @@ impl BridgePortVlanConfig {
         }
     }
 
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if self.mode == Some(BridgePortVlanMode::Trunk)
                 && self.tag.is_some()
