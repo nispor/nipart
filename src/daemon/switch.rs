@@ -9,6 +9,7 @@ use nipart::{
     NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio_util::time::DelayQueue;
 
 const QUERY_PLUGIN_RETRY: usize = 5;
 const QUERY_PLUGIN_RETRY_INTERAL: u64 = 500; // milliseconds
@@ -20,6 +21,7 @@ pub(crate) async fn start_event_switch_thread(
     commander_to_switch: Receiver<NipartEvent>,
     plugin_to_commander: Sender<NipartEvent>,
     user_to_commander: Sender<NipartEvent>,
+    commander_to_daemon: Sender<NipartEvent>,
 ) {
     let mut plugin_infos: Vec<(NipartConnection, NipartPluginInfo)> =
         Vec::new();
@@ -45,6 +47,7 @@ pub(crate) async fn start_event_switch_thread(
             commander_to_switch,
             plugin_to_commander,
             user_to_commander,
+            commander_to_daemon,
             plugin_infos,
         )
         .await;
@@ -85,11 +88,13 @@ async fn run_event_switch(
     mut commander_to_switch: Receiver<NipartEvent>,
     plugin_to_commander: Sender<NipartEvent>,
     user_to_commander: Sender<NipartEvent>,
+    commander_to_daemon: Sender<NipartEvent>,
     plugins: Vec<(NipartConnection, NipartPluginInfo)>,
 ) {
     let mut np_conn_map: HashMap<String, NipartConnection> = HashMap::new();
     let mut role_map: HashMap<NipartRole, Vec<String>> = HashMap::new();
     let mut plugin_info_map: HashMap<String, NipartPluginInfo> = HashMap::new();
+    let mut postponed_events: DelayQueue<NipartEvent> = DelayQueue::new();
     for (np_conn, plugin_info) in plugins {
         np_conn_map.insert(plugin_info.name.to_string(), np_conn);
         for role in plugin_info.roles.as_slice() {
@@ -120,8 +125,21 @@ async fn run_event_switch(
                 log::trace!("run_event_switch(): from commander {event:?}");
                 event
             }
+            Some(event) = postponed_events.next() => {
+                let mut event = event.into_inner();
+                log::trace!("postponed event ready to process {event:?}");
+                event.postpone_millis = 0;
+                event
+            }
         };
         drop(plugin_futures);
+
+        if event.postpone_millis > 0 {
+            let t = event.postpone_millis;
+            postponed_events
+                .insert(event, std::time::Duration::from_millis(t.into()));
+            continue;
+        }
 
         // Discard dead-loop
         if event.src == event.dst {
@@ -132,8 +150,14 @@ async fn run_event_switch(
             continue;
         }
         match &event.dst {
-            NipartEventAddress::User | NipartEventAddress::Daemon => {
+            NipartEventAddress::User => {
                 if let Err(e) = switch_to_user.send(event.clone()).await {
+                    log::warn!("Failed to send event: {event:?}, {e}");
+                    continue;
+                }
+            }
+            NipartEventAddress::Daemon => {
+                if let Err(e) = commander_to_daemon.send(event.clone()).await {
                     log::warn!("Failed to send event: {event:?}, {e}");
                     continue;
                 }
@@ -164,7 +188,7 @@ async fn run_event_switch(
                 }
             }
             NipartEventAddress::Group(role) => {
-                if let Some(plugin_names) = role_map.get(role) {
+                if let Some(plugin_names) = role_map.get(&role) {
                     for plugin_name in plugin_names {
                         if let Some(np_conn) =
                             np_conn_map.get_mut(plugin_name.as_str())

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{BridgePortVlanConfig, LinuxBridgeConfig, LinuxBridgeInterface};
+use crate::state::{
+    BridgePortVlanConfig, LinuxBridgeConfig, LinuxBridgeInterface,
+};
 
 impl LinuxBridgeInterface {
     pub(crate) const INTEGER_ROUNDED_OPTIONS: [&'static str; 5] = [

@@ -30,7 +30,6 @@ pub(crate) async fn nispor_retrieve(
 ) -> Result<NetworkState, NipartError> {
     let mut net_state = NetworkState::default();
     net_state.hostname = get_hostname_state();
-    net_state.prop_list = vec!["interfaces", "routes", "rules", "hostname"];
     let mut filter = nispor::NetStateFilter::default();
     // Do not query routes in order to prevent BGP routes consuming too much CPU
     // time, we let `get_routes()` do the query by itself.

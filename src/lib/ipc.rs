@@ -295,15 +295,10 @@ impl NipartConnection {
                         } else {
                             remain_time -= elapsed;
                         }
-                        if event.ref_uuid == Some(uuid) {
+                        if event.uuid == uuid {
                             return event.into_result();
-                        } else if let Some(ref_uuid) = event.ref_uuid {
-                            self.buffer.insert(ref_uuid, event);
                         } else {
-                            log::warn!(
-                                "Discarding reply event due to \
-                                missing ref_uuid: {event:?}"
-                            );
+                            self.buffer.insert(event.uuid, event);
                         }
                     }
                     Ok(Err(e)) => {

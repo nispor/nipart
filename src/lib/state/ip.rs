@@ -130,7 +130,7 @@ pub struct InterfaceIpv4 {
     pub enabled: bool,
     /// Indicate whether `enabled` is defined by user or learn from
     /// default/current value.
-    pub enabled_defined: bool,
+    pub(crate) enabled_defined: bool,
     /// Whether DHCPv4 is enabled.
     pub dhcp: Option<bool>,
     /// DHCPv4 client ID.
@@ -1164,9 +1164,7 @@ fn validate_wait_ip(base_iface: &BaseInterface) -> Result<(), NipartError> {
     Ok(())
 }
 
-pub(crate) fn sanitize_ip_network(
-    ip_net: &str,
-) -> Result<String, NipartError> {
+pub(crate) fn sanitize_ip_network(ip_net: &str) -> Result<String, NipartError> {
     let ip_nets: Vec<&str> = ip_net.split('/').collect();
     match ip_nets.len() {
         0 => Err(NipartError::new(

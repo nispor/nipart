@@ -20,9 +20,10 @@ pub struct RouteRules {
     /// When applying, `None` means preserve existing route rules.
     /// Nmstate is using partial editing for route rule, which means
     /// desired route rules only append to existing instead of overriding.
-    /// To delete any route rule, please set [crate::state::RouteRuleEntry.state] to
-    /// [RouteRuleState::Absent]. Any property set to None in absent route rule
-    /// means wildcard. For example, this [crate::state::NetworkState] will delete all
+    /// To delete any route rule, please set
+    /// [crate::state::RouteRuleEntry.state] to [RouteRuleState::Absent].
+    /// Any property set to None in absent route rule means wildcard. For
+    /// example, this [crate::state::NetworkState] will delete all
     /// route rule looking up route table 500:
     /// ```yml
     /// ---
@@ -506,7 +507,7 @@ impl From<RouteRuleAction> for u8 {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedRouteRules {
     pub(crate) desired: RouteRules,
     pub(crate) current: RouteRules,

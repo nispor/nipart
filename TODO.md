@@ -1,1 +1,2 @@
- * Write down ADR(Architecture Decision Record) files
+ * Checkpoint
+ * DHCP plugin

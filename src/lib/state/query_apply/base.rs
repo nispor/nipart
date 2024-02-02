@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{BaseInterface, InterfaceState, InterfaceType, OvsDbIfaceConfig};
+use crate::state::{
+    BaseInterface, InterfaceState, InterfaceType, OvsDbIfaceConfig,
+};
 
 impl BaseInterface {
     pub(crate) fn sanitize_current_for_verify(&mut self) {

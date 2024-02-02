@@ -245,6 +245,19 @@ def change_func_ports_to_public():
     )
 
 
+def serde_merged_state():
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
+            "s/pub struct Merged/"
+            r"#[derive(Deserialize, Serialize)]\npub struct Merged/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+
+
 def main():
     for file in os.listdir(NMSTATE_RUST_CODE_DIR):
         if file not in DENY_LIST:
@@ -269,6 +282,7 @@ def main():
     change_merged_interface_props_to_public()
     change_func_ports_to_public()
     change_base_iface_props_to_public()
+    serde_merged_state()
 
 
 main()

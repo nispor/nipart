@@ -22,6 +22,7 @@ struct NipartPluginBaiZe {
 
 impl NipartPlugin for NipartPluginBaiZe {
     const PLUGIN_NAME: &'static str = "baize";
+    const LOG_SUFFIX: &'static str = " (plugin baize)\n";
 
     fn get_socket_path(&self) -> &str {
         self.socket_path.as_str()

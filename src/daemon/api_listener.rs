@@ -14,7 +14,7 @@ use crate::MPSC_CHANNLE_SIZE;
 
 // Each user API connection has a tokio spawn, then collect NipartEvent and
 // sent to switch.
-// For data from switch to user, we use ref_uuid to find the correct UnixStream
+// For data from switch to user, we use uuid to find the correct UnixStream
 // to reply.
 pub(crate) async fn start_api_listener_thread(
 ) -> Result<(Receiver<NipartEvent>, Sender<NipartEvent>), NipartError> {
@@ -67,17 +67,16 @@ async fn api_thread(
                 // Clean up the queue for dead senders
                 clean_up_tracking_queue(tracking_queue.clone());
                 // Need to search out the connection for event to send
-                let tx = if let Some(ref_uuid) = event.ref_uuid.as_ref() {
-                    if let Ok(mut queue) =  tracking_queue.lock() {
-                        queue.remove(ref_uuid)
-                    } else {None}
+                let tx = if let Ok(mut queue) = tracking_queue.lock() {
+                    queue.remove(&event.uuid)
                 } else {None};
                 if let Some(tx) = tx {
                     if let Err(e) = tx.send(event.clone()).await {
                         log::warn!("Failed to reply event to user {e}") ;
                     }
                 } else {
-                    log::warn!("Discarding event without ref_uuid {event:?}");
+                    log::warn!(
+                        "Discarding event for disconnected user {event:?}");
                 }
             }
         }

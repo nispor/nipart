@@ -10,7 +10,7 @@ mod plugin_trait;
 mod state_options;
 // TODO: Currently we are copy code from nmstate, hence suppressed warnings,
 //       Need to clean up the code once detached from nmstate code base
-#[allow(dead_code)]
+#[allow(dead_code, unused_imports)]
 mod state;
 
 pub use self::error::{ErrorKind, NipartError};

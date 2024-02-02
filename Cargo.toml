@@ -35,6 +35,11 @@ version ="1.35.0"
 default-fatures = false
 features = ["net", "io-util", "rt-multi-thread", "macros", "sync", "time"]
 
+[workspace.dependencies.tokio-util]
+version ="0.7.0"
+default-fatures = false
+features = ["time"]
+
 [workspace.dependencies.nix]
 version = "0.26.2"
 default-features = false

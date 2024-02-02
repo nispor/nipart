@@ -3,7 +3,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Sender;
 
 use crate::{
     NipartConnection, NipartConnectionListener, NipartError, NipartEvent,
@@ -24,6 +24,7 @@ pub struct NipartPluginRunner {
 
 pub trait NipartPlugin: Sized + Send + Sync + 'static {
     const PLUGIN_NAME: &'static str;
+    const LOG_SUFFIX: &'static str;
 
     fn name(&self) -> &'static str {
         Self::PLUGIN_NAME
@@ -35,11 +36,15 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
 
     /// Please store the socket_path in your struct, no need to bind the socket
     /// the run() will bind the socket.
-    async fn init(socket_path: &str) -> Result<Self, NipartError>;
+    fn init(
+        socket_path: &str,
+    ) -> impl std::future::Future<Output = Result<Self, NipartError>> + Send;
 
     /// Please override this function if you need special action for graceful
     /// quit.
-    async fn quit(&self) {}
+    fn quit(&self) -> impl std::future::Future<Output = ()> + Send {
+        async {}
+    }
 
     fn get_plugin_info(&self) -> NipartPluginInfo {
         NipartPluginInfo {
@@ -49,63 +54,73 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
         }
     }
 
-    async fn run() -> Result<(), NipartError> {
-        let mut log_builder = env_logger::Builder::new();
-        let (socket_path, log_level) = get_conf_from_argv(Self::PLUGIN_NAME);
-        log_builder.filter(Some("nipart"), log_level);
-        log_builder.filter(Some(Self::PLUGIN_NAME), log_level);
-        log_builder.init();
-
-        let listener = NipartConnectionListener::new_abstract(&socket_path)?;
-        log::debug!(
-            "Nipart plugin {} is listening on {}",
-            Self::PLUGIN_NAME,
-            socket_path
-        );
-        let runner = Arc::new(NipartPluginRunner::default());
-        let plugin = Arc::new(Self::init(socket_path.as_str()).await?);
-
-        loop {
-            if runner.quit_flag.load(std::sync::atomic::Ordering::Relaxed) {
-                log::info!(
-                    "Nipart plugin {} got quit signal, quitting",
-                    Self::PLUGIN_NAME
-                );
-                plugin.quit().await;
-                return Ok(());
+    fn run() -> impl std::future::Future<Output = Result<(), NipartError>> + Send
+    {
+        async {
+            let mut log_builder = env_logger::Builder::new();
+            log_builder.format_suffix(Self::LOG_SUFFIX);
+            let (binary_path, socket_path, log_level) =
+                get_conf_from_argv(Self::PLUGIN_NAME);
+            let plugin_bin_path =
+                std::path::Path::new(&binary_path).file_name();
+            log_builder.filter(Some("nipart"), log_level);
+            if let Some(p) = plugin_bin_path.and_then(std::ffi::OsStr::to_str) {
+                log_builder.filter(Some(p), log_level);
             }
-            match tokio::time::timeout(
-                std::time::Duration::from_millis(
-                    DEFAULT_QUIT_FLAG_CHECK_INTERVAL,
-                ),
-                listener.accept(),
-            )
-            .await
-            {
-                Ok(Ok(np_conn)) => {
-                    // TODO: Limit the maximum connected client as it could
-                    //       from suspicious source, not daemon
-                    let runner_clone = runner.clone();
-                    let plugin_clone = plugin.clone();
+            log_builder.init();
 
-                    tokio::spawn(async move {
-                        Self::handle_connection(
-                            runner_clone,
-                            plugin_clone,
-                            np_conn,
-                        )
-                        .await
-                    });
-                }
-                Ok(Err(e)) => {
-                    log::error!(
-                        "Nipart plugin {} failed to accept connection {}",
-                        Self::PLUGIN_NAME,
-                        e
+            let listener =
+                NipartConnectionListener::new_abstract(&socket_path)?;
+            log::debug!(
+                "Nipart plugin {} is listening on {}",
+                Self::PLUGIN_NAME,
+                socket_path
+            );
+            let runner = Arc::new(NipartPluginRunner::default());
+            let plugin = Arc::new(Self::init(socket_path.as_str()).await?);
+
+            loop {
+                if runner.quit_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                    log::info!(
+                        "Nipart plugin {} got quit signal, quitting",
+                        Self::PLUGIN_NAME
                     );
+                    plugin.quit().await;
+                    return Ok(());
                 }
-                _ => {
-                    // timeout, we need to check the quit_flag again
+                match tokio::time::timeout(
+                    std::time::Duration::from_millis(
+                        DEFAULT_QUIT_FLAG_CHECK_INTERVAL,
+                    ),
+                    listener.accept(),
+                )
+                .await
+                {
+                    Ok(Ok(np_conn)) => {
+                        // TODO: Limit the maximum connected client as it could
+                        //       from suspicious source, not daemon
+                        let runner_clone = runner.clone();
+                        let plugin_clone = plugin.clone();
+
+                        tokio::spawn(async move {
+                            Self::handle_connection(
+                                runner_clone,
+                                plugin_clone,
+                                np_conn,
+                            )
+                            .await
+                        });
+                    }
+                    Ok(Err(e)) => {
+                        log::error!(
+                            "Nipart plugin {} failed to accept connection {}",
+                            Self::PLUGIN_NAME,
+                            e
+                        );
+                    }
+                    _ => {
+                        // timeout, we need to check the quit_flag again
+                    }
                 }
             }
         }
@@ -156,8 +171,13 @@ pub trait NipartPlugin: Sized + Send + Sync + 'static {
     }
 }
 
-fn get_conf_from_argv(name: &str) -> (String, log::LevelFilter) {
+fn get_conf_from_argv(name: &str) -> (String, String, log::LevelFilter) {
     let argv: Vec<String> = std::env::args().collect();
+    let binary_path = if let Some(b) = argv.get(0) {
+        b.to_string()
+    } else {
+        String::new()
+    };
     let socket_path = if let Some(p) = argv.get(1) {
         p.to_string()
     } else {
@@ -170,7 +190,7 @@ fn get_conf_from_argv(name: &str) -> (String, log::LevelFilter) {
     } else {
         DEFAULT_LOG_LEVEL
     };
-    (socket_path, log_level)
+    (binary_path, socket_path, log_level)
 }
 
 async fn handle_query_plugin_info<T>(
@@ -188,7 +208,7 @@ async fn handle_query_plugin_info<T>(
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         event.src.clone(),
     );
-    reply.ref_uuid = Some(event.uuid);
+    reply.uuid = event.uuid;
     log::trace!("Sending reply {reply:?}");
     if let Err(e) = to_daemon.send(reply).await {
         log::warn!("Failed to send event: {e}");
@@ -197,7 +217,7 @@ async fn handle_query_plugin_info<T>(
 
 async fn handle_change_log_level<T>(
     log_level: NipartLogLevel,
-    ref_uuid: u128,
+    uuid: u128,
     to_daemon: &Sender<NipartEvent>,
 ) where
     T: NipartPlugin,
@@ -211,17 +231,15 @@ async fn handle_change_log_level<T>(
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         NipartEventAddress::Commander,
     );
-    reply.ref_uuid = Some(ref_uuid);
+    reply.uuid = uuid;
     log::trace!("Sending reply {reply:?}");
     if let Err(e) = to_daemon.send(reply).await {
         log::warn!("Failed to send event: {e}");
     }
 }
 
-async fn handle_query_log_level<T>(
-    ref_uuid: u128,
-    to_daemon: &Sender<NipartEvent>,
-) where
+async fn handle_query_log_level<T>(uuid: u128, to_daemon: &Sender<NipartEvent>)
+where
     T: NipartPlugin,
 {
     log::debug!("Querying log level of {}", T::PLUGIN_NAME);
@@ -232,7 +250,7 @@ async fn handle_query_log_level<T>(
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         NipartEventAddress::Commander,
     );
-    reply.ref_uuid = Some(ref_uuid);
+    reply.uuid = uuid;
     log::trace!("Sending reply {reply:?}");
     if let Err(e) = to_daemon.send(reply).await {
         log::warn!("Failed to send event: {e}");

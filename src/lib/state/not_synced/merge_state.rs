@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::super::{MergedInterface, MergedNetworkState, NetworkState};
+use super::super::{
+    MergedInterface, MergedNetworkState, NetworkState, NipartError,
+};
 
 impl NetworkState {
     pub fn merge_states(mut states: Vec<(NetworkState, u32)>) -> Self {
@@ -22,52 +24,46 @@ impl NetworkState {
 
 impl NetworkState {
     fn update_state(&mut self, other: &Self) {
-        if other.prop_list.contains(&"hostname") {
+        if let Some(other_hostname) = other.hostname.as_ref() {
             if let Some(h) = self.hostname.as_mut() {
-                if let Some(other_h) = other.hostname.as_ref() {
-                    h.update(other_h);
-                }
+                h.update(other_hostname);
             } else {
                 self.hostname = other.hostname.clone();
             }
         }
-        if other.prop_list.contains(&"interfaces") {
-            self.interfaces.update(&other.interfaces);
-        }
-        if other.prop_list.contains(&"dns") {
+        self.interfaces.update(&other.interfaces);
+        if other.dns.is_some() {
             self.dns = other.dns.clone();
         }
-        if other.prop_list.contains(&"ovsdb") {
+        if other.ovsdb.is_some() {
             self.ovsdb = other.ovsdb.clone();
         }
-        if other.prop_list.contains(&"ovn") {
+        if !other.ovn.is_none() {
             self.ovn = other.ovn.clone();
         }
     }
 }
 
 impl MergedNetworkState {
-    // TODO: a lot effort required here
-    pub fn gen_state_for_apply(&self) -> NetworkState {
-        let mut ret = NetworkState::default();
-        let mut ifaces: Vec<&MergedInterface> =
-            self.interfaces.iter().filter(|i| i.is_changed()).collect();
-
-        ifaces.sort_unstable_by_key(|iface| iface.merged.name());
-        // Use sort_by_key() instead of unstable one, so we can alphabet
-        // activation order which is required to simulate the OS boot-up.
-        ifaces.sort_by_key(|iface| {
-            if let Some(i) = iface.for_apply.as_ref() {
-                i.base_iface().up_priority
-            } else {
-                u32::MAX
-            }
-        });
-        for iface in ifaces {
-            if let Some(i) = iface.for_apply.as_ref() {
-                ret.interfaces.push(i.clone());
-            }
-        }
-        ret
+    pub fn verify(&self, current: &NetworkState) -> Result<(), NipartError> {
+        self.hostname.verify(current.hostname.as_ref())?;
+        self.interfaces.verify(&current.interfaces)?;
+        let ignored_kernel_ifaces: Vec<&str> = self
+            .interfaces
+            .ignored_ifaces
+            .as_slice()
+            .iter()
+            .filter(|(_, t)| !t.is_userspace())
+            .map(|(n, _)| n.as_str())
+            .collect();
+        self.routes
+            .verify(&current.routes, ignored_kernel_ifaces.as_slice())?;
+        self.rules
+            .verify(&current.rules, ignored_kernel_ifaces.as_slice())?;
+        self.dns.verify(current.dns.clone().unwrap_or_default())?;
+        self.ovsdb
+            .verify(current.ovsdb.clone().unwrap_or_default())?;
+        self.ovn.verify(&current.ovn)?;
+        Ok(())
     }
 }

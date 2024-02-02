@@ -134,10 +134,17 @@ impl DnsClientState {
     //    `config: {}`
     //  * `server`, `search` and `options` are `Some<Vec::new()>`.
     pub(crate) fn is_purge(&self) -> bool {
-        self.server.is_none() && self.search.is_none() & self.options.is_none()
-            || self.server.as_deref() == Some(&[])
-                && self.search.as_deref() == Some(&[])
-                && self.options.as_deref() == Some(&[])
+        match (
+            self.server.as_ref(),
+            self.search.as_ref(),
+            self.options.as_ref(),
+        ) {
+            (None, None, None) => true,
+            (Some(srvs), Some(schs), Some(opts)) => {
+                srvs.is_empty() && schs.is_empty() && opts.is_empty()
+            }
+            _ => false,
+        }
     }
 
     pub(crate) fn is_null(&self) -> bool {
@@ -217,7 +224,7 @@ impl DnsClientState {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedDnsState {
     pub(crate) desired: Option<DnsState>,
     pub(crate) current: DnsState,

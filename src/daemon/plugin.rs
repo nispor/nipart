@@ -9,7 +9,7 @@ use nipart::{
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Plugins {
-    data: HashMap<NipartRole, Vec<String>>,
+    pub(crate) data: HashMap<NipartRole, Vec<String>>,
 }
 
 impl Plugins {

@@ -13,19 +13,38 @@ use crate::{
 };
 
 pub(crate) async fn nispor_apply(
-    des_state: NetworkState,
-    cur_state: NetworkState,
+    merged_state: MergedNetworkState,
     _opt: NipartApplyOption,
 ) -> Result<(), NipartError> {
-    delete_ifaces(&des_state.interfaces, &cur_state.interfaces).await?;
+    delete_ifaces(&merged_state.interfaces).await?;
 
-    let ifaces: Vec<&Interface> = des_state.interfaces.to_vec();
+    let mut ifaces: Vec<&MergedInterface> = merged_state
+        .interfaces
+        .iter()
+        .filter(|i| i.is_changed())
+        .collect();
+
+    ifaces.sort_unstable_by_key(|iface| iface.merged.name());
+    // Use sort_by_key() instead of unstable one, do we can alphabet
+    // activation order which is required to simulate the OS boot-up.
+    ifaces.sort_by_key(|iface| {
+        if let Some(i) = iface.for_apply.as_ref() {
+            i.base_iface().up_priority
+        } else {
+            u32::MAX
+        }
+    });
 
     let mut np_ifaces: Vec<nispor::IfaceConf> = Vec::new();
-    for iface in ifaces
-        .iter()
-        .filter(|i| i.iface_type() != InterfaceType::Unknown && !i.is_absent())
-    {
+    for iface in ifaces.iter().filter_map(|i| {
+        if i.merged.iface_type() != InterfaceType::Unknown
+            && !i.merged.is_absent()
+        {
+            i.for_apply.as_ref()
+        } else {
+            None
+        }
+    }) {
         np_ifaces.push(nipart_iface_to_np(iface)?);
     }
 
@@ -98,20 +117,21 @@ fn nipart_iface_to_np(
 }
 
 async fn delete_ifaces(
-    ifaces: &Interfaces,
-    cur_ifaces: &Interfaces,
+    merged_ifaces: &MergedInterfaces,
 ) -> Result<(), NipartError> {
     let mut deleted_veths: Vec<&str> = Vec::new();
     let mut np_ifaces: Vec<nispor::IfaceConf> = Vec::new();
-    for iface in ifaces.kernel_ifaces.values().filter(|i| i.is_absent()) {
+    for iface in merged_ifaces
+        .kernel_ifaces
+        .values()
+        .filter(|i| i.merged.is_absent())
+    {
         // Deleting one end of veth peer is enough
-        if deleted_veths.contains(&iface.name()) {
+        if deleted_veths.contains(&iface.merged.name()) {
             continue;
         }
 
-        if let Some(Interface::Ethernet(eth_iface)) =
-            cur_ifaces.kernel_ifaces.get(iface.name())
-        {
+        if let Some(Interface::Ethernet(eth_iface)) = &iface.current {
             if let Some(peer_name) = eth_iface
                 .veth
                 .as_ref()
@@ -121,8 +141,10 @@ async fn delete_ifaces(
                 deleted_veths.push(peer_name);
             }
         }
-        log::debug!("Deleting interface {}", iface.name());
-        np_ifaces.push(nipart_iface_to_np(iface)?);
+        if let Some(apply_iface) = iface.for_apply.as_ref() {
+            log::debug!("Deleting interface {}", apply_iface.name());
+            np_ifaces.push(nipart_iface_to_np(apply_iface)?);
+        }
     }
 
     let mut net_conf = nispor::NetConf::default();

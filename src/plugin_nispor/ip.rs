@@ -12,8 +12,6 @@ pub(crate) fn np_ipv4_to_nipart(
 ) -> Option<InterfaceIpv4> {
     if let Some(np_ip) = &np_iface.ipv4 {
         let mut ip = InterfaceIpv4::default();
-        ip.prop_list.push("enabled");
-        ip.prop_list.push("addresses");
         if np_ip.addresses.is_empty() {
             ip.enabled = false;
             return Some(ip);
@@ -23,7 +21,6 @@ pub(crate) fn np_ipv4_to_nipart(
         for np_addr in &np_ip.addresses {
             if np_addr.valid_lft != "forever" {
                 ip.dhcp = Some(true);
-                ip.prop_list.push("dhcp");
                 if running_config_only {
                     continue;
                 }
@@ -65,7 +62,6 @@ pub(crate) fn np_ipv4_to_nipart(
         // IP might just disabled
         let mut ip = InterfaceIpv4::default();
         ip.enabled = false;
-        ip.prop_list = vec!["enabled"];
         Some(ip)
     }
 }
@@ -76,15 +72,12 @@ pub(crate) fn np_ipv6_to_nipart(
 ) -> Option<InterfaceIpv6> {
     if let Some(np_ip) = &np_iface.ipv6 {
         let mut ip = InterfaceIpv6::default();
-        ip.prop_list.push("enabled");
-        ip.prop_list.push("addresses");
         if np_ip.addresses.is_empty() {
             ip.enabled = false;
             return Some(ip);
         }
         ip.enabled = true;
         if let Some(token) = np_ip.token.as_ref() {
-            ip.prop_list.push("token");
             ip.token = Some(token.to_string());
         }
 
@@ -92,7 +85,6 @@ pub(crate) fn np_ipv6_to_nipart(
         for np_addr in &np_ip.addresses {
             if np_addr.valid_lft != "forever" {
                 ip.autoconf = Some(true);
-                ip.prop_list.push("autoconf");
                 if running_config_only {
                     continue;
                 }
@@ -134,7 +126,6 @@ pub(crate) fn np_ipv6_to_nipart(
         // IP might just disabled
         let mut ip = InterfaceIpv6::default();
         ip.enabled = false;
-        ip.prop_list = vec!["enabled"];
         Some(ip)
     }
 }

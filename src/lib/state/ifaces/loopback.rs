@@ -15,23 +15,15 @@ use crate::state::{BaseInterface, ErrorKind, InterfaceType, NipartError};
 ///  * Even not desired, the `127.0.0.1/8` and `::1` are always appended to
 ///    static IP address list.
 ///  * Require NetworkManager 1.41+ unless in kernel only mode.
-/// Example yaml outpuf of `[crate::state::NetworkState]` with loopback interface:
-/// ```yml
+/// Example yaml outpuf of `[crate::state::NetworkState]` with loopback
+/// interface: ```yml
 /// interfaces:
-/// - name: lo
-///   type: loopback
-///   state: up
-///   mtu: 65535
-///   ipv4:
-///     enabled: true
-///     address:
-///     - ip: 127.0.0.1
-///       prefix-length: 8
+/// - name: lo type: loopback state: up mtu: 65535 ipv4: enabled: true address:
+///     - ip: 127.0.0.1 prefix-length: 8
 ///   ipv6:
 ///     enabled: true
 ///     address:
-///     - ip: ::1
-///       prefix-length: 128
+///     - ip: ::1 prefix-length: 128
 ///   accept-all-mac-addresses: false
 /// ```
 pub struct LoopbackInterface {
@@ -52,10 +44,7 @@ impl LoopbackInterface {
         Self::default()
     }
 
-    pub(crate) fn sanitize(
-        &self,
-        is_desired: bool,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
         if is_desired {
             if self.base.ipv4.as_ref().map(|i| i.enabled) == Some(false) {
                 return Err(NipartError::new(

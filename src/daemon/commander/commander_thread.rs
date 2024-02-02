@@ -1,26 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::sync::{Arc, Mutex};
+
 use nipart::{
-    NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartPluginEvent, NipartUserEvent,
+    ErrorKind, NipartError, NipartEvent, NipartPluginEvent, NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use super::{
-    handle_apply_net_state, handle_change_log_level, handle_query_log_level,
-    handle_query_net_state, handle_query_plugin_infos,
-    handle_refresh_plugin_infos, process_apply_net_state_reply,
-    process_query_log_level, process_query_net_state_reply,
-    process_query_plugin_info, process_query_related_net_state_reply,
-};
-use crate::{Plugins, Session, SessionQueue, MPSC_CHANNLE_SIZE};
+use crate::{Plugins, WorkFlow, WorkFlowQueue, MPSC_CHANNLE_SIZE};
 
 // Check the session queue every 5 seconds
-const SESSION_QUEUE_CHECK_INTERVAL: u64 = 5000;
+const WORKFLOW_QUEUE_CHECK_INTERVAL: u64 = 5000;
 
-pub(crate) async fn start_commander_thread(
-    commander_to_daemon: Sender<NipartEvent>,
-) -> Result<
+pub(crate) async fn start_commander_thread() -> Result<
     (
         Receiver<NipartEvent>,
         Sender<NipartEvent>,
@@ -44,7 +36,6 @@ pub(crate) async fn start_commander_thread(
             plugin_to_commander_rx,
             user_to_commander_rx,
             daemon_to_commander_rx,
-            commander_to_daemon,
         )
         .await;
     });
@@ -63,49 +54,46 @@ async fn commander_thread(
     mut plugin_to_commander: Receiver<NipartEvent>,
     mut user_to_commander: Receiver<NipartEvent>,
     mut daemon_to_commander: Receiver<NipartEvent>,
-    mut commander_to_daemon: Sender<NipartEvent>,
 ) {
-    let mut plugins = Plugins::new();
+    let plugins = Arc::new(Mutex::new(Plugins::new()));
 
-    let mut session_queue = SessionQueue::new();
+    let mut workflow_queue = WorkFlowQueue::new();
 
-    let mut session_queue_check_interval = tokio::time::interval(
-        std::time::Duration::from_millis(SESSION_QUEUE_CHECK_INTERVAL),
+    let mut workflow_queue_check_interval = tokio::time::interval(
+        std::time::Duration::from_millis(WORKFLOW_QUEUE_CHECK_INTERVAL),
     );
 
     // The first tick just completes instantly
-    session_queue_check_interval.tick().await;
+    workflow_queue_check_interval.tick().await;
 
     loop {
         if let Err(e) = tokio::select! {
-            _ = session_queue_check_interval.tick() => {
-                process_session_queue(
-                    &mut session_queue,
-                    &mut commander_to_switch,
-                    &mut plugins,
-                ).await
+            _ = workflow_queue_check_interval.tick() => {
+                process_workflow_queue(
+                    &mut workflow_queue, &mut commander_to_switch).await
             }
             Some(event) = daemon_to_commander.recv() => {
-                log::trace!("daemon_to_commander recv {event:?}");
+                log::debug!("daemon_to_commander {event}");
+                log::trace!("daemon_to_commander {event:?}");
                 handle_daemon_commands(event,
-                    &mut session_queue,
-                    &mut commander_to_switch).await
+                    &mut workflow_queue,
+                    &mut commander_to_switch,
+                    plugins.clone()).await
             }
             Some(event) = plugin_to_commander.recv() => {
-                log::trace!("plugin_to_commander recv {event:?}");
-                handle_plugin_reply(
-                    &mut plugins,
-                    event,
-                    &mut session_queue,
-                    &mut commander_to_switch).await
+                log::debug!("plugin_to_commander {event}");
+                log::trace!("plugin_to_commander {event:?}");
+                workflow_queue.add_reply(event);
+                process_workflow_queue(
+                    &mut workflow_queue, &mut commander_to_switch).await
             }
             Some(event) = user_to_commander.recv() => {
-                log::trace!("user_to_commander recv {event:?}");
+                log::debug!("user_to_commander {event}");
+                log::trace!("user_to_commander {event:?}");
                 handle_user_request(
-                    &plugins,
+                    plugins.clone(),
                     event,
-                    &mut session_queue,
-                    &mut commander_to_daemon,
+                    &mut workflow_queue,
                     &mut commander_to_switch).await
             }
         } {
@@ -114,57 +102,14 @@ async fn commander_thread(
     }
 }
 
-async fn process_session(
-    session_queue: &mut SessionQueue,
-    session: Session,
+async fn process_workflow_queue(
+    workflow_queue: &mut WorkFlowQueue,
     commander_to_switch: &mut Sender<NipartEvent>,
-    plugins: &mut Plugins,
 ) -> Result<(), NipartError> {
-    match session.request.plugin {
-        NipartPluginEvent::QueryPluginInfo => {
-            process_query_plugin_info(session, plugins, commander_to_switch)
-                .await?;
-        }
-        NipartPluginEvent::QueryLogLevel
-        | NipartPluginEvent::ChangeLogLevel(_) => {
-            process_query_log_level(session, commander_to_switch).await?;
-        }
-        NipartPluginEvent::QueryNetState(_) => {
-            process_query_net_state_reply(session, commander_to_switch).await?;
-        }
-        NipartPluginEvent::ApplyNetState(_, _) => {
-            process_apply_net_state_reply(session, commander_to_switch).await?;
-        }
-        NipartPluginEvent::QueryRelatedNetState(_) => {
-            process_query_related_net_state_reply(
-                session_queue,
-                session,
-                commander_to_switch,
-                plugins,
-            )
-            .await?;
-        }
-        _ => {
-            log::error!("process_session(): Unexpected session {session:?}");
-        }
-    }
-    Ok(())
-}
-
-async fn process_session_queue(
-    session_queue: &mut SessionQueue,
-    commander_to_switch: &mut Sender<NipartEvent>,
-    plugins: &mut Plugins,
-) -> Result<(), NipartError> {
-    for session in session_queue.get_timeout_or_finished()? {
-        if let Err(e) = process_session(
-            session_queue,
-            session,
-            commander_to_switch,
-            plugins,
-        )
-        .await
-        {
+    for event in workflow_queue.process()? {
+        log::debug!("Sent to switch {event}");
+        log::trace!("Sent to switch {event:?}");
+        if let Err(e) = commander_to_switch.send(event).await {
             log::error!("{e}");
         }
     }
@@ -173,13 +118,16 @@ async fn process_session_queue(
 
 async fn handle_daemon_commands(
     event: NipartEvent,
-    session_queue: &mut SessionQueue,
+    workflow_queue: &mut WorkFlowQueue,
     commander_to_switch: &mut Sender<NipartEvent>,
+    plugins: Arc<Mutex<Plugins>>,
 ) -> Result<(), NipartError> {
     match event.plugin {
         NipartPluginEvent::CommanderRefreshPlugins(i) => {
-            handle_refresh_plugin_infos(commander_to_switch, session_queue, i)
-                .await
+            let (workflow, share_data) =
+                WorkFlow::new_refresh_plugins(plugins, event.uuid, i);
+            workflow_queue.add_workflow(workflow, share_data);
+            process_workflow_queue(workflow_queue, commander_to_switch).await
         }
         _ => {
             log::error!(
@@ -190,116 +138,46 @@ async fn handle_daemon_commands(
     }
 }
 
-async fn handle_plugin_reply(
-    plugins: &mut Plugins,
-    event: NipartEvent,
-    session_queue: &mut SessionQueue,
-    commander_to_switch: &mut Sender<NipartEvent>,
-) -> Result<(), NipartError> {
-    // Notification event from plugin
-    if event.ref_uuid.is_none() {
-        log::error!("TODO: handle notification event from plugin {event:?}");
-        Ok(())
-    } else {
-        session_queue.push(event)?;
-        process_session_queue(session_queue, commander_to_switch, plugins).await
-    }
-}
-
 async fn handle_user_request(
-    plugins: &Plugins,
+    plugins: Arc<Mutex<Plugins>>,
     event: NipartEvent,
-    session_queue: &mut SessionQueue,
-    commander_to_daemon: &mut Sender<NipartEvent>,
+    workflow_queue: &mut WorkFlowQueue,
     commander_to_switch: &mut Sender<NipartEvent>,
 ) -> Result<(), NipartError> {
-    match event.user {
+    let all_plugins_count = match plugins.lock() {
+        Ok(p) => p.len(),
+        Err(e) => {
+            return Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Failed to lock on Plugins {e}"),
+            ));
+        }
+    };
+    let (workflow, share_data) = match event.user {
         NipartUserEvent::QueryPluginInfo => {
-            handle_query_plugin_infos(
-                commander_to_switch,
-                session_queue,
-                plugins.len(),
-                event.uuid,
-            )
-            .await
+            WorkFlow::new_query_plugin_info(event.uuid, all_plugins_count)
         }
         NipartUserEvent::QueryLogLevel => {
-            handle_query_log_level(
-                commander_to_switch,
-                session_queue,
-                event.uuid,
-                plugins.len(),
-            )
-            .await
+            WorkFlow::new_query_log_level(event.uuid, all_plugins_count)
         }
         NipartUserEvent::ChangeLogLevel(l) => {
-            handle_change_log_level(
-                commander_to_switch,
-                session_queue,
-                l,
-                event.uuid,
-                plugins.len(),
-            )
-            .await
+            WorkFlow::new_change_log_level(l, event.uuid, all_plugins_count)
         }
         NipartUserEvent::Quit => {
-            handle_quit(commander_to_daemon, commander_to_switch).await
+            WorkFlow::new_quit(event.uuid, all_plugins_count)
         }
         NipartUserEvent::QueryNetState(opt) => {
-            handle_query_net_state(
-                commander_to_switch,
-                session_queue,
-                opt,
-                event.uuid,
-                plugins,
-            )
-            .await
+            WorkFlow::new_query_net_state(opt, event.uuid, plugins)
         }
-        NipartUserEvent::ApplyNetState(desired_state, opt) => {
-            handle_apply_net_state(
-                commander_to_switch,
-                session_queue,
-                *desired_state,
-                opt,
-                event.uuid,
-                plugins,
-            )
-            .await
+        NipartUserEvent::ApplyNetState(des, opt) => {
+            WorkFlow::new_apply_net_state(*des, opt, event.uuid, plugins)
         }
         _ => {
             log::error!("Unknown event {event:?}");
-            Ok(())
+            return Ok(());
         }
-    }
-}
+    };
+    workflow_queue.add_workflow(workflow, share_data);
 
-async fn handle_quit(
-    commander_to_daemon: &mut Sender<NipartEvent>,
-    commander_to_switch: &mut Sender<NipartEvent>,
-) -> Result<(), NipartError> {
-    let plugin_quit_event = NipartEvent::new(
-        NipartEventAction::OneShot,
-        NipartUserEvent::Quit,
-        NipartPluginEvent::Quit,
-        NipartEventAddress::Commander,
-        NipartEventAddress::AllPlugins,
-    );
-    log::trace!("handle_quit(): sent to switch {plugin_quit_event:?}");
-    if let Err(e) = commander_to_switch.send(plugin_quit_event).await {
-        log::error!("{e}");
-    }
-    // Give switch some time to send out quit event to plugins.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    let daemon_quit_event = NipartEvent::new(
-        NipartEventAction::OneShot,
-        NipartUserEvent::Quit,
-        NipartPluginEvent::Quit,
-        NipartEventAddress::Commander,
-        NipartEventAddress::Daemon,
-    );
-    log::trace!("handle_quit(): sent to daemon {daemon_quit_event:?}");
-    commander_to_daemon.send(daemon_quit_event).await.ok();
-    // Wait a little bit for switch/daemon to process this information
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    std::process::exit(0)
+    process_workflow_queue(workflow_queue, commander_to_switch).await
 }

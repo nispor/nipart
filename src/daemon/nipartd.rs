@@ -3,11 +3,17 @@
 mod api_listener;
 mod commander;
 mod plugin;
-mod session_queue;
 mod switch;
+mod task;
+mod uuid;
+mod workflow;
 
 pub(crate) use self::plugin::Plugins;
-pub(crate) use self::session_queue::{Session, SessionQueue};
+pub(crate) use self::task::{Task, TaskKind};
+pub(crate) use self::uuid::u128_to_uuid_string;
+pub(crate) use self::workflow::{
+    TaskCallBackFn, WorkFlow, WorkFlowQueue, WorkFlowShareData,
+};
 
 use nipart::{
     NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
@@ -21,7 +27,7 @@ use self::switch::start_event_switch_thread;
 
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 pub(crate) const MPSC_CHANNLE_SIZE: usize = 64;
-pub(crate) const DEFAULT_TIMEOUT: u64 = 30000; // 30 seconds
+pub(crate) const DEFAULT_TIMEOUT: u32 = 30000; // 30 seconds
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 50)]
 async fn main() -> Result<(), NipartError> {
@@ -40,7 +46,7 @@ async fn main() -> Result<(), NipartError> {
         plugin_to_commander,
         user_to_commander,
         daemon_to_commander,
-    ) = start_commander_thread(commander_to_daemon_tx).await?;
+    ) = start_commander_thread().await?;
 
     start_event_switch_thread(
         &plugins,
@@ -49,6 +55,7 @@ async fn main() -> Result<(), NipartError> {
         commander_to_switch,
         plugin_to_commander,
         user_to_commander,
+        commander_to_daemon_tx,
     )
     .await;
 
@@ -74,6 +81,7 @@ async fn main() -> Result<(), NipartError> {
                     log::error!("Unexpected event received from {event:?}");
                 }
             }
+            // TODO: Support runtime reload plugins.
             None => {
                 log::error!("Stopping daemon because commander stopped");
                 return Ok(());

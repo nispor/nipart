@@ -28,6 +28,7 @@ pub(crate) struct NipartPluginNispor {
 
 impl NipartPlugin for NipartPluginNispor {
     const PLUGIN_NAME: &'static str = "nispor";
+    const LOG_SUFFIX: &'static str = " (plugin nispor)\n";
 
     fn get_socket_path(&self) -> &str {
         self.socket_path.as_str()
@@ -45,11 +46,12 @@ impl NipartPlugin for NipartPluginNispor {
     }
 
     async fn handle_event(
-        plugin: &Arc<Self>,
+        _plugin: &Arc<Self>,
         to_daemon: &Sender<NipartEvent>,
         event: NipartEvent,
     ) -> Result<(), NipartError> {
-        log::trace!("Plugin nispor got event {:?}", event);
+        log::debug!("Plugin nispor got event {event}");
+        log::trace!("Plugin nispor got event {event:?}");
         match event.plugin {
             NipartPluginEvent::QueryNetState(_) => {
                 let state = nispor_retrieve(false).await?;
@@ -63,7 +65,7 @@ impl NipartPlugin for NipartPluginNispor {
                     NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
                     NipartEventAddress::Commander,
                 );
-                reply.ref_uuid = Some(event.uuid);
+                reply.uuid = event.uuid;
                 to_daemon.send(reply).await?;
                 Ok(())
             }
@@ -81,19 +83,17 @@ impl NipartPlugin for NipartPluginNispor {
                     NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
                     NipartEventAddress::Commander,
                 );
-                reply.ref_uuid = Some(event.uuid);
+                reply.uuid = event.uuid;
                 to_daemon.send(reply).await?;
                 Ok(())
             }
-            NipartPluginEvent::ApplyNetState(net_states, opt) => {
+            NipartPluginEvent::ApplyNetState(merged_state, opt) => {
                 // We spawn new thread for apply instead of blocking
                 // here
-                let (desire_state, current_state) = *net_states;
                 let to_daemon_clone = to_daemon.clone();
                 tokio::spawn(async move {
                     handle_apply(
-                        desire_state,
-                        current_state,
+                        *merged_state,
                         opt,
                         to_daemon_clone,
                         event.uuid,
@@ -111,14 +111,12 @@ impl NipartPlugin for NipartPluginNispor {
 }
 
 async fn handle_apply(
-    desired_state: NetworkState,
-    current_state: NetworkState,
+    merged_state: MergedNetworkState,
     opt: NipartApplyOption,
     to_daemon: Sender<NipartEvent>,
-    ref_uuid: u128,
+    uuid: u128,
 ) {
-    let mut reply = match nispor_apply(desired_state, current_state, opt).await
-    {
+    let mut reply = match nispor_apply(merged_state, opt).await {
         Ok(()) => NipartEvent::new(
             NipartEventAction::Done,
             NipartUserEvent::None,
@@ -138,7 +136,7 @@ async fn handle_apply(
             NipartEventAddress::Commander,
         ),
     };
-    reply.ref_uuid = Some(ref_uuid);
+    reply.uuid = uuid;
     log::trace!("Sending reply {reply:?}");
     if let Err(e) = to_daemon.send(reply).await {
         log::error!("Failed to reply {e}")

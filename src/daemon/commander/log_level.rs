@@ -6,71 +6,68 @@ use nipart::{
     NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
     NipartLogLevel, NipartPluginEvent, NipartUserEvent,
 };
-use tokio::sync::mpsc::Sender;
 
-use crate::{Session, SessionQueue, DEFAULT_TIMEOUT};
+use crate::{
+    Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData,
+    DEFAULT_TIMEOUT,
+};
 
-pub(crate) async fn handle_query_log_level(
-    commander_to_switch: &mut Sender<NipartEvent>,
-    session_queue: &mut SessionQueue,
-    ref_uuid: u128,
-    plugin_count: usize,
-) -> Result<(), NipartError> {
-    let mut request = NipartEvent::new(
-        NipartEventAction::Request,
-        NipartUserEvent::QueryLogLevel,
-        NipartPluginEvent::QueryLogLevel,
-        NipartEventAddress::Commander,
-        NipartEventAddress::AllPlugins,
-    );
-    request.uuid = ref_uuid;
-    session_queue.new_session(
-        request.uuid,
-        request.clone(),
-        plugin_count,
-        DEFAULT_TIMEOUT,
-    );
-    log::trace!("commander_to_switch sending {request:?}");
-    commander_to_switch.send(request.clone()).await?;
-    Ok(())
+impl WorkFlow {
+    pub(crate) fn new_query_log_level(
+        uuid: u128,
+        plugin_count: usize,
+    ) -> (Self, WorkFlowShareData) {
+        let tasks = vec![Task::new(
+            uuid,
+            TaskKind::QueryLogLevel,
+            plugin_count,
+            DEFAULT_TIMEOUT,
+        )];
+        let share_data = WorkFlowShareData::default();
+
+        let call_backs: Vec<Option<TaskCallBackFn>> =
+            vec![Some(query_log_level)];
+
+        (
+            WorkFlow::new("query_log_level", uuid, tasks, call_backs),
+            share_data,
+        )
+    }
+
+    pub(crate) fn new_change_log_level(
+        log_level: NipartLogLevel,
+        uuid: u128,
+        plugin_count: usize,
+    ) -> (Self, WorkFlowShareData) {
+        log::set_max_level(log_level.into());
+        let tasks = vec![Task::new(
+            uuid,
+            TaskKind::ChangeLogLevel(log_level),
+            plugin_count,
+            DEFAULT_TIMEOUT,
+        )];
+        let share_data = WorkFlowShareData::default();
+
+        let call_backs: Vec<Option<TaskCallBackFn>> =
+            vec![Some(query_log_level)];
+
+        (
+            WorkFlow::new("change_log_level", uuid, tasks, call_backs),
+            share_data,
+        )
+    }
 }
 
-pub(crate) async fn handle_change_log_level(
-    commander_to_switch: &mut Sender<NipartEvent>,
-    session_queue: &mut SessionQueue,
-    log_level: NipartLogLevel,
-    ref_uuid: u128,
-    plugin_count: usize,
-) -> Result<(), NipartError> {
-    log::set_max_level(log_level.into());
-
-    log::debug!("Sending PluginChangeLogLevel to {plugin_count} plugins");
-    let mut request = NipartEvent::new(
-        NipartEventAction::Request,
-        NipartUserEvent::ChangeLogLevel(log_level),
-        NipartPluginEvent::ChangeLogLevel(log_level),
-        NipartEventAddress::Commander,
-        NipartEventAddress::AllPlugins,
-    );
-    request.uuid = ref_uuid;
-    session_queue.new_session(
-        request.uuid,
-        request.clone(),
-        plugin_count,
-        DEFAULT_TIMEOUT,
-    );
-    commander_to_switch.send(request.clone()).await?;
-    Ok(())
-}
-
-pub(crate) async fn process_query_log_level(
-    session: Session,
-    commander_to_switch: &mut Sender<NipartEvent>,
-) -> Result<(), NipartError> {
+fn query_log_level(
+    task: &Task,
+    _share_data: &mut WorkFlowShareData,
+) -> Result<Option<NipartEvent>, NipartError> {
     let mut log_levels = HashMap::new();
-    for reply in &session.replies {
+    for reply in &task.replies {
         if let NipartPluginEvent::QueryLogLevelReply(l) = &reply.plugin {
             log_levels.insert(reply.src.to_string(), *l);
+        } else {
+            log::error!("BUG: Unexpected reply for query_log_level {reply:?}");
         }
     }
     log_levels.insert("daemon".to_string(), log::max_level().into());
@@ -81,9 +78,35 @@ pub(crate) async fn process_query_log_level(
         NipartEventAddress::Daemon,
         NipartEventAddress::User,
     );
-    reply_event.ref_uuid = Some(session.request.uuid);
-    log::trace!("commander_to_switch sending {reply_event:?}");
-    commander_to_switch.send(reply_event).await?;
+    reply_event.uuid = task.uuid;
+    Ok(Some(reply_event))
+}
 
-    Ok(())
+impl Task {
+    pub(crate) fn gen_request_query_log_level(&self) -> NipartEvent {
+        let mut request = NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::None,
+            NipartPluginEvent::QueryLogLevel,
+            NipartEventAddress::Commander,
+            NipartEventAddress::AllPlugins,
+        );
+        request.uuid = self.uuid;
+        request
+    }
+
+    pub(crate) fn gen_request_change_log_level(
+        &self,
+        level: NipartLogLevel,
+    ) -> NipartEvent {
+        let mut request = NipartEvent::new(
+            NipartEventAction::Request,
+            NipartUserEvent::None,
+            NipartPluginEvent::ChangeLogLevel(level),
+            NipartEventAddress::Commander,
+            NipartEventAddress::AllPlugins,
+        );
+        request.uuid = self.uuid;
+        request
+    }
 }

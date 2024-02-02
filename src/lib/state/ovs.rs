@@ -32,7 +32,11 @@ impl OvsDbGlobalConfig {
 
     // User want to remove all settings except OVN.
     pub(crate) fn is_purge(&self) -> bool {
-        self.external_ids.is_none() && self.other_config.is_none()
+        match (self.external_ids.as_ref(), self.other_config.as_ref()) {
+            (None, None) => true,
+            (Some(eids), Some(oids)) => eids.is_empty() && oids.is_empty(),
+            _ => false,
+        }
     }
 
     pub(crate) fn sanitize(&self) -> Result<(), NipartError> {
@@ -177,7 +181,7 @@ fn value_to_hash_map(
     ret
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedOvsDbGlobalConfig {
     pub(crate) desired: Option<OvsDbGlobalConfig>,
     pub(crate) current: OvsDbGlobalConfig,
