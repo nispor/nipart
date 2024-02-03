@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use nipart::{
     ErrorKind, NipartConnection, NipartError, NipartEvent, NipartEventAction,
     NipartEventAddress, NipartPluginEvent, NipartPluginInfo, NipartRole,
-    NipartUserEvent,
+    NipartUserEvent, DEFAULT_TIMEOUT,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::time::DelayQueue;
@@ -243,6 +243,7 @@ async fn get_plugin_info(
         NipartPluginEvent::QueryPluginInfo,
         NipartEventAddress::Daemon,
         NipartEventAddress::Unicast(plugin_name.to_string()),
+        DEFAULT_TIMEOUT,
     );
     let mut np_conn = NipartConnection::new_abstract(plugin_socket)?;
     np_conn.send(&event).await?;

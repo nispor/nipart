@@ -18,7 +18,7 @@ pub use self::event::{
     NipartEvent, NipartEventAction, NipartEventAddress, NipartPluginEvent,
     NipartUserEvent,
 };
-pub use self::ipc::NipartConnection;
+pub use self::ipc::{NipartConnection, DEFAULT_TIMEOUT};
 pub use self::logging::NipartLogLevel;
 pub use self::plugin::{NipartPluginInfo, NipartRole};
 pub use self::plugin_ipc::NipartConnectionListener;

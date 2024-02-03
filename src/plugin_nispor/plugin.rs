@@ -6,6 +6,7 @@ use nipart::{
     MergedNetworkState, NetworkState, NipartApplyOption, NipartConnection,
     NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
     NipartPlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
+    DEFAULT_TIMEOUT,
 };
 use tokio::sync::mpsc::Sender;
 
@@ -64,6 +65,7 @@ impl NipartPlugin for NipartPluginNispor {
                     ),
                     NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
                     NipartEventAddress::Commander,
+                    DEFAULT_TIMEOUT,
                 );
                 reply.uuid = event.uuid;
                 to_daemon.send(reply).await?;
@@ -82,6 +84,7 @@ impl NipartPlugin for NipartPluginNispor {
                     ),
                     NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
                     NipartEventAddress::Commander,
+                    DEFAULT_TIMEOUT,
                 );
                 reply.uuid = event.uuid;
                 to_daemon.send(reply).await?;
@@ -125,6 +128,7 @@ async fn handle_apply(
                 NipartPluginNispor::PLUGIN_NAME.to_string(),
             ),
             NipartEventAddress::Commander,
+            DEFAULT_TIMEOUT,
         ),
         Err(e) => NipartEvent::new(
             NipartEventAction::Done,
@@ -134,6 +138,7 @@ async fn handle_apply(
                 NipartPluginNispor::PLUGIN_NAME.to_string(),
             ),
             NipartEventAddress::Commander,
+            DEFAULT_TIMEOUT,
         ),
     };
     reply.uuid = uuid;

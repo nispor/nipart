@@ -48,6 +48,8 @@ pub struct NipartEvent {
     pub plugin: NipartPluginEvent,
     pub src: NipartEventAddress,
     pub dst: NipartEventAddress,
+    /// Timeout in milliseconds
+    pub timeout: u32,
     /// When Daemon received event with non-zero `postpone_millis`,
     /// it will postponed the process of this event. Often used for retry.
     pub postpone_millis: u32,
@@ -57,12 +59,13 @@ impl std::fmt::Display for NipartEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} user {} plugin {} src {} dst {}{}",
+            "{} user {} plugin {} src {} dst timeout {}ms {}{}",
             self.uuid,
             self.user,
             self.plugin,
             self.src,
             self.dst,
+            self.timeout,
             if self.postpone_millis > 0 {
                 format!(" postpone {}ms", self.postpone_millis)
             } else {
@@ -80,6 +83,7 @@ impl NipartEvent {
         plugin: NipartPluginEvent,
         src: NipartEventAddress,
         dst: NipartEventAddress,
+        timeout: u32,
     ) -> Self {
         Self {
             uuid: uuid::Uuid::now_v7().as_u128(),
@@ -88,6 +92,7 @@ impl NipartEvent {
             plugin,
             src,
             dst,
+            timeout,
             postpone_millis: 0,
         }
     }
@@ -113,6 +118,7 @@ impl From<NipartError> for NipartEvent {
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
             NipartEventAddress::User,
+            crate::DEFAULT_TIMEOUT,
         )
     }
 }

@@ -4,20 +4,14 @@ mod api_listener;
 mod commander;
 mod plugin;
 mod switch;
-mod task;
 mod uuid;
-mod workflow;
 
 pub(crate) use self::plugin::Plugins;
-pub(crate) use self::task::{Task, TaskKind};
 pub(crate) use self::uuid::u128_to_uuid_string;
-pub(crate) use self::workflow::{
-    TaskCallBackFn, WorkFlow, WorkFlowQueue, WorkFlowShareData,
-};
 
 use nipart::{
     NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartPluginEvent, NipartUserEvent,
+    NipartPluginEvent, NipartUserEvent, DEFAULT_TIMEOUT,
 };
 
 use self::api_listener::start_api_listener_thread;
@@ -27,7 +21,6 @@ use self::switch::start_event_switch_thread;
 
 const DEFAULT_LOG_LEVEL: log::LevelFilter = log::LevelFilter::Debug;
 pub(crate) const MPSC_CHANNLE_SIZE: usize = 64;
-pub(crate) const DEFAULT_TIMEOUT: u32 = 30000; // 30 seconds
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 50)]
 async fn main() -> Result<(), NipartError> {
@@ -67,6 +60,7 @@ async fn main() -> Result<(), NipartError> {
         NipartPluginEvent::CommanderRefreshPlugins(plugin_count),
         NipartEventAddress::Daemon,
         NipartEventAddress::User,
+        DEFAULT_TIMEOUT,
     );
 
     daemon_to_commander.send(event).await?;

@@ -14,10 +14,12 @@ use crate::{
     NipartPluginInfo, NipartQueryOption, NipartUserEvent,
 };
 
+pub const DEFAULT_TIMEOUT: u32 = 30000;
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct NipartConnection {
-    pub timeout: u64,
+    pub timeout: u32,
     pub path: String,
     pub(crate) socket: UnixStream,
     pub buffer: HashMap<u128, NipartEvent>,
@@ -28,13 +30,12 @@ impl NipartConnection {
     // Only accept size smaller than 10 MiB
     pub const IPC_MAX_SIZE: usize = 1024 * 1024 * 10;
     const EVENT_BUFFER_SIZE: usize = 1024;
-    pub const DEFAULT_TIMEOUT: u64 = 30000;
 
     pub async fn new() -> Result<Self, NipartError> {
         Self::new_with_path(Self::DEFAULT_SOCKET_PATH).await
     }
 
-    pub fn set_timeout(&mut self, timeout: u64) {
+    pub fn set_timeout(&mut self, timeout: u32) {
         self.timeout = timeout;
     }
 
@@ -55,7 +56,7 @@ impl NipartConnection {
             path: path.to_string(),
             socket: stream,
             buffer: HashMap::with_capacity(Self::EVENT_BUFFER_SIZE),
-            timeout: Self::DEFAULT_TIMEOUT,
+            timeout: DEFAULT_TIMEOUT,
         }
     }
 
@@ -109,6 +110,7 @@ impl NipartConnection {
             NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,
+            self.timeout,
         );
         self.send(&request).await?;
         let event = self.recv_reply(request.uuid, self.timeout).await?;
@@ -132,6 +134,7 @@ impl NipartConnection {
             NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,
+            self.timeout,
         );
         self.send(&request).await?;
         let event = self.recv_reply(request.uuid, self.timeout).await?;
@@ -155,6 +158,7 @@ impl NipartConnection {
             NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,
+            self.timeout,
         );
         self.send(&request).await?;
         let event = self.recv_reply(request.uuid, self.timeout).await?;
@@ -178,6 +182,7 @@ impl NipartConnection {
             NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,
+            self.timeout,
         );
         self.send(&request).await?;
         let event = self.recv_reply(request.uuid, self.timeout).await?;
@@ -202,6 +207,7 @@ impl NipartConnection {
             NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,
+            self.timeout,
         );
         self.send(&request).await?;
         let event = self.recv_reply(request.uuid, self.timeout).await?;
@@ -222,6 +228,7 @@ impl NipartConnection {
             NipartPluginEvent::None,
             NipartEventAddress::User,
             NipartEventAddress::Daemon,
+            self.timeout,
         );
         self.send(&request).await?;
         Ok(())
@@ -274,12 +281,12 @@ impl NipartConnection {
     pub async fn recv_reply(
         &mut self,
         uuid: u128,
-        timeout_ms: u64,
+        timeout_ms: u32,
     ) -> Result<NipartEvent, NipartError> {
         if let Some(event) = self.buffer.remove(&uuid) {
             event.into_result()
         } else {
-            let mut remain_time = Duration::from_millis(timeout_ms);
+            let mut remain_time = Duration::from_millis(timeout_ms.into());
             while remain_time > Duration::ZERO {
                 let now = std::time::Instant::now();
                 match tokio::time::timeout(

@@ -8,10 +8,8 @@ use nipart::{
     NipartPluginEvent, NipartQueryOption, NipartRole, NipartUserEvent,
 };
 
-use crate::{
-    Plugins, Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData,
-    DEFAULT_TIMEOUT,
-};
+use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
+use crate::Plugins;
 
 const VERIFY_RETRY_COUNT: u32 = 5;
 const VERIFY_RETRY_INTERVAL: u32 = 1000;
@@ -21,13 +19,14 @@ impl WorkFlow {
         opt: NipartQueryOption,
         uuid: u128,
         plugins: Arc<Mutex<Plugins>>,
+        timeout: u32,
     ) -> (Self, WorkFlowShareData) {
         let plugin_count = get_plugin_count_for_query_apply(plugins);
         let tasks = vec![Task::new(
             uuid,
             TaskKind::QueryNetState(opt),
             plugin_count,
-            DEFAULT_TIMEOUT,
+            timeout,
         )];
         let share_data = WorkFlowShareData::default();
 
@@ -45,6 +44,7 @@ impl WorkFlow {
         opt: NipartApplyOption,
         uuid: u128,
         plugins: Arc<Mutex<Plugins>>,
+        timeout: u32,
     ) -> (Self, WorkFlowShareData) {
         let plugin_count = get_plugin_count_for_query_apply(plugins);
         let mut tasks = vec![
@@ -52,20 +52,20 @@ impl WorkFlow {
                 uuid,
                 TaskKind::QueryRelatedNetState,
                 plugin_count,
-                DEFAULT_TIMEOUT,
+                timeout,
             ),
             Task::new(
                 uuid,
                 TaskKind::ApplyNetState(opt),
                 plugin_count,
-                DEFAULT_TIMEOUT,
+                timeout,
             ),
         ];
         let mut verify_task = Task::new(
             uuid,
             TaskKind::QueryRelatedNetState,
             plugin_count,
-            DEFAULT_TIMEOUT,
+            timeout,
         );
         verify_task.set_retry(VERIFY_RETRY_COUNT, VERIFY_RETRY_INTERVAL);
 
@@ -103,6 +103,7 @@ fn query_net_state(
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
             NipartEventAddress::User,
+            task.timeout,
         )
     } else {
         let mut states = Vec::new();
@@ -125,6 +126,7 @@ fn query_net_state(
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
             NipartEventAddress::User,
+            task.timeout,
         )
     };
     event.uuid = task.uuid;
@@ -219,6 +221,7 @@ fn post_apply_query_related_state(
         NipartPluginEvent::None,
         NipartEventAddress::Daemon,
         NipartEventAddress::User,
+        task.timeout,
     );
     reply.uuid = task.uuid;
     Ok(Some(reply))
@@ -235,6 +238,7 @@ impl Task {
             NipartPluginEvent::QueryNetState(opt),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::QueryAndApply),
+            self.timeout,
         );
         request.uuid = self.uuid;
         request
@@ -261,6 +265,7 @@ impl Task {
             NipartPluginEvent::QueryRelatedNetState(Box::new(desired_state)),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::QueryAndApply),
+            self.timeout,
         );
         request.uuid = self.uuid;
         request
@@ -287,6 +292,7 @@ impl Task {
             NipartPluginEvent::ApplyNetState(Box::new(merged_state), opt),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::QueryAndApply),
+            self.timeout,
         );
         request.uuid = self.uuid;
         request

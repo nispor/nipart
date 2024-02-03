@@ -6,7 +6,8 @@ use nipart::{
     NipartApplyOption, NipartEvent, NipartLogLevel, NipartQueryOption,
 };
 
-use crate::{u128_to_uuid_string, WorkFlowShareData};
+use super::WorkFlowShareData;
+use crate::u128_to_uuid_string;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Task {
@@ -14,7 +15,8 @@ pub(crate) struct Task {
     pub(crate) kind: TaskKind,
     pub(crate) expected_reply_count: usize,
     pub(crate) replies: Vec<NipartEvent>,
-    pub(crate) timeout: SystemTime,
+    pub(crate) timeout: u32,
+    pub(crate) deadline: SystemTime,
     pub(crate) retry_interval_mills: u32,
     pub(crate) retry_count: u32,
     pub(crate) max_retry_count: u32,
@@ -38,7 +40,8 @@ impl Task {
             kind,
             expected_reply_count,
             replies: Vec::new(),
-            timeout: {
+            timeout,
+            deadline: {
                 SystemTime::now()
                     .checked_add(std::time::Duration::from_millis(
                         timeout.into(),
@@ -57,7 +60,7 @@ impl Task {
     }
 
     pub(crate) fn is_expired(&self) -> bool {
-        SystemTime::now() >= self.timeout && !self.is_done()
+        SystemTime::now() >= self.deadline && !self.is_done()
     }
 
     pub(crate) fn is_done(&self) -> bool {

@@ -207,6 +207,7 @@ async fn handle_query_plugin_info<T>(
         NipartPluginEvent::QueryPluginInfoReply(plugin.get_plugin_info()),
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         event.src.clone(),
+        crate::DEFAULT_TIMEOUT,
     );
     reply.uuid = event.uuid;
     log::trace!("Sending reply {reply:?}");
@@ -230,6 +231,7 @@ async fn handle_change_log_level<T>(
         NipartPluginEvent::QueryLogLevelReply(log_level),
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         NipartEventAddress::Commander,
+        crate::DEFAULT_TIMEOUT,
     );
     reply.uuid = uuid;
     log::trace!("Sending reply {reply:?}");
@@ -249,6 +251,7 @@ where
         NipartPluginEvent::QueryLogLevelReply(log::max_level().into()),
         NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
         NipartEventAddress::Commander,
+        crate::DEFAULT_TIMEOUT,
     );
     reply.uuid = uuid;
     log::trace!("Sending reply {reply:?}");

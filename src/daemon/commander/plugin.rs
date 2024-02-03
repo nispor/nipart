@@ -7,22 +7,21 @@ use nipart::{
     NipartPluginEvent, NipartUserEvent,
 };
 
-use crate::{
-    Plugins, Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData,
-    DEFAULT_TIMEOUT,
-};
+use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
+use crate::Plugins;
 
 impl WorkFlow {
     pub(crate) fn new_refresh_plugins(
         plugins: Arc<Mutex<Plugins>>,
         uuid: u128,
         new_plugin_count: usize,
+        timeout: u32,
     ) -> (Self, WorkFlowShareData) {
         let tasks = vec![Task::new(
             uuid,
             TaskKind::RefreshPluginInfo,
             new_plugin_count,
-            DEFAULT_TIMEOUT,
+            timeout,
         )];
         let share_data = WorkFlowShareData {
             plugins: Some(plugins),
@@ -41,12 +40,13 @@ impl WorkFlow {
     pub(crate) fn new_query_plugin_info(
         uuid: u128,
         plugin_count: usize,
+        timeout: u32,
     ) -> (Self, WorkFlowShareData) {
         let tasks = vec![Task::new(
             uuid,
             TaskKind::QueryPluginInfo,
             plugin_count,
-            DEFAULT_TIMEOUT,
+            timeout,
         )];
         let share_data = WorkFlowShareData::default();
 
@@ -62,13 +62,10 @@ impl WorkFlow {
     pub(crate) fn new_quit(
         uuid: u128,
         plugin_count: usize,
+        timeout: u32,
     ) -> (Self, WorkFlowShareData) {
-        let tasks = vec![Task::new(
-            uuid,
-            TaskKind::Quit,
-            plugin_count,
-            DEFAULT_TIMEOUT,
-        )];
+        let tasks =
+            vec![Task::new(uuid, TaskKind::Quit, plugin_count, timeout)];
         let share_data = WorkFlowShareData::default();
 
         let call_backs: Vec<Option<TaskCallBackFn>> =
@@ -138,6 +135,7 @@ fn query_plugin_info(
         NipartPluginEvent::None,
         NipartEventAddress::Daemon,
         NipartEventAddress::User,
+        task.timeout,
     );
     reply_event.uuid = task.uuid;
     Ok(Some(reply_event))
@@ -153,6 +151,7 @@ fn ask_daemon_to_quit(
         NipartPluginEvent::Quit,
         NipartEventAddress::Commander,
         NipartEventAddress::Daemon,
+        task.timeout,
     );
     event.uuid = task.uuid;
     Ok(Some(event))
@@ -166,6 +165,7 @@ impl Task {
             NipartPluginEvent::QueryPluginInfo,
             NipartEventAddress::Commander,
             NipartEventAddress::AllPlugins,
+            self.timeout,
         );
         request.uuid = self.uuid;
         request
@@ -178,6 +178,7 @@ impl Task {
             NipartPluginEvent::QueryPluginInfo,
             NipartEventAddress::Commander,
             NipartEventAddress::AllPlugins,
+            self.timeout,
         );
         request.uuid = self.uuid;
         request
@@ -190,6 +191,7 @@ impl Task {
             NipartPluginEvent::Quit,
             NipartEventAddress::Commander,
             NipartEventAddress::AllPlugins,
+            self.timeout,
         );
         request.uuid = self.uuid;
         request

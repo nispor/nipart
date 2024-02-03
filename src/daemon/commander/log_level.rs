@@ -7,21 +7,19 @@ use nipart::{
     NipartLogLevel, NipartPluginEvent, NipartUserEvent,
 };
 
-use crate::{
-    Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData,
-    DEFAULT_TIMEOUT,
-};
+use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
 
 impl WorkFlow {
     pub(crate) fn new_query_log_level(
         uuid: u128,
         plugin_count: usize,
+        timeout: u32,
     ) -> (Self, WorkFlowShareData) {
         let tasks = vec![Task::new(
             uuid,
             TaskKind::QueryLogLevel,
             plugin_count,
-            DEFAULT_TIMEOUT,
+            timeout,
         )];
         let share_data = WorkFlowShareData::default();
 
@@ -38,13 +36,14 @@ impl WorkFlow {
         log_level: NipartLogLevel,
         uuid: u128,
         plugin_count: usize,
+        timeout: u32,
     ) -> (Self, WorkFlowShareData) {
         log::set_max_level(log_level.into());
         let tasks = vec![Task::new(
             uuid,
             TaskKind::ChangeLogLevel(log_level),
             plugin_count,
-            DEFAULT_TIMEOUT,
+            timeout,
         )];
         let share_data = WorkFlowShareData::default();
 
@@ -77,6 +76,7 @@ fn query_log_level(
         NipartPluginEvent::None,
         NipartEventAddress::Daemon,
         NipartEventAddress::User,
+        task.timeout,
     );
     reply_event.uuid = task.uuid;
     Ok(Some(reply_event))
@@ -90,6 +90,7 @@ impl Task {
             NipartPluginEvent::QueryLogLevel,
             NipartEventAddress::Commander,
             NipartEventAddress::AllPlugins,
+            self.timeout,
         );
         request.uuid = self.uuid;
         request
@@ -105,6 +106,7 @@ impl Task {
             NipartPluginEvent::ChangeLogLevel(level),
             NipartEventAddress::Commander,
             NipartEventAddress::AllPlugins,
+            self.timeout,
         );
         request.uuid = self.uuid;
         request

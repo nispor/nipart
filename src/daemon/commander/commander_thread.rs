@@ -7,7 +7,8 @@ use nipart::{
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::{Plugins, WorkFlow, WorkFlowQueue, MPSC_CHANNLE_SIZE};
+use super::{WorkFlow, WorkFlowQueue};
+use crate::{Plugins, MPSC_CHANNLE_SIZE};
 
 // Check the session queue every 5 seconds
 const WORKFLOW_QUEUE_CHECK_INTERVAL: u64 = 5000;
@@ -124,8 +125,12 @@ async fn handle_daemon_commands(
 ) -> Result<(), NipartError> {
     match event.plugin {
         NipartPluginEvent::CommanderRefreshPlugins(i) => {
-            let (workflow, share_data) =
-                WorkFlow::new_refresh_plugins(plugins, event.uuid, i);
+            let (workflow, share_data) = WorkFlow::new_refresh_plugins(
+                plugins,
+                event.uuid,
+                i,
+                event.timeout,
+            );
             workflow_queue.add_workflow(workflow, share_data);
             process_workflow_queue(workflow_queue, commander_to_switch).await
         }
@@ -154,23 +159,39 @@ async fn handle_user_request(
         }
     };
     let (workflow, share_data) = match event.user {
-        NipartUserEvent::QueryPluginInfo => {
-            WorkFlow::new_query_plugin_info(event.uuid, all_plugins_count)
-        }
-        NipartUserEvent::QueryLogLevel => {
-            WorkFlow::new_query_log_level(event.uuid, all_plugins_count)
-        }
-        NipartUserEvent::ChangeLogLevel(l) => {
-            WorkFlow::new_change_log_level(l, event.uuid, all_plugins_count)
-        }
+        NipartUserEvent::QueryPluginInfo => WorkFlow::new_query_plugin_info(
+            event.uuid,
+            all_plugins_count,
+            event.timeout,
+        ),
+        NipartUserEvent::QueryLogLevel => WorkFlow::new_query_log_level(
+            event.uuid,
+            all_plugins_count,
+            event.timeout,
+        ),
+        NipartUserEvent::ChangeLogLevel(l) => WorkFlow::new_change_log_level(
+            l,
+            event.uuid,
+            all_plugins_count,
+            event.timeout,
+        ),
         NipartUserEvent::Quit => {
-            WorkFlow::new_quit(event.uuid, all_plugins_count)
+            WorkFlow::new_quit(event.uuid, all_plugins_count, event.timeout)
         }
-        NipartUserEvent::QueryNetState(opt) => {
-            WorkFlow::new_query_net_state(opt, event.uuid, plugins)
-        }
+        NipartUserEvent::QueryNetState(opt) => WorkFlow::new_query_net_state(
+            opt,
+            event.uuid,
+            plugins,
+            event.timeout,
+        ),
         NipartUserEvent::ApplyNetState(des, opt) => {
-            WorkFlow::new_apply_net_state(*des, opt, event.uuid, plugins)
+            WorkFlow::new_apply_net_state(
+                *des,
+                opt,
+                event.uuid,
+                plugins,
+                event.timeout,
+            )
         }
         _ => {
             log::error!("Unknown event {event:?}");

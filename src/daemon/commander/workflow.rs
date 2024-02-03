@@ -6,9 +6,11 @@ use std::sync::{Arc, Mutex};
 use nipart::{
     ErrorKind, MergedNetworkState, NetworkState, NipartError, NipartEvent,
     NipartEventAction, NipartEventAddress, NipartPluginEvent, NipartUserEvent,
+    DEFAULT_TIMEOUT,
 };
 
-use crate::{u128_to_uuid_string, Plugins, Task};
+use super::Task;
+use crate::{u128_to_uuid_string, Plugins};
 
 pub(crate) type TaskCallBackFn = fn(
     &Task,
@@ -167,6 +169,7 @@ impl WorkFlow {
                 NipartPluginEvent::None,
                 NipartEventAddress::Daemon,
                 NipartEventAddress::User,
+                DEFAULT_TIMEOUT,
             )]);
         }
 
