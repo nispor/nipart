@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, Interface, InterfaceType, Interfaces, MergedInterface,
-    MergedInterfaces, MergedNetworkState, NetworkState, NipartApplyOption,
+    ErrorKind, Interface, InterfaceType, MergedInterface,
+    MergedInterfaces, MergedNetworkState, NipartApplyOption,
     NipartError,
 };
 
 use crate::{
+    hostname::set_running_hostname,
     ip::{nipart_ipv4_to_np, nipart_ipv6_to_np},
     veth::nms_veth_conf_to_np,
     vlan::nms_vlan_conf_to_np,
@@ -16,6 +17,13 @@ pub(crate) async fn nispor_apply(
     merged_state: MergedNetworkState,
     _opt: NipartApplyOption,
 ) -> Result<(), NipartError> {
+    if let Some(hostname) = merged_state
+        .get_desired_hostname()
+        .and_then(|c| c.running.as_ref())
+    {
+        set_running_hostname(hostname)?;
+    }
+
     delete_ifaces(&merged_state.interfaces).await?;
 
     let mut ifaces: Vec<&MergedInterface> = merged_state

@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex};
 
 use nipart::{
-    NipartConnection, NipartError, NipartEvent, NipartPlugin, NipartRole,
+    NipartError, NipartEvent, NipartExternalPlugin, NipartPlugin, NipartRole,
 };
 use tokio::sync::mpsc::Sender;
 
@@ -16,7 +16,6 @@ impl NipartPluginBaiZeShareData {
 
 #[derive(Debug)]
 struct NipartPluginBaiZe {
-    socket_path: String,
     _data: Mutex<NipartPluginBaiZeShareData>,
 }
 
@@ -24,30 +23,27 @@ impl NipartPlugin for NipartPluginBaiZe {
     const PLUGIN_NAME: &'static str = "baize";
     const LOG_SUFFIX: &'static str = " (plugin baize)\n";
 
-    fn get_socket_path(&self) -> &str {
-        self.socket_path.as_str()
-    }
-
-    fn roles(&self) -> Vec<NipartRole> {
+    fn roles() -> Vec<NipartRole> {
         vec![NipartRole::Monitor]
     }
 
-    async fn init(socket_path: &str) -> Result<Self, NipartError> {
+    async fn init() -> Result<Self, NipartError> {
         Ok(Self {
-            socket_path: socket_path.to_string(),
             _data: Mutex::new(NipartPluginBaiZeShareData::default()),
         })
     }
 
     async fn handle_event(
         _plugin: &Arc<Self>,
-        to_daemon: &Sender<NipartEvent>,
+        _to_daemon: &Sender<NipartEvent>,
         event: NipartEvent,
     ) -> Result<(), NipartError> {
         log::warn!("Plugin baize got unknown event {event:?}");
         Ok(())
     }
 }
+
+impl NipartExternalPlugin for NipartPluginBaiZe {}
 
 #[tokio::main]
 async fn main() -> Result<(), NipartError> {

@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use nipart::{
     ErrorKind, NipartConnection, NipartConnectionListener, NipartError,
-    NipartEvent, NipartEventAddress,
+    NipartEvent, NipartEventAddress, NipartPluginEvent,
 };
 
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -17,22 +17,17 @@ use crate::MPSC_CHANNLE_SIZE;
 // For data from switch to user, we use uuid to find the correct UnixStream
 // to reply.
 pub(crate) async fn start_api_listener_thread(
-) -> Result<(Receiver<NipartEvent>, Sender<NipartEvent>), NipartError> {
-    let (switch_to_user_tx, switch_to_user_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (user_to_switch_tx, user_to_switch_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-
-    tokio::spawn(async move {
-        api_thread(switch_to_user_rx, user_to_switch_tx).await;
-    });
-
-    Ok((user_to_switch_rx, switch_to_user_tx))
+    switch_to_api: Receiver<NipartEvent>,
+    api_to_switch: Sender<NipartEvent>,
+) -> Result<tokio::task::JoinHandle<()>, NipartError> {
+    Ok(tokio::spawn(async move {
+        api_thread(switch_to_api, api_to_switch).await;
+    }))
 }
 
 async fn api_thread(
-    mut switch_to_user: Receiver<NipartEvent>,
-    user_to_switch: Sender<NipartEvent>,
+    mut switch_to_api: Receiver<NipartEvent>,
+    api_to_switch: Sender<NipartEvent>,
 ) {
     let listener = match NipartConnectionListener::new(
         NipartConnection::DEFAULT_SOCKET_PATH,
@@ -52,31 +47,35 @@ async fn api_thread(
             Ok(np_conn) = listener.accept() => {
                 clean_up_tracking_queue(tracking_queue.clone());
                 let tracking_queue_clone = tracking_queue.clone();
-                let user_to_switch_clone = user_to_switch.clone();
+                let api_to_switch_clone = api_to_switch.clone();
                 tokio::task::spawn(async move {
                     handle_client(
                         tracking_queue_clone,
-                        user_to_switch_clone,
+                        api_to_switch_clone,
                         np_conn
                     ).await
                 });
             }
 
-            Some(event) = switch_to_user.recv() => {
+            Some(event) = switch_to_api.recv() => {
                 log::trace!("api_thread(): to user {:?}", event);
                 // Clean up the queue for dead senders
                 clean_up_tracking_queue(tracking_queue.clone());
                 // Need to search out the connection for event to send
-                let tx = if let Ok(mut queue) = tracking_queue.lock() {
-                    queue.remove(&event.uuid)
-                } else {None};
-                if let Some(tx) = tx {
-                    if let Err(e) = tx.send(event.clone()).await {
-                        log::warn!("Failed to reply event to user {e}") ;
-                    }
+                if event.dst == NipartEventAddress::Daemon {
+                    handle_daemon_event(event);
                 } else {
-                    log::warn!(
-                        "Discarding event for disconnected user {event:?}");
+                    let tx = if let Ok(mut queue) = tracking_queue.lock() {
+                        queue.remove(&event.uuid)
+                    } else {None};
+                    if let Some(tx) = tx {
+                        if let Err(e) = tx.send(event.clone()).await {
+                            log::warn!("Failed to reply event to user {e}") ;
+                        }
+                    } else {
+                        log::warn!(
+                            "Discarding event for disconnected user {event:?}");
+                    }
                 }
             }
         }
@@ -88,7 +87,7 @@ async fn handle_client(
     use_to_switch: Sender<NipartEvent>,
     mut np_conn: NipartConnection,
 ) {
-    let (switch_to_user_tx, mut switch_to_user_rx) =
+    let (switch_to_api_tx, mut switch_to_api_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
     loop {
         tokio::select! {
@@ -97,7 +96,7 @@ async fn handle_client(
                 // Redirect user request to Commander
                 event.dst = NipartEventAddress::Commander;
                 if let Ok(mut queue) =  tracking_queue.lock() {
-                    queue.insert(event.uuid, switch_to_user_tx.clone());
+                    queue.insert(event.uuid, switch_to_api_tx.clone());
                 }
                 if let Err(e) = use_to_switch.send(event.clone()).await {
                     log::warn!(
@@ -107,7 +106,7 @@ async fn handle_client(
                     break;
                 }
             }
-            Some(event) = switch_to_user_rx.recv() => {
+            Some(event) = switch_to_api_rx.recv() => {
                 log::trace!("handle_client(): to user {event:?}");
                 if let Err(e) = np_conn.send(&event).await {
                     if e.kind == ErrorKind::IpcClosed {
@@ -150,5 +149,13 @@ fn clean_up_tracking_queue(
             );
             queue.remove(&uuid);
         }
+    }
+}
+
+fn handle_daemon_event(event: NipartEvent) {
+    if event.plugin == NipartPluginEvent::Quit {
+        std::process::exit(0);
+    } else {
+        log::warn!("API thread go unexpected daemon event {event}");
     }
 }

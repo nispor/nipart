@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use nipart::{
-    NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
+    NipartError, NipartEvent, NipartEventAddress,
     NipartLogLevel, NipartPluginEvent, NipartUserEvent,
 };
 
@@ -71,7 +71,6 @@ fn query_log_level(
     }
     log_levels.insert("daemon".to_string(), log::max_level().into());
     let mut reply_event = NipartEvent::new(
-        NipartEventAction::Done,
         NipartUserEvent::QueryLogLevelReply(log_levels),
         NipartPluginEvent::None,
         NipartEventAddress::Daemon,
@@ -85,7 +84,6 @@ fn query_log_level(
 impl Task {
     pub(crate) fn gen_request_query_log_level(&self) -> NipartEvent {
         let mut request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::None,
             NipartPluginEvent::QueryLogLevel,
             NipartEventAddress::Commander,
@@ -101,7 +99,6 @@ impl Task {
         level: NipartLogLevel,
     ) -> NipartEvent {
         let mut request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::None,
             NipartPluginEvent::ChangeLogLevel(level),
             NipartEventAddress::Commander,

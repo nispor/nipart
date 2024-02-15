@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 pub struct NipartPluginInfo {
     pub name: String,
     pub roles: Vec<NipartRole>,
-    pub socket_path: String,
 }
 
 #[derive(

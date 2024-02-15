@@ -15,14 +15,16 @@ mod state;
 
 pub use self::error::{ErrorKind, NipartError};
 pub use self::event::{
-    NipartEvent, NipartEventAction, NipartEventAddress, NipartPluginEvent,
+    NipartEvent, NipartEventAddress, NipartPluginEvent,
     NipartUserEvent,
 };
 pub use self::ipc::{NipartConnection, DEFAULT_TIMEOUT};
 pub use self::logging::NipartLogLevel;
 pub use self::plugin::{NipartPluginInfo, NipartRole};
 pub use self::plugin_ipc::NipartConnectionListener;
-pub use self::plugin_trait::NipartPlugin;
+pub use self::plugin_trait::{
+    NipartExternalPlugin, NipartNativePlugin, NipartPlugin,
+};
 pub use self::state_options::{NipartApplyOption, NipartQueryOption};
 // TODO Please remove this * once we detached from nmstate code base
 pub use self::state::*;

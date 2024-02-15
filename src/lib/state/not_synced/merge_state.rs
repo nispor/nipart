@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::super::{
-    MergedInterface, MergedNetworkState, NetworkState, NipartError,
+    HostNameState, MergedInterface, MergedNetworkState, NetworkState,
+    NipartError,
 };
 
 impl NetworkState {
@@ -45,6 +46,10 @@ impl NetworkState {
 }
 
 impl MergedNetworkState {
+    pub fn get_desired_hostname(&self) -> Option<&HostNameState> {
+        self.hostname.desired.as_ref()
+    }
+
     pub fn verify(&self, current: &NetworkState) -> Result<(), NipartError> {
         self.hostname.verify(current.hostname.as_ref())?;
         self.interfaces.verify(&current.interfaces)?;

@@ -43,7 +43,6 @@ impl std::fmt::Display for NipartEventAddress {
 #[non_exhaustive]
 pub struct NipartEvent {
     pub uuid: u128,
-    pub action: NipartEventAction,
     pub user: NipartUserEvent,
     pub plugin: NipartPluginEvent,
     pub src: NipartEventAddress,
@@ -78,7 +77,6 @@ impl std::fmt::Display for NipartEvent {
 impl NipartEvent {
     /// Generate a NipartEvent
     pub fn new(
-        action: NipartEventAction,
         user: NipartUserEvent,
         plugin: NipartPluginEvent,
         src: NipartEventAddress,
@@ -87,7 +85,6 @@ impl NipartEvent {
     ) -> Self {
         Self {
             uuid: uuid::Uuid::now_v7().as_u128(),
-            action,
             user,
             plugin,
             src,
@@ -113,7 +110,6 @@ impl NipartEvent {
 impl From<NipartError> for NipartEvent {
     fn from(e: NipartError) -> Self {
         Self::new(
-            NipartEventAction::Done,
             NipartUserEvent::Error(e),
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
@@ -121,15 +117,6 @@ impl From<NipartError> for NipartEvent {
             crate::DEFAULT_TIMEOUT,
         )
     }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum NipartEventAction {
-    OneShot,
-    Request,
-    Done,
-    Cancle,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
@@ -184,7 +171,6 @@ pub enum NipartPluginEvent {
     #[default]
     None,
     Quit,
-    CommanderRefreshPlugins(usize),
 
     QueryPluginInfo,
     QueryPluginInfoReply(NipartPluginInfo),
@@ -211,7 +197,6 @@ impl std::fmt::Display for NipartPluginEvent {
             match self {
                 Self::None => "none",
                 Self::Quit => "quit",
-                Self::CommanderRefreshPlugins(_) => "commander_refresh_plugins",
                 Self::QueryPluginInfo => "query_plugin_info",
                 Self::QueryPluginInfoReply(_) => "query_plugin_info_reply",
                 Self::ChangeLogLevel(_) => "change_log_level",

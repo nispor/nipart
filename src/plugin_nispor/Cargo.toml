@@ -17,6 +17,5 @@ nispor = { workspace = true }
 nix = { workspace = true }
 nipart = { path = "../lib", version = "0.1" }
 
-[[bin]]
-name = "nipart_plugin_nispor"
-path = "plugin_nispor.rs"
+[lib]
+path = "lib.rs"

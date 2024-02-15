@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::sync::{Arc, Mutex};
-
 use nipart::{
     ErrorKind, MergedNetworkState, NetworkState, NipartApplyOption,
-    NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
-    NipartPluginEvent, NipartQueryOption, NipartRole, NipartUserEvent,
+    NipartError, NipartEvent, NipartEventAddress, NipartPluginEvent,
+    NipartQueryOption, NipartRole, NipartUserEvent,
 };
 
 use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
-use crate::Plugins;
+use crate::PluginRoles;
 
 const VERIFY_RETRY_COUNT: u32 = 5;
 const VERIFY_RETRY_INTERVAL: u32 = 1000;
@@ -18,10 +16,10 @@ impl WorkFlow {
     pub(crate) fn new_query_net_state(
         opt: NipartQueryOption,
         uuid: u128,
-        plugins: Arc<Mutex<Plugins>>,
+        plugins: &PluginRoles,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
-        let plugin_count = get_plugin_count_for_query_apply(plugins);
+        let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply);
         let tasks = vec![Task::new(
             uuid,
             TaskKind::QueryNetState(opt),
@@ -43,10 +41,10 @@ impl WorkFlow {
         des_state: NetworkState,
         opt: NipartApplyOption,
         uuid: u128,
-        plugins: Arc<Mutex<Plugins>>,
+        plugins: &PluginRoles,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
-        let plugin_count = get_plugin_count_for_query_apply(plugins);
+        let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply);
         let mut tasks = vec![
             Task::new(
                 uuid,
@@ -95,7 +93,6 @@ fn query_net_state(
 ) -> Result<Option<NipartEvent>, NipartError> {
     let mut event = if task.replies.is_empty() {
         NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::Error(NipartError::new(
                 ErrorKind::Timeout,
                 "Not plugin replied the query network state call".into(),
@@ -121,7 +118,6 @@ fn query_net_state(
         }
         let state = NetworkState::merge_states(states);
         NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::QueryNetStateReply(Box::new(state)),
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
@@ -216,7 +212,6 @@ fn post_apply_query_related_state(
     merged_state.verify(&post_apply_state)?;
 
     let mut reply = NipartEvent::new(
-        NipartEventAction::Request,
         NipartUserEvent::ApplyNetStateReply,
         NipartPluginEvent::None,
         NipartEventAddress::Daemon,
@@ -233,7 +228,6 @@ impl Task {
         opt: NipartQueryOption,
     ) -> NipartEvent {
         let mut request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::None,
             NipartPluginEvent::QueryNetState(opt),
             NipartEventAddress::Commander,
@@ -260,7 +254,6 @@ impl Task {
         };
 
         let mut request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::None,
             NipartPluginEvent::QueryRelatedNetState(Box::new(desired_state)),
             NipartEventAddress::Commander,
@@ -287,7 +280,6 @@ impl Task {
             }
         };
         let mut request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::None,
             NipartPluginEvent::ApplyNetState(Box::new(merged_state), opt),
             NipartEventAddress::Commander,
@@ -296,17 +288,5 @@ impl Task {
         );
         request.uuid = self.uuid;
         request
-    }
-}
-
-fn get_plugin_count_for_query_apply(plugins: Arc<Mutex<Plugins>>) -> usize {
-    match plugins.lock() {
-        Ok(plugins) => {
-            plugins.get_plugin_count_with_role(NipartRole::QueryAndApply)
-        }
-        Err(e) => {
-            log::error!("Failed to lock on Plugins {e}");
-            0
-        }
     }
 }

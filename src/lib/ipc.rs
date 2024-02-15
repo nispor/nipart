@@ -10,7 +10,7 @@ use tokio::net::UnixStream;
 
 use crate::{
     ErrorKind, NetworkState, NipartApplyOption, NipartError, NipartEvent,
-    NipartEventAction, NipartEventAddress, NipartLogLevel, NipartPluginEvent,
+    NipartEventAddress, NipartLogLevel, NipartPluginEvent,
     NipartPluginInfo, NipartQueryOption, NipartUserEvent,
 };
 
@@ -105,7 +105,6 @@ impl NipartConnection {
         &mut self,
     ) -> Result<Vec<NipartPluginInfo>, NipartError> {
         let request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::QueryPluginInfo,
             NipartPluginEvent::None,
             NipartEventAddress::User,
@@ -129,7 +128,6 @@ impl NipartConnection {
         &mut self,
     ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
         let request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::QueryLogLevel,
             NipartPluginEvent::None,
             NipartEventAddress::User,
@@ -153,7 +151,6 @@ impl NipartConnection {
         level: NipartLogLevel,
     ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
         let request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::ChangeLogLevel(level),
             NipartPluginEvent::None,
             NipartEventAddress::User,
@@ -177,7 +174,6 @@ impl NipartConnection {
         option: NipartQueryOption,
     ) -> Result<NetworkState, NipartError> {
         let request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::QueryNetState(option),
             NipartPluginEvent::None,
             NipartEventAddress::User,
@@ -202,7 +198,6 @@ impl NipartConnection {
         option: NipartApplyOption,
     ) -> Result<(), NipartError> {
         let request = NipartEvent::new(
-            NipartEventAction::Request,
             NipartUserEvent::ApplyNetState(Box::new(state), option),
             NipartPluginEvent::None,
             NipartEventAddress::User,
@@ -223,7 +218,6 @@ impl NipartConnection {
 
     pub async fn stop_daemon(&mut self) -> Result<(), NipartError> {
         let request = NipartEvent::new(
-            NipartEventAction::OneShot,
             NipartUserEvent::Quit,
             NipartPluginEvent::None,
             NipartEventAddress::User,
@@ -274,8 +268,7 @@ impl NipartConnection {
     /// irrelevant reply to internal buffer.
     ///
     /// # Returns
-    ///  * Function will return when a matching event with
-    ///    `NipartEventAction::Done`received.
+    ///  * Function will return when a matching event received.
     ///  * If timeout without any reply received, return `Err()` with
     ///    `ErrorKind::Timeout`.
     pub async fn recv_reply(

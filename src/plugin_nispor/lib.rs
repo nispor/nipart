@@ -23,14 +23,4 @@ mod vlan;
 mod vrf;
 mod vxlan;
 
-pub(crate) use self::apply::nispor_apply;
-pub(crate) use self::show::nispor_retrieve;
-
-use self::plugin::NipartPluginNispor;
-
-use nipart::{NipartError, NipartPlugin};
-
-#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
-async fn main() -> Result<(), NipartError> {
-    NipartPluginNispor::run().await
-}
+pub use self::plugin::NipartPluginNispor;

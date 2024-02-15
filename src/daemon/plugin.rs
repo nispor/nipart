@@ -1,73 +1,177 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::os::unix::fs::PermissionsExt;
 
 use nipart::{
-    ErrorKind, NipartError, NipartLogLevel, NipartPluginInfo, NipartRole,
+    ErrorKind, NipartConnection, NipartError, NipartEvent, NipartEventAddress,
+    NipartLogLevel, NipartNativePlugin, NipartPlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
 };
+use nipart_plugin_nispor::NipartPluginNispor;
+use tokio::sync::mpsc::{Receiver, Sender};
+
+use crate::{DEFAULT_TIMEOUT, MPSC_CHANNLE_SIZE};
+
+const PLUGIN_PREFIX: &str = "nipart_plugin_";
+const QUERY_PLUGIN_RETRY: usize = 5;
+const QUERY_PLUGIN_RETRY_INTERAL: u64 = 500; // milliseconds
+
+pub(crate) type PluginConnections = HashMap<String, PluginConnection>;
+
+#[derive(Debug)]
+pub(crate) enum PluginConnection {
+    Socket(NipartConnection),
+    Mpsc((Sender<NipartEvent>, Receiver<NipartEvent>)),
+}
+
+impl PluginConnection {
+    pub(crate) async fn recv(&mut self) -> Result<NipartEvent, NipartError> {
+        match self {
+            Self::Socket(conn) => conn.recv().await,
+            Self::Mpsc((_, recver)) => {
+                if let Some(event) = recver.recv().await {
+                    Ok(event)
+                } else {
+                    Err(NipartError::new(
+                        ErrorKind::Bug,
+                        "Native plugin MPSC connection closed".to_string(),
+                    ))
+                }
+            }
+        }
+    }
+
+    pub(crate) async fn send(
+        &mut self,
+        event: &NipartEvent,
+    ) -> Result<(), NipartError> {
+        match self {
+            Self::Socket(conn) => conn.send(event).await,
+            Self::Mpsc((sender, _)) => Ok(sender.send(event.clone()).await?),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default)]
+pub(crate) struct PluginRoles(HashMap<NipartRole, Vec<String>>);
+
+impl PluginRoles {
+    pub(crate) fn insert(&mut self, name: &str, roles: Vec<NipartRole>) {
+        for role in roles {
+            self.0
+                .entry(role)
+                .and_modify(|roles| roles.push(name.to_string()))
+                .or_insert(vec![name.to_string()]);
+        }
+    }
+
+    pub(crate) fn get(&self, role: NipartRole) -> Option<&[String]> {
+        self.0.get(&role).map(|v| v.as_slice())
+    }
+
+    pub(crate) fn all_plugin_count(&self) -> usize {
+        let mut all_plugins: HashSet<&str> = HashSet::new();
+        for plugin_names in self.0.values() {
+            for plugin_name in plugin_names {
+                all_plugins.insert(plugin_name);
+            }
+        }
+        all_plugins.len()
+    }
+
+    pub(crate) fn get_plugin_count(&self, role: NipartRole) -> usize {
+        self.0.get(&role).map(|p| p.len()).unwrap_or_default()
+    }
+}
+
+#[derive(Debug, Default)]
 pub(crate) struct Plugins {
-    pub(crate) data: HashMap<NipartRole, Vec<String>>,
+    pub(crate) roles: PluginRoles,
+    pub(crate) connections: PluginConnections,
 }
 
 impl Plugins {
-    pub(crate) fn new() -> Self {
-        Self::default()
+    pub(crate) fn insert(
+        &mut self,
+        name: &str,
+        roles: Vec<NipartRole>,
+        connection: PluginConnection,
+    ) {
+        self.roles.insert(name, roles);
+        self.connections.insert(name.to_string(), connection);
     }
 
-    pub(crate) fn len(&self) -> usize {
-        self.data.len()
+    // TODO(Gris): Allow disable plugins
+    pub(crate) async fn start() -> Result<Plugins, NipartError> {
+        let mut ret = Self::default();
+        ret.load_external_plugins().await?;
+        ret.load_native_plugins().await?;
+        Ok(ret)
     }
 
-    pub(crate) fn push(&mut self, plugin_info: NipartPluginInfo) {
-        for role in plugin_info.roles {
-            self.data
-                .entry(role)
-                .and_modify(|n| n.push(plugin_info.name.clone()))
-                .or_insert(vec![plugin_info.name.clone()]);
+    // Each plugin will be invoked in a thread with a socket path string as its
+    // first argument. The plugin should listen on that socket and wait command
+    // from switch.
+    async fn load_external_plugins(&mut self) -> Result<(), NipartError> {
+        for (plugin_exec, plugin_name) in search_external_plugins() {
+            let socket_path = format!("{}{}", PLUGIN_PREFIX, plugin_name);
+            match external_plugin_start(
+                &plugin_exec,
+                &plugin_name,
+                &socket_path,
+            ) {
+                Ok(()) => {
+                    log::debug!(
+                        "Plugin {} started at {}",
+                        &plugin_name,
+                        &socket_path,
+                    );
+                    match connect_external_plugin(&plugin_name, &socket_path)
+                        .await
+                    {
+                        Ok((conn, roles)) => {
+                            self.insert(&plugin_name, roles, conn);
+                        }
+                        Err(e) => {
+                            log::warn!(
+                            "Failed to check plugin role {plugin_name}: {e}. \
+                            Ignoring this plugin"
+                        );
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Failed to start plugin {plugin_exec}: {e}. \
+                    Ignoring this plugin"
+                    );
+                }
+            }
         }
+        Ok(())
     }
 
-    pub(crate) fn clear(&mut self) {
-        self.data.clear();
-    }
+    async fn load_native_plugins(&mut self) -> Result<(), NipartError> {
+        let (nispor_to_switch_tx, nispor_to_switch_rx) =
+            tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+        let (switch_to_nispor_tx, switch_to_nispor_rx) =
+            tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
 
-    pub(crate) fn get_plugin_count_with_role(&self, role: NipartRole) -> usize {
-        self.data.get(&role).map(|r| r.len()).unwrap_or_default()
+        tokio::spawn(async move {
+            NipartPluginNispor::run(nispor_to_switch_tx, switch_to_nispor_rx)
+                .await
+        });
+
+        self.insert(
+            "nispor",
+            NipartPluginNispor::roles(),
+            PluginConnection::Mpsc((switch_to_nispor_tx, nispor_to_switch_rx)),
+        );
+        Ok(())
     }
 }
 
-const PLUGIN_PREFIX: &str = "nipart_plugin_";
-
-// Each plugin will be invoked in a thread with a socket path string as its
-// first argument. The plugin should listen on that socket and wait command
-// from plugin.
-//
-pub(crate) fn load_plugins() -> Vec<(String, String)> {
-    let mut socket_paths = Vec::new();
-    for (plugin_exec, plugin_name) in search_plugins() {
-        let socket_path = format!("{}{}", PLUGIN_PREFIX, plugin_name);
-        match plugin_start(&plugin_exec, &plugin_name, &socket_path) {
-            Ok(()) => {
-                log::debug!(
-                    "Plugin {} started at {}",
-                    &plugin_name,
-                    &socket_path,
-                );
-                socket_paths.push((plugin_name, socket_path));
-            }
-            Err(e) => {
-                log::error!("Failed to start plugin {plugin_exec}: {e}");
-                continue;
-            }
-        }
-    }
-    socket_paths
-}
-
-fn plugin_start(
+fn external_plugin_start(
     plugin_exec_path: &str,
     _plugin_name: &str,
     socket_path: &str,
@@ -114,7 +218,7 @@ fn get_current_exec_folder() -> String {
     "/usr/bin".into()
 }
 
-fn search_plugins() -> Vec<(String, String)> {
+fn search_external_plugins() -> Vec<(String, String)> {
     let mut ret = Vec::new();
     let search_folder = match std::env::var("NIPART_PLUGIN_FOLDER") {
         Ok(d) => d,
@@ -158,4 +262,56 @@ fn search_plugins() -> Vec<(String, String)> {
         log::error!("No plugin found in {search_folder}");
     }
     ret
+}
+
+async fn connect_external_plugin(
+    plugin_name: &str,
+    plugin_socket: &str,
+) -> Result<(PluginConnection, Vec<NipartRole>), NipartError> {
+    let mut cur_count = 0usize;
+    while cur_count < QUERY_PLUGIN_RETRY {
+        let result = get_external_plugin_info(plugin_name, plugin_socket).await;
+        match result {
+            Ok(i) => return Ok(i),
+            Err(e) => {
+                if cur_count == QUERY_PLUGIN_RETRY - 1 {
+                    return Err(e);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(
+                    QUERY_PLUGIN_RETRY_INTERAL,
+                ));
+                cur_count += 1;
+                continue;
+            }
+        }
+    }
+    Err(NipartError::new(
+        ErrorKind::Bug,
+        "BUG: connect_external_plugin() unreachable".to_string(),
+    ))
+}
+
+async fn get_external_plugin_info(
+    plugin_name: &str,
+    plugin_socket: &str,
+) -> Result<(PluginConnection, Vec<NipartRole>), NipartError> {
+    let event = NipartEvent::new(
+        NipartUserEvent::None,
+        NipartPluginEvent::QueryPluginInfo,
+        NipartEventAddress::Daemon,
+        NipartEventAddress::Unicast(plugin_name.to_string()),
+        DEFAULT_TIMEOUT,
+    );
+    let mut np_conn = NipartConnection::new_abstract(plugin_socket)?;
+    np_conn.send(&event).await?;
+    let reply: NipartEvent = np_conn.recv().await?;
+    if let NipartPluginEvent::QueryPluginInfoReply(i) = reply.plugin {
+        log::debug!("Got plugin info {i:?}");
+        Ok((PluginConnection::Socket(np_conn), i.roles))
+    } else {
+        Err(NipartError::new(
+            ErrorKind::Bug,
+            format!("invalid reply {event:?}"),
+        ))
+    }
 }

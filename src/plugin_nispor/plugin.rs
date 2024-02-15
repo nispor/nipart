@@ -3,27 +3,24 @@
 use std::sync::{Arc, Mutex};
 
 use nipart::{
-    MergedNetworkState, NetworkState, NipartApplyOption, NipartConnection,
-    NipartError, NipartEvent, NipartEventAction, NipartEventAddress,
+    MergedNetworkState, NipartApplyOption,
+    NipartError, NipartEvent, NipartEventAddress, NipartNativePlugin,
     NipartPlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
     DEFAULT_TIMEOUT,
 };
 use tokio::sync::mpsc::Sender;
 
-use crate::{nispor_apply, nispor_retrieve};
+use crate::apply::nispor_apply;
+use crate::show::nispor_retrieve;
 
 const STATE_PRIORITY: u32 = 50;
 
 #[derive(Debug, Default)]
 struct NipartPluginNisporShareData {}
 
-impl NipartPluginNisporShareData {
-    fn _clear(&mut self) {}
-}
-
 #[derive(Debug)]
-pub(crate) struct NipartPluginNispor {
-    socket_path: String,
+#[non_exhaustive]
+pub struct NipartPluginNispor {
     _data: Mutex<NipartPluginNisporShareData>,
 }
 
@@ -31,17 +28,12 @@ impl NipartPlugin for NipartPluginNispor {
     const PLUGIN_NAME: &'static str = "nispor";
     const LOG_SUFFIX: &'static str = " (plugin nispor)\n";
 
-    fn get_socket_path(&self) -> &str {
-        self.socket_path.as_str()
-    }
-
-    fn roles(&self) -> Vec<NipartRole> {
+    fn roles() -> Vec<NipartRole> {
         vec![NipartRole::QueryAndApply]
     }
 
-    async fn init(socket_path: &str) -> Result<Self, NipartError> {
+    async fn init() -> Result<Self, NipartError> {
         Ok(Self {
-            socket_path: socket_path.to_string(),
             _data: Mutex::new(NipartPluginNisporShareData::default()),
         })
     }
@@ -57,7 +49,6 @@ impl NipartPlugin for NipartPluginNispor {
             NipartPluginEvent::QueryNetState(_) => {
                 let state = nispor_retrieve(false).await?;
                 let mut reply = NipartEvent::new(
-                    NipartEventAction::Done,
                     NipartUserEvent::None,
                     NipartPluginEvent::QueryNetStateReply(
                         Box::new(state),
@@ -76,7 +67,6 @@ impl NipartPlugin for NipartPluginNispor {
             NipartPluginEvent::QueryRelatedNetState(_) => {
                 let state = nispor_retrieve(false).await?;
                 let mut reply = NipartEvent::new(
-                    NipartEventAction::Done,
                     event.user.clone(),
                     NipartPluginEvent::QueryRelatedNetStateReply(
                         Box::new(state),
@@ -121,7 +111,6 @@ async fn handle_apply(
 ) {
     let mut reply = match nispor_apply(merged_state, opt).await {
         Ok(()) => NipartEvent::new(
-            NipartEventAction::Done,
             NipartUserEvent::None,
             NipartPluginEvent::ApplyNetStateReply,
             NipartEventAddress::Unicast(
@@ -131,7 +120,6 @@ async fn handle_apply(
             DEFAULT_TIMEOUT,
         ),
         Err(e) => NipartEvent::new(
-            NipartEventAction::Done,
             NipartUserEvent::Error(e),
             NipartPluginEvent::ApplyNetStateReply,
             NipartEventAddress::Unicast(
@@ -147,3 +135,5 @@ async fn handle_apply(
         log::error!("Failed to reply {e}")
     }
 }
+
+impl NipartNativePlugin for NipartPluginNispor {}

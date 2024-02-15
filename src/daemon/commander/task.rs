@@ -106,7 +106,6 @@ impl Task {
     ) -> NipartEvent {
         let mut event = match &self.kind {
             TaskKind::QueryPluginInfo => self.gen_request_query_plugin_info(),
-            TaskKind::RefreshPluginInfo => self.gen_request_refresh_plugin(),
             TaskKind::Quit => self.gen_request_quit(),
             TaskKind::QueryNetState(opt) => {
                 self.gen_request_query_net_state(opt.clone())
@@ -133,7 +132,6 @@ impl Task {
 pub(crate) enum TaskKind {
     #[default]
     QueryPluginInfo,
-    RefreshPluginInfo,
     QueryNetState(NipartQueryOption),
     QueryRelatedNetState,
     ApplyNetState(NipartApplyOption),
@@ -149,7 +147,6 @@ impl std::fmt::Display for TaskKind {
             "{}",
             match self {
                 Self::QueryPluginInfo => "query_plugin_info",
-                Self::RefreshPluginInfo => "refresh_plugin_info",
                 Self::QueryNetState(_) => "query_net_state",
                 Self::QueryRelatedNetState => "query_related_net_state",
                 Self::ApplyNetState(_) => "apply_state",

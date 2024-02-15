@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 use nipart::{
     ErrorKind, MergedNetworkState, NetworkState, NipartError, NipartEvent,
-    NipartEventAction, NipartEventAddress, NipartPluginEvent, NipartUserEvent,
-    DEFAULT_TIMEOUT,
+    NipartEventAddress, NipartPluginEvent, NipartUserEvent, DEFAULT_TIMEOUT,
 };
 
 use super::Task;
-use crate::{u128_to_uuid_string, Plugins};
+use crate::u128_to_uuid_string;
 
 pub(crate) type TaskCallBackFn = fn(
     &Task,
@@ -23,7 +21,6 @@ pub(crate) struct WorkFlowShareData {
     pub(crate) desired_state: Option<NetworkState>,
     pub(crate) pre_apply_state: Option<NetworkState>,
     pub(crate) merged_state: Option<MergedNetworkState>,
-    pub(crate) plugins: Option<Arc<Mutex<Plugins>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -91,7 +88,7 @@ impl WorkFlow {
         share_data: &mut WorkFlowShareData,
     ) -> Result<Option<NipartEvent>, NipartError> {
         let callback_fn = match self.task_callbacks.get(self.cur_task_idx) {
-            Some(Some(f)) => f.clone(),
+            Some(Some(f)) => *f,
             _ => {
                 return Ok(None);
             }
@@ -161,7 +158,6 @@ impl WorkFlow {
 
         if self.is_expired() {
             return Ok(vec![NipartEvent::new(
-                NipartEventAction::Done,
                 NipartUserEvent::Error(NipartError::new(
                     ErrorKind::Timeout,
                     format!("Timeout on action {} {}", self.uuid, self.kind),
