@@ -103,10 +103,12 @@ impl Task {
     pub(crate) fn gen_request(
         &self,
         share_data: &WorkFlowShareData,
-    ) -> NipartEvent {
-        let mut event = match &self.kind {
-            TaskKind::QueryPluginInfo => self.gen_request_query_plugin_info(),
-            TaskKind::Quit => self.gen_request_quit(),
+    ) -> Vec<NipartEvent> {
+        let mut events = match &self.kind {
+            TaskKind::QueryPluginInfo => {
+                vec![self.gen_request_query_plugin_info()]
+            }
+            TaskKind::Quit => vec![self.gen_request_quit()],
             TaskKind::QueryNetState(opt) => {
                 self.gen_request_query_net_state(opt.clone())
             }
@@ -116,15 +118,17 @@ impl Task {
             TaskKind::ApplyNetState(opt) => {
                 self.gen_request_apply(opt.clone(), share_data)
             }
-            TaskKind::QueryLogLevel => self.gen_request_query_log_level(),
+            TaskKind::QueryLogLevel => vec![self.gen_request_query_log_level()],
             TaskKind::ChangeLogLevel(l) => {
-                self.gen_request_change_log_level(*l)
+                vec![self.gen_request_change_log_level(*l)]
             }
         };
         if self.retry_count != 0 {
-            event.postpone_millis = self.retry_interval_mills;
+            for event in &mut events {
+                event.postpone_millis = self.retry_interval_mills;
+            }
         }
-        event
+        events
     }
 }
 

@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MergedNetworkState, NetworkState, NipartApplyOption, NipartError,
-    NipartLogLevel, NipartPluginInfo, NipartQueryOption, NipartRole,
+    MergedNetworkState, NetworkState, NipartApplyOption, NipartDhcpConfig,
+    NipartError, NipartLogLevel, NipartPluginInfo, NipartQueryOption,
+    NipartRole,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -20,6 +21,8 @@ pub enum NipartEventAddress {
     Daemon,
     /// Commander,
     Commander,
+    /// The chosen dhcp plugin
+    Dhcp,
     /// Group of plugins holding specified [NipartRole]
     Group(NipartRole),
     /// All plugins
@@ -33,6 +36,7 @@ impl std::fmt::Display for NipartEventAddress {
             Self::Unicast(v) => write!(f, "{v}"),
             Self::Daemon => write!(f, "daemon"),
             Self::Commander => write!(f, "commander"),
+            Self::Dhcp => write!(f, "dhcp"),
             Self::Group(v) => write!(f, "group:{v}"),
             Self::AllPlugins => write!(f, "all_plugins"),
         }
@@ -58,7 +62,7 @@ impl std::fmt::Display for NipartEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} user {} plugin {} src {} dst timeout {}ms {}{}",
+            "{} user:{} plugin:{} src:{} dst:{} timeout:{}ms{}",
             self.uuid,
             self.user,
             self.plugin,
@@ -180,13 +184,18 @@ pub enum NipartPluginEvent {
     QueryLogLevelReply(NipartLogLevel),
 
     QueryNetState(NipartQueryOption),
-    QueryNetStateReply(Box<NetworkState>, u32),
-
     QueryRelatedNetState(Box<NetworkState>),
-    QueryRelatedNetStateReply(Box<NetworkState>, u32),
+    QueryNetStateReply(Box<NetworkState>, u32),
 
     ApplyNetState(Box<MergedNetworkState>, NipartApplyOption),
     ApplyNetStateReply,
+
+    // Empty `Vec<String>` means query all interfaces
+    QueryDhcpConfig(Box<Vec<String>>),
+    QueryDhcpConfigReply(Box<Vec<NipartDhcpConfig>>),
+
+    ApplyDhcpConfig(Box<Vec<NipartDhcpConfig>>),
+    ApplyDhcpConfigReply,
 }
 
 impl std::fmt::Display for NipartPluginEvent {
@@ -205,10 +214,12 @@ impl std::fmt::Display for NipartPluginEvent {
                 Self::QueryNetState(_) => "query_netstate",
                 Self::QueryNetStateReply(_, _) => "query_netstate_reply",
                 Self::QueryRelatedNetState(_) => "query_related_netstate",
-                Self::QueryRelatedNetStateReply(_, _) =>
-                    "query_related_netstate_reply",
                 Self::ApplyNetState(_, _) => "apply_netstate",
                 Self::ApplyNetStateReply => "apply_netstate_reply",
+                Self::QueryDhcpConfig(_) => "query_dhcp_config",
+                Self::QueryDhcpConfigReply(_) => "query_dhcp_config_reply",
+                Self::ApplyDhcpConfig(_) => "apply_dhcp_config",
+                Self::ApplyDhcpConfigReply => "apply_dhcp_config_reply",
             }
         )
     }

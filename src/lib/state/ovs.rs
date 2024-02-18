@@ -181,7 +181,8 @@ fn value_to_hash_map(
     ret
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedOvsDbGlobalConfig {
     pub(crate) desired: Option<OvsDbGlobalConfig>,
     pub(crate) current: OvsDbGlobalConfig,

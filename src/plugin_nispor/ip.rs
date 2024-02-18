@@ -14,9 +14,11 @@ pub(crate) fn np_ipv4_to_nipart(
         let mut ip = InterfaceIpv4::default();
         if np_ip.addresses.is_empty() {
             ip.enabled = false;
+            ip.enabled_defined = true;
             return Some(ip);
         }
         ip.enabled = true;
+        ip.enabled_defined = true;
         let mut addresses = Vec::new();
         for np_addr in &np_ip.addresses {
             if np_addr.valid_lft != "forever" {
@@ -62,6 +64,7 @@ pub(crate) fn np_ipv4_to_nipart(
         // IP might just disabled
         let mut ip = InterfaceIpv4::default();
         ip.enabled = false;
+        ip.enabled_defined = true;
         Some(ip)
     }
 }
@@ -74,9 +77,11 @@ pub(crate) fn np_ipv6_to_nipart(
         let mut ip = InterfaceIpv6::default();
         if np_ip.addresses.is_empty() {
             ip.enabled = false;
+            ip.enabled_defined = true;
             return Some(ip);
         }
         ip.enabled = true;
+        ip.enabled_defined = true;
         if let Some(token) = np_ip.token.as_ref() {
             ip.token = Some(token.to_string());
         }
@@ -126,6 +131,7 @@ pub(crate) fn np_ipv6_to_nipart(
         // IP might just disabled
         let mut ip = InterfaceIpv6::default();
         ip.enabled = false;
+        ip.enabled_defined = true;
         Some(ip)
     }
 }

@@ -142,18 +142,26 @@ where
 }
 
 async fn handle_plugin_event<T>(
-    runner: &Arc<NipartPluginRunner>,
     plugin: &Arc<T>,
     to_switch: &Sender<NipartEvent>,
     event: NipartEvent,
 ) where
     T: NipartPlugin,
 {
+    log::debug!("Plugin {} got event {event}", T::PLUGIN_NAME);
+    log::trace!("Plugin {} got event {event:?}", T::PLUGIN_NAME);
     match event.plugin {
         NipartPluginEvent::Quit => {
-            runner
-                .quit_flag
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+            let mut reply = NipartEvent::new(
+                NipartUserEvent::None,
+                NipartPluginEvent::Quit,
+                NipartEventAddress::Unicast(T::PLUGIN_NAME.to_string()),
+                NipartEventAddress::Commander,
+                crate::DEFAULT_TIMEOUT,
+            );
+            reply.uuid = event.uuid;
+            log::debug!("Sending {event}");
+            to_switch.send(reply).await.ok();
         }
         NipartPluginEvent::QueryPluginInfo => {
             handle_query_plugin_info::<T>(&event, to_switch, plugin.clone())
@@ -250,16 +258,22 @@ pub trait NipartExternalPlugin:
             loop {
                 tokio::select! {
                     Some(event) = to_switch_rx.recv() => {
+                        log::debug!("Sending {event}");
                         if let Err(e)  = np_conn.send(&event).await {
                             log::warn!(
                                 "Failed to send to daemon {event:?}: {e}");
+                        }
+                        if event.plugin == NipartPluginEvent::Quit {
+                            runner
+                                .quit_flag
+                                .store(true,
+                                       std::sync::atomic::Ordering::Relaxed);
                         }
                     },
                     result = np_conn.recv::<NipartEvent>() => {
                         match result {
                             Ok(event) => {
                                 handle_plugin_event(
-                                    &runner,
                                     &plugin,
                                     &to_switch_tx,
                                     event,
@@ -300,8 +314,7 @@ pub trait NipartNativePlugin:
                 }
                 match from_switch.recv().await {
                     Some(event) => {
-                        handle_plugin_event(&runner, &plugin, &to_switch, event)
-                            .await
+                        handle_plugin_event(&plugin, &to_switch, event).await
                     }
                     None => {
                         log::debug!("MPSC channel remote end closed");

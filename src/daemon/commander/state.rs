@@ -19,7 +19,9 @@ impl WorkFlow {
         plugins: &PluginRoles,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
-        let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply);
+        // Also include DHCP plugin
+        let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply)
+            + plugins.get_plugin_count(NipartRole::Dhcp);
         let tasks = vec![Task::new(
             uuid,
             TaskKind::QueryNetState(opt),
@@ -44,7 +46,9 @@ impl WorkFlow {
         plugins: &PluginRoles,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
-        let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply);
+        let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply)
+            + plugins.get_plugin_count(NipartRole::Dhcp);
+
         let mut tasks = vec![
             Task::new(
                 uuid,
@@ -90,7 +94,7 @@ impl WorkFlow {
 fn query_net_state(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
-) -> Result<Option<NipartEvent>, NipartError> {
+) -> Result<Vec<NipartEvent>, NipartError> {
     let mut event = if task.replies.is_empty() {
         NipartEvent::new(
             NipartUserEvent::Error(NipartError::new(
@@ -103,20 +107,7 @@ fn query_net_state(
             task.timeout,
         )
     } else {
-        let mut states = Vec::new();
-        for reply in task.replies.as_slice() {
-            if let NipartPluginEvent::QueryNetStateReply(state, priority) =
-                &reply.plugin
-            {
-                states.push(((**state).clone(), *priority));
-            } else {
-                log::error!(
-                    "BUG: Got unexpected reply, \
-                    expecting query_netstate_reply, but got {reply:?}"
-                );
-            }
-        }
-        let state = NetworkState::merge_states(states);
+        let state = get_state_from_replies(task.replies.as_slice());
         NipartEvent::new(
             NipartUserEvent::QueryNetStateReply(Box::new(state)),
             NipartPluginEvent::None,
@@ -126,27 +117,15 @@ fn query_net_state(
         )
     };
     event.uuid = task.uuid;
-    Ok(Some(event))
+    Ok(vec![event])
 }
 
 fn pre_apply_query_related_state(
     task: &Task,
     share_data: &mut WorkFlowShareData,
-) -> Result<Option<NipartEvent>, NipartError> {
-    let mut states = Vec::new();
-    for reply in task.replies.as_slice() {
-        if let NipartPluginEvent::QueryRelatedNetStateReply(state, priority) =
-            &reply.plugin
-        {
-            states.push(((**state).clone(), *priority));
-        } else {
-            log::error!(
-                "BUG: Got unexpected reply, \
-                expecting query_related_netstate_reply, but got {reply:?}"
-            );
-        }
-    }
-    let cur_state = NetworkState::merge_states(states);
+) -> Result<Vec<NipartEvent>, NipartError> {
+    let cur_state = get_state_from_replies(task.replies.as_slice());
+    log::debug!("HAHA {:?}", cur_state);
 
     let des_state = if let Some(d) = share_data.desired_state.as_ref() {
         d.clone()
@@ -163,7 +142,7 @@ fn pre_apply_query_related_state(
     share_data.merged_state = Some(merged_state);
     share_data.pre_apply_state = Some(cur_state);
 
-    Ok(None)
+    Ok(Vec::new())
 }
 
 // Since we have verification process afterwards, here we only log errors
@@ -171,34 +150,21 @@ fn pre_apply_query_related_state(
 fn apply_net_state(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
-) -> Result<Option<NipartEvent>, NipartError> {
+) -> Result<Vec<NipartEvent>, NipartError> {
     for reply in task.replies.as_slice() {
         if let NipartUserEvent::Error(e) = &reply.user {
             log::warn!("{e}");
         }
     }
-    Ok(None)
+    Ok(Vec::new())
 }
 
 // Verify
 fn post_apply_query_related_state(
     task: &Task,
     share_data: &mut WorkFlowShareData,
-) -> Result<Option<NipartEvent>, NipartError> {
-    let mut states: Vec<(NetworkState, u32)> = Vec::new();
-    for reply in task.replies.as_slice() {
-        if let NipartPluginEvent::QueryRelatedNetStateReply(state, priority) =
-            &reply.plugin
-        {
-            states.push(((**state).clone(), *priority));
-        } else {
-            log::error!(
-                "BUG: Got unexpected reply, \
-                expecting query_related_netstate_reply, but got {reply:?}"
-            );
-        }
-    }
-    let post_apply_state = NetworkState::merge_states(states);
+) -> Result<Vec<NipartEvent>, NipartError> {
+    let post_apply_state = get_state_from_replies(task.replies.as_slice());
 
     let merged_state = if let Some(d) = share_data.merged_state.as_ref() {
         d.clone()
@@ -219,29 +185,40 @@ fn post_apply_query_related_state(
         task.timeout,
     );
     reply.uuid = task.uuid;
-    Ok(Some(reply))
+    Ok(vec![reply])
 }
 
 impl Task {
     pub(crate) fn gen_request_query_net_state(
         &self,
         opt: NipartQueryOption,
-    ) -> NipartEvent {
-        let mut request = NipartEvent::new(
+    ) -> Vec<NipartEvent> {
+        let mut ret = Vec::new();
+        ret.push(NipartEvent::new(
             NipartUserEvent::None,
             NipartPluginEvent::QueryNetState(opt),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::QueryAndApply),
             self.timeout,
-        );
-        request.uuid = self.uuid;
-        request
+        ));
+        ret.push(NipartEvent::new(
+            NipartUserEvent::None,
+            NipartPluginEvent::QueryDhcpConfig(Box::new(Vec::new())),
+            NipartEventAddress::Commander,
+            NipartEventAddress::Dhcp,
+            self.timeout,
+        ));
+        for request in &mut ret {
+            request.uuid = self.uuid;
+        }
+        ret
     }
 
     pub(crate) fn gen_request_query_related(
         &self,
         share_data: &WorkFlowShareData,
-    ) -> NipartEvent {
+    ) -> Vec<NipartEvent> {
+        let mut ret = Vec::new();
         let desired_state = match share_data.desired_state.as_ref() {
             Some(s) => s.clone(),
             None => {
@@ -253,22 +230,33 @@ impl Task {
             }
         };
 
-        let mut request = NipartEvent::new(
+        ret.push(NipartEvent::new(
             NipartUserEvent::None,
             NipartPluginEvent::QueryRelatedNetState(Box::new(desired_state)),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::QueryAndApply),
             self.timeout,
-        );
-        request.uuid = self.uuid;
-        request
+        ));
+        // TODO: Only query DHCP config for related  interfaces
+        ret.push(NipartEvent::new(
+            NipartUserEvent::None,
+            NipartPluginEvent::QueryDhcpConfig(Box::new(Vec::new())),
+            NipartEventAddress::Commander,
+            NipartEventAddress::Dhcp,
+            self.timeout,
+        ));
+        for request in &mut ret {
+            request.uuid = self.uuid;
+        }
+        ret
     }
 
     pub(crate) fn gen_request_apply(
         &self,
         opt: NipartApplyOption,
         share_data: &WorkFlowShareData,
-    ) -> NipartEvent {
+    ) -> Vec<NipartEvent> {
+        let mut ret = Vec::new();
         let merged_state = match share_data.merged_state.as_ref() {
             Some(s) => s.clone(),
             None => {
@@ -279,14 +267,55 @@ impl Task {
                 MergedNetworkState::default()
             }
         };
-        let mut request = NipartEvent::new(
+        let dhcp_changes = merged_state.get_dhcp_changes();
+        ret.push(NipartEvent::new(
             NipartUserEvent::None,
             NipartPluginEvent::ApplyNetState(Box::new(merged_state), opt),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::QueryAndApply),
             self.timeout,
-        );
-        request.uuid = self.uuid;
-        request
+        ));
+        ret.push(NipartEvent::new(
+            NipartUserEvent::None,
+            NipartPluginEvent::ApplyDhcpConfig(Box::new(dhcp_changes)),
+            NipartEventAddress::Commander,
+            NipartEventAddress::Dhcp,
+            self.timeout,
+        ));
+        for request in &mut ret {
+            request.uuid = self.uuid;
+        }
+        ret
     }
+}
+
+fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
+    let mut states = Vec::new();
+    for reply in replies {
+        if let NipartPluginEvent::QueryNetStateReply(state, priority) =
+            &reply.plugin
+        {
+            states.push(((**state).clone(), *priority));
+        } else if let NipartPluginEvent::QueryDhcpConfigReply(_) = &reply.plugin
+        {
+            // Will process later after multiple NetState been merged into
+            // one.
+            ()
+        } else {
+            log::error!(
+                "BUG: Got unexpected reply, \
+                expecting query_netstate_reply, but got {reply:?}"
+            );
+        }
+    }
+    let mut state = NetworkState::merge_states(states);
+
+    for reply in replies {
+        if let NipartPluginEvent::QueryDhcpConfigReply(dhcp_confs) =
+            &reply.plugin
+        {
+            state.fill_dhcp_config(&dhcp_confs);
+        }
+    }
+    state
 }

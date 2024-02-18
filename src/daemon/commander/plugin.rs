@@ -52,7 +52,7 @@ impl WorkFlow {
 fn query_plugin_info(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
-) -> Result<Option<NipartEvent>, NipartError> {
+) -> Result<Vec<NipartEvent>, NipartError> {
     let mut plugin_infos = Vec::new();
     for reply in &task.replies {
         if let NipartPluginEvent::QueryPluginInfoReply(i) = &reply.plugin {
@@ -71,13 +71,13 @@ fn query_plugin_info(
         task.timeout,
     );
     reply_event.uuid = task.uuid;
-    Ok(Some(reply_event))
+    Ok(vec![reply_event])
 }
 
 fn ask_daemon_to_quit(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
-) -> Result<Option<NipartEvent>, NipartError> {
+) -> Result<Vec<NipartEvent>, NipartError> {
     let mut event = NipartEvent::new(
         NipartUserEvent::Quit,
         NipartPluginEvent::Quit,
@@ -86,7 +86,9 @@ fn ask_daemon_to_quit(
         task.timeout,
     );
     event.uuid = task.uuid;
-    Ok(Some(event))
+    // Give plugins 1 second to quit after they replied
+    event.postpone_millis = 1000;
+    Ok(vec![event])
 }
 
 impl Task {

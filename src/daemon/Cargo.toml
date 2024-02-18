@@ -19,6 +19,7 @@ nipart = { path = "../lib", version = "0.1" }
 futures = { workspace = true }
 uuid = { workspace = true }
 nipart-plugin-nispor = { path = "../plugin_nispor", version = "0.1" }
+nipart-plugin-mozim = { path = "../plugin_mozim", version = "0.1" }
 
 [[bin]]
 name = "nipartd"

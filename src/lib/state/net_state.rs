@@ -289,7 +289,8 @@ impl NetworkState {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedNetworkState {
     pub interfaces: MergedInterfaces,
     pub(crate) hostname: MergedHostNameState,

@@ -10,11 +10,8 @@ use nipart::{
 use super::Task;
 use crate::u128_to_uuid_string;
 
-pub(crate) type TaskCallBackFn = fn(
-    &Task,
-    &mut WorkFlowShareData,
-)
-    -> Result<Option<NipartEvent>, NipartError>;
+pub(crate) type TaskCallBackFn =
+    fn(&Task, &mut WorkFlowShareData) -> Result<Vec<NipartEvent>, NipartError>;
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct WorkFlowShareData {
@@ -47,6 +44,7 @@ impl WorkFlow {
         tasks: Vec<Task>,
         task_callbacks: Vec<Option<TaskCallBackFn>>,
     ) -> Self {
+        log::debug!("New workflow {uuid}, {kind}");
         Self {
             kind: kind.to_string(),
             uuid,
@@ -61,7 +59,7 @@ impl WorkFlow {
     pub(crate) fn gen_cur_task_request_event(
         &self,
         share_data: &mut WorkFlowShareData,
-    ) -> Result<NipartEvent, NipartError> {
+    ) -> Result<Vec<NipartEvent>, NipartError> {
         if let Some(task) = self.cur_task() {
             Ok(task.gen_request(share_data))
         } else {
@@ -86,17 +84,17 @@ impl WorkFlow {
     pub(crate) fn cur_task_callback(
         &mut self,
         share_data: &mut WorkFlowShareData,
-    ) -> Result<Option<NipartEvent>, NipartError> {
+    ) -> Result<Vec<NipartEvent>, NipartError> {
         let callback_fn = match self.task_callbacks.get(self.cur_task_idx) {
             Some(Some(f)) => *f,
             _ => {
-                return Ok(None);
+                return Ok(Vec::new());
             }
         };
         let result = match self.cur_task_mut() {
             Some(t) => callback_fn(t, share_data),
             None => {
-                return Ok(None);
+                return Ok(Vec::new());
             }
         };
 
@@ -107,7 +105,7 @@ impl WorkFlow {
                     if cur_task.can_retry() {
                         log::debug!("Retry on error {e}");
                         cur_task.retry();
-                        return Ok(Some(cur_task.gen_request(share_data)));
+                        return Ok(cur_task.gen_request(share_data));
                     }
                 }
                 Err(e)
@@ -151,7 +149,7 @@ impl WorkFlow {
     ) -> Result<Vec<NipartEvent>, NipartError> {
         let mut ret: Vec<NipartEvent> = Vec::new();
         if !self.init_request_sent {
-            ret.push(self.gen_cur_task_request_event(share_data)?);
+            ret.extend(self.gen_cur_task_request_event(share_data)?);
             self.init_request_sent = true;
             return Ok(ret);
         }
@@ -171,8 +169,7 @@ impl WorkFlow {
 
         if self.cur_task_is_done() {
             match self.cur_task_callback(share_data) {
-                Ok(Some(e)) => ret.push(e),
-                Ok(None) => (),
+                Ok(events) => ret.extend(events),
                 Err(e) => {
                     self.is_fail = true;
                     let mut error_event: NipartEvent = e.into();
@@ -182,7 +179,7 @@ impl WorkFlow {
             }
             if self.cur_task_idx + 1 < self.tasks.len() {
                 self.cur_task_idx += 1;
-                ret.push(self.gen_cur_task_request_event(share_data)?);
+                ret.extend(self.gen_cur_task_request_event(share_data)?);
             }
         }
 

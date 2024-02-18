@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use super::super::{
+use crate::{
     HostNameState, MergedInterface, MergedNetworkState, NetworkState,
-    NipartError,
+    NipartDhcpConfig, NipartError,
 };
 
 impl NetworkState {
@@ -46,6 +46,11 @@ impl NetworkState {
 }
 
 impl MergedNetworkState {
+    pub fn get_dhcp_changes(&self) -> Vec<NipartDhcpConfig> {
+        // TODO
+        vec![]
+    }
+
     pub fn get_desired_hostname(&self) -> Option<&HostNameState> {
         self.hostname.desired.as_ref()
     }

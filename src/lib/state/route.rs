@@ -42,14 +42,15 @@ pub struct Routes {
     /// This property is not overriding but adding specified routes to
     /// existing routes. To delete a route entry, please [RouteEntry.state] as
     /// [RouteState::Absent]. Any property of absent [RouteEntry] set to
-    /// `None` means wildcard. For example, this [crate::state::NetworkState]
-    /// could remove all routes next hop to interface eth1(showing in
-    /// yaml): ```yaml
+    /// `None` means wildcard. For example, this [crate::state::NetworkState] could
+    /// remove all routes next hop to interface eth1(showing in yaml):
+    /// ```yaml
     /// routes:
     ///   config:
-    ///   - next-hop-interface: eth1 state: absent
+    ///   - next-hop-interface: eth1
+    ///     state: absent
     /// ```
-    /// 
+    ///
     /// To change a route entry, you need to delete old one and add new one(can
     /// be in single transaction).
     pub config: Option<Vec<RouteEntry>>,
@@ -70,15 +71,8 @@ impl Routes {
         // for route with route type `Blackhole`, `Unreachable`, `Prohibit`.
         if let Some(config_routes) = self.config.as_ref() {
             for route in config_routes.iter() {
-                let no_nexthop_route_type = [
-                    RouteType::Blackhole,
-                    RouteType::Unreachable,
-                    RouteType::Prohibit,
-                ];
                 if !route.is_absent() {
-                    if route.route_type.is_some()
-                        && no_nexthop_route_type
-                            .contains(&route.route_type.unwrap())
+                    if !route.is_unicast()
                         && (route.next_hop_iface.is_some()
                             && route.next_hop_iface
                                 != Some(LOOPBACK_IFACE_NAME.to_string())
@@ -93,9 +87,7 @@ impl Routes {
                             ),
                         ));
                     } else if route.next_hop_iface.is_none()
-                        && (route.route_type.is_none()
-                            || !no_nexthop_route_type
-                                .contains(&route.route_type.unwrap()))
+                        && route.is_unicast()
                     {
                         return Err(NipartError::new(
                             ErrorKind::NotImplementedError,
@@ -106,9 +98,7 @@ impl Routes {
                         ));
                     }
                 }
-                if let Some(dst) = route.destination.as_deref() {
-                    validate_route_dst(dst)?;
-                }
+                validate_route_dst(route)?;
             }
         }
         Ok(())
@@ -215,6 +205,7 @@ impl std::fmt::Display for RouteType {
     }
 }
 
+const RTN_UNICAST: u8 = 1;
 const RTN_BLACKHOLE: u8 = 6;
 const RTN_UNREACHABLE: u8 = 7;
 const RTN_PROHIBIT: u8 = 8;
@@ -348,6 +339,11 @@ impl RouteEntry {
         self.destination.as_ref().map(|d| is_ipv6_addr(d.as_str()))
             == Some(true)
     }
+
+    pub(crate) fn is_unicast(&self) -> bool {
+        self.route_type.is_none()
+            || u8::from(self.route_type.unwrap()) == RTN_UNICAST
+    }
 }
 
 // For Vec::dedup()
@@ -403,7 +399,8 @@ impl std::fmt::Display for RouteEntry {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedRoutes {
     pub(crate) indexed: HashMap<String, Vec<RouteEntry>>,
     pub(crate) route_changed_ifaces: Vec<String>,
@@ -611,48 +608,51 @@ impl MergedRoutes {
 
 // Validating if the route destination network is valid,
 // 0.0.0.0/8 and its subnet cannot be used as the route destination network
-fn validate_route_dst(dst: &str) -> Result<(), NipartError> {
-    if !is_ipv6_addr(dst) {
-        let ip_net: Vec<&str> = dst.split('/').collect();
-        let ip_addr = Ipv4Addr::from_str(ip_net[0])?;
-        if ip_addr.octets()[0] == 0 {
-            if dst.contains('/') {
-                let prefix = match ip_net[1].parse::<i32>() {
-                    Ok(p) => p,
-                    Err(_) => {
-                        return Err(NipartError::new(
+// for unicast route
+fn validate_route_dst(route: &RouteEntry) -> Result<(), NipartError> {
+    if let Some(dst) = route.destination.as_deref() {
+        if !is_ipv6_addr(dst) {
+            let ip_net: Vec<&str> = dst.split('/').collect();
+            let ip_addr = Ipv4Addr::from_str(ip_net[0])?;
+            if ip_addr.octets()[0] == 0 {
+                if dst.contains('/') {
+                    let prefix = match ip_net[1].parse::<i32>() {
+                        Ok(p) => p,
+                        Err(_) => {
+                            return Err(NipartError::new(
+                                ErrorKind::InvalidArgument,
+                                format!(
+                                    "The prefix of the route destination network \
+                                    '{dst}' is invalid"
+                                ),
+                            ));
+                        }
+                    };
+                    if prefix >= 8 && route.is_unicast() {
+                        let e = NipartError::new(
                             ErrorKind::InvalidArgument,
-                            format!(
-                                "The prefix of the route destination network \
-                                '{dst}' is invalid"
-                            ),
-                        ));
+                            "0.0.0.0/8 and its subnet cannot be used as \
+                            the route destination for unicast route, please use \
+                            the default gateway 0.0.0.0/0 instead"
+                                .to_string(),
+                        );
+                        log::error!("{}", e);
+                        return Err(e);
                     }
-                };
-                if prefix >= 8 {
+                } else if route.is_unicast() {
                     let e = NipartError::new(
                         ErrorKind::InvalidArgument,
                         "0.0.0.0/8 and its subnet cannot be used as \
-                        the route destination, please use the default \
-                        gateway 0.0.0.0/0 instead"
+                        the route destination for unicast route, please use \
+                        the default gateway 0.0.0.0/0 instead"
                             .to_string(),
                     );
                     log::error!("{}", e);
                     return Err(e);
                 }
-            } else {
-                let e = NipartError::new(
-                    ErrorKind::InvalidArgument,
-                    "0.0.0.0/8 and its subnet cannot be used as \
-                    the route destination, please use the default \
-                    gateway 0.0.0.0/0 instead"
-                        .to_string(),
-                );
-                log::error!("{}", e);
-                return Err(e);
             }
+            return Ok(());
         }
-        return Ok(());
     }
     Ok(())
 }

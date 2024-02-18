@@ -87,8 +87,8 @@ impl Serialize for EthtoolFeatureConfig {
 #[non_exhaustive]
 #[serde(deny_unknown_fields)]
 /// The ethtool configurations.
-/// The yaml output of [crate::state::NetworkState] containing ethtool
-/// information of an ethernet interface would be:
+/// The yaml output of [crate::state::NetworkState] containing ethtool information of
+/// an ethernet interface would be:
 /// ```yml
 /// interfaces:
 /// - name: ens3

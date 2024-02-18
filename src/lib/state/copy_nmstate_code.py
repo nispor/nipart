@@ -258,6 +258,17 @@ def serde_merged_state():
     )
 
 
+def expose_ip_enabled_defined():
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) enabled_defined:/pub enabled_defined:/",
+            f"{SCRIPT_DIR}/ip.rs",
+        ],
+        check=True,
+    )
+
+
 def main():
     for file in os.listdir(NMSTATE_RUST_CODE_DIR):
         if file not in DENY_LIST:
@@ -283,6 +294,7 @@ def main():
     change_func_ports_to_public()
     change_base_iface_props_to_public()
     serde_merged_state()
+    expose_ip_enabled_defined()
 
 
 main()

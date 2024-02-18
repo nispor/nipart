@@ -18,9 +18,13 @@ async fn main() -> Result<(), CliError> {
         .about("CLI to Nipart daemon")
         .arg_required_else_help(true)
         .subcommand(
-            clap::Command::new("plugin-info")
-                .alias("pi")
-                .about("Query plugin info"),
+            clap::Command::new("plugin")
+                .alias("p")
+                .about("plugin control")
+                .arg_required_else_help(true)
+                .subcommand(
+                    clap::Command::new("show").alias("s").about("Show plugins"),
+                ),
         )
         .subcommand(
             clap::Command::new("show")
@@ -45,14 +49,14 @@ async fn main() -> Result<(), CliError> {
                 .arg_required_else_help(true)
                 .about("Query/Change logging settings")
                 .subcommand(
-                    clap::Command::new("query")
-                        .alias("q")
-                        .about("Query logging level"),
+                    clap::Command::new("show")
+                        .alias("s")
+                        .about("Show logging level"),
                 )
                 .subcommand(
-                    clap::Command::new("set")
-                        .alias("s")
-                        .about("Set logging level")
+                    clap::Command::new("apply")
+                        .alias("a")
+                        .about("Change logging level")
                         .arg(
                             clap::Arg::new("level")
                                 .index(1)
@@ -96,8 +100,8 @@ async fn main() -> Result<(), CliError> {
     log_builder.filter(None, log::LevelFilter::Debug);
     log_builder.init();
 
-    if matches.subcommand_matches("plugin-info").is_some() {
-        handle_plugin_info().await?;
+    if let Some(m) = matches.subcommand_matches("plugin") {
+        handle_plugin(m).await?;
     } else if matches.subcommand_matches("show").is_some() {
         handle_show().await?;
     } else if let Some(m) = matches.subcommand_matches("log") {
@@ -113,11 +117,15 @@ async fn main() -> Result<(), CliError> {
     Ok(())
 }
 
-async fn handle_plugin_info() -> Result<(), CliError> {
+async fn handle_plugin(matches: &clap::ArgMatches) -> Result<(), CliError> {
     let mut conn = NipartConnection::new().await?;
-    let replies = conn.query_plugin_info().await?;
-    println!("{}", serde_yaml::to_string(&replies)?);
-    Ok(())
+    if matches.subcommand_matches("show").is_some() {
+        let replies = conn.query_plugin_info().await?;
+        println!("{}", serde_yaml::to_string(&replies)?);
+        Ok(())
+    } else {
+        Err(format!("Invalid sub-command for `plugin` {matches:?}").into())
+    }
 }
 
 async fn handle_show() -> Result<(), CliError> {
@@ -149,10 +157,10 @@ async fn handle_debug(matches: &clap::ArgMatches) -> Result<(), CliError> {
 
 async fn handle_log(matches: &clap::ArgMatches) -> Result<(), CliError> {
     let mut conn = NipartConnection::new().await?;
-    if matches.subcommand_matches("query").is_some() {
+    if matches.subcommand_matches("show").is_some() {
         let replies = conn.query_log_level().await?;
         println!("{}", serde_yaml::to_string(&replies)?);
-    } else if let Some(m) = matches.subcommand_matches("set") {
+    } else if let Some(m) = matches.subcommand_matches("apply") {
         let log_level_str: &String = m
             .get_one("level")
             .ok_or(CliError::from("Undefined log level"))?;

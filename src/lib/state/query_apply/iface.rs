@@ -27,7 +27,10 @@ impl Interface {
         }
     }
 
-    pub(crate) fn verify(&mut self, current: &Self) -> Result<(), NipartError> {
+    pub(crate) fn verify(
+        &mut self,
+        current: &Self,
+    ) -> Result<(), NipartError> {
         let mut current = current.clone();
         self.process_allow_extra_address(&mut current);
 

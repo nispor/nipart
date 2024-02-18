@@ -130,7 +130,7 @@ pub struct InterfaceIpv4 {
     pub enabled: bool,
     /// Indicate whether `enabled` is defined by user or learn from
     /// default/current value.
-    pub(crate) enabled_defined: bool,
+    pub enabled_defined: bool,
     /// Whether DHCPv4 is enabled.
     pub dhcp: Option<bool>,
     /// DHCPv4 client ID.
@@ -492,7 +492,7 @@ pub struct InterfaceIpv6 {
     /// Whether IPv6 stack is enable. When set to false, the IPv6 stack is
     /// disabled with IPv6 link-local address purged also.
     pub enabled: bool,
-    pub(crate) enabled_defined: bool,
+    pub enabled_defined: bool,
     /// Whether DHCPv6 enabled.
     pub dhcp: Option<bool>,
     /// DHCPv6 Unique Identifier
@@ -1164,7 +1164,9 @@ fn validate_wait_ip(base_iface: &BaseInterface) -> Result<(), NipartError> {
     Ok(())
 }
 
-pub(crate) fn sanitize_ip_network(ip_net: &str) -> Result<String, NipartError> {
+pub(crate) fn sanitize_ip_network(
+    ip_net: &str,
+) -> Result<String, NipartError> {
     let ip_nets: Vec<&str> = ip_net.split('/').collect();
     match ip_nets.len() {
         0 => Err(NipartError::new(

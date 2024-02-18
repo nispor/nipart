@@ -2,10 +2,7 @@
 
 use futures::{stream::FuturesUnordered, StreamExt};
 
-
-use nipart::{
-    NipartError, NipartEvent, NipartEventAddress,
-};
+use nipart::{NipartError, NipartEvent, NipartEventAddress};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::time::DelayQueue;
 
@@ -86,13 +83,13 @@ async fn run_event_switch(
         match &event.dst {
             NipartEventAddress::User | NipartEventAddress::Daemon => {
                 if let Err(e) = switch_to_api.send(event.clone()).await {
-                    log::warn!("Failed to send event: {event:?}, {e}");
+                    log::warn!("Failed to send event: {event}, {e}");
                     continue;
                 }
             }
             NipartEventAddress::Commander => {
                 if let Err(e) = switch_to_commander.send(event.clone()).await {
-                    log::warn!("Failed to send event: {event:?}, {e}");
+                    log::warn!("Failed to send event: {event}, {e}");
                     continue;
                 }
             }
@@ -102,7 +99,7 @@ async fn run_event_switch(
                 {
                     if let Err(e) = plugin_conn.send(&event.clone()).await {
                         log::warn!(
-                            "Failed to send event {event:?} to \
+                            "Failed to send event {event} to \
                              plugin {plugin_name}: {e}",
                         );
                     }
@@ -117,8 +114,8 @@ async fn run_event_switch(
                         {
                             if let Err(e) = plugin_conn.send(&event).await {
                                 log::warn!(
-                                    "Failed to send event {event:?} to \
-                                 plugin {plugin_name}: {e}",
+                                    "Failed to send event {event} to \
+                                     plugin {plugin_name}: {e}",
                                 );
                             }
                         }
@@ -136,9 +133,24 @@ async fn run_event_switch(
                     );
                     if let Err(e) = plugin_conn.send(&event).await {
                         log::warn!(
-                            "Failed to send event {event:?} to \
+                            "Failed to send event {event} to \
                              plugin {plugin_name}: {e}",
                         );
+                    }
+                }
+            }
+            NipartEventAddress::Dhcp => {
+                match plugins.get_dhcp_connection_mut() {
+                    Ok(plugin_conn) => {
+                        if let Err(e) = plugin_conn.send(&event).await {
+                            log::warn!(
+                                "Failed to send event {event} to \
+                                DHCP plugin: {e}",
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("{e}");
                     }
                 }
             }

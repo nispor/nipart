@@ -43,8 +43,6 @@ impl NipartPlugin for NipartPluginNispor {
         to_daemon: &Sender<NipartEvent>,
         event: NipartEvent,
     ) -> Result<(), NipartError> {
-        log::debug!("Plugin nispor got event {event}");
-        log::trace!("Plugin nispor got event {event:?}");
         match event.plugin {
             NipartPluginEvent::QueryNetState(_) => {
                 let state = nispor_retrieve(false).await?;
@@ -68,7 +66,7 @@ impl NipartPlugin for NipartPluginNispor {
                 let state = nispor_retrieve(false).await?;
                 let mut reply = NipartEvent::new(
                     event.user.clone(),
-                    NipartPluginEvent::QueryRelatedNetStateReply(
+                    NipartPluginEvent::QueryNetStateReply(
                         Box::new(state),
                         STATE_PRIORITY,
                     ),

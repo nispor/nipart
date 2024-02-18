@@ -5,8 +5,10 @@ use std::os::unix::fs::PermissionsExt;
 
 use nipart::{
     ErrorKind, NipartConnection, NipartError, NipartEvent, NipartEventAddress,
-    NipartLogLevel, NipartNativePlugin, NipartPlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
+    NipartLogLevel, NipartNativePlugin, NipartPlugin, NipartPluginEvent,
+    NipartRole, NipartUserEvent,
 };
+use nipart_plugin_mozim::NipartPluginMozim;
 use nipart_plugin_nispor::NipartPluginNispor;
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -106,6 +108,8 @@ impl Plugins {
         let mut ret = Self::default();
         ret.load_external_plugins().await?;
         ret.load_native_plugins().await?;
+        // Check whether we have DHCP plugin loaded.
+        ret.get_dhcp_connection_mut()?;
         Ok(ret)
     }
 
@@ -152,22 +156,34 @@ impl Plugins {
     }
 
     async fn load_native_plugins(&mut self) -> Result<(), NipartError> {
-        let (nispor_to_switch_tx, nispor_to_switch_rx) =
-            tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-        let (switch_to_nispor_tx, switch_to_nispor_rx) =
-            tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-
-        tokio::spawn(async move {
-            NipartPluginNispor::run(nispor_to_switch_tx, switch_to_nispor_rx)
-                .await
-        });
-
         self.insert(
             "nispor",
             NipartPluginNispor::roles(),
-            PluginConnection::Mpsc((switch_to_nispor_tx, nispor_to_switch_rx)),
+            start_nispor_plugin().await?,
+        );
+        self.insert(
+            "mozim",
+            NipartPluginMozim::roles(),
+            start_mozim_plugin().await?,
         );
         Ok(())
+    }
+
+    pub(crate) fn get_dhcp_connection_mut(
+        &mut self,
+    ) -> Result<&mut PluginConnection, NipartError> {
+        if let Some(plugin_name) =
+            self.roles.get(NipartRole::Dhcp).and_then(|p| p.first())
+        {
+            if let Some(connection) = self.connections.get_mut(plugin_name) {
+                return Ok(connection);
+            }
+        }
+
+        Err(NipartError::new(
+            ErrorKind::Bug,
+            "No DHCP plugin found".to_string(),
+        ))
     }
 }
 
@@ -314,4 +330,36 @@ async fn get_external_plugin_info(
             format!("invalid reply {event:?}"),
         ))
     }
+}
+
+async fn start_nispor_plugin() -> Result<PluginConnection, NipartError> {
+    let (nispor_to_switch_tx, nispor_to_switch_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+    let (switch_to_nispor_tx, switch_to_nispor_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+
+    tokio::spawn(async move {
+        NipartPluginNispor::run(nispor_to_switch_tx, switch_to_nispor_rx).await
+    });
+    log::info!("Native plugin nispor started");
+    Ok(PluginConnection::Mpsc((
+        switch_to_nispor_tx,
+        nispor_to_switch_rx,
+    )))
+}
+
+async fn start_mozim_plugin() -> Result<PluginConnection, NipartError> {
+    let (mozim_to_switch_tx, mozim_to_switch_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+    let (switch_to_mozim_tx, switch_to_mozim_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+
+    tokio::spawn(async move {
+        NipartPluginMozim::run(mozim_to_switch_tx, switch_to_mozim_rx).await
+    });
+    log::info!("Native plugin mozim started");
+    Ok(PluginConnection::Mpsc((
+        switch_to_mozim_tx,
+        mozim_to_switch_rx,
+    )))
 }

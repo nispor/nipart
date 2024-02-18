@@ -224,7 +224,8 @@ impl DnsClientState {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedDnsState {
     pub(crate) desired: Option<DnsState>,
     pub(crate) current: DnsState,

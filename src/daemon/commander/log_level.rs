@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use nipart::{
-    NipartError, NipartEvent, NipartEventAddress,
-    NipartLogLevel, NipartPluginEvent, NipartUserEvent,
+    NipartError, NipartEvent, NipartEventAddress, NipartLogLevel,
+    NipartPluginEvent, NipartUserEvent,
 };
 
 use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
@@ -60,7 +60,7 @@ impl WorkFlow {
 fn query_log_level(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
-) -> Result<Option<NipartEvent>, NipartError> {
+) -> Result<Vec<NipartEvent>, NipartError> {
     let mut log_levels = HashMap::new();
     for reply in &task.replies {
         if let NipartPluginEvent::QueryLogLevelReply(l) = &reply.plugin {
@@ -78,7 +78,7 @@ fn query_log_level(
         task.timeout,
     );
     reply_event.uuid = task.uuid;
-    Ok(Some(reply_event))
+    Ok(vec![reply_event])
 }
 
 impl Task {
