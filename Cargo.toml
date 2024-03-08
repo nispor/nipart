@@ -29,7 +29,8 @@ serde_yaml = "0.9.27"
 uuid = { version = "1.6.1", default-features = false, features = ["std", "v7"] }
 futures = {version = "0.3.29", default-fatures = false, features = [ "std" ] }
 clap = { version = "4.4" }
-nispor = { version = "1.2", git = "https://github.com/nispor/nispor" }
+#nispor = { version = "1.2", git = "https://github.com/nispor/nispor" }
+nispor = { version = "1.2", path = "../nispor/src/lib" }
 
 [workspace.dependencies.tokio]
 version ="1.35.0"
@@ -45,3 +46,6 @@ features = ["time"]
 version = "0.26.2"
 default-features = false
 features = ["feature", "hostname"]
+
+[workspace.dependencies.mozim]
+version = "0.2.2"

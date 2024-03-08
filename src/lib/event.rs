@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     MergedNetworkState, NetworkState, NipartApplyOption, NipartDhcpConfig,
-    NipartError, NipartLogLevel, NipartPluginInfo, NipartQueryOption,
-    NipartRole,
+    NipartDhcpLease, NipartError, NipartLogLevel, NipartPluginInfo,
+    NipartQueryOption, NipartRole,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
@@ -190,12 +190,18 @@ pub enum NipartPluginEvent {
     ApplyNetState(Box<MergedNetworkState>, NipartApplyOption),
     ApplyNetStateReply,
 
-    // Empty `Vec<String>` means query all interfaces
+    /// Empty `Vec<String>` means query all interfaces
     QueryDhcpConfig(Box<Vec<String>>),
     QueryDhcpConfigReply(Box<Vec<NipartDhcpConfig>>),
 
     ApplyDhcpConfig(Box<Vec<NipartDhcpConfig>>),
     ApplyDhcpConfigReply,
+
+    /// DHCP plugin notify commander on new lease been acquired
+    GotDhcpLease(Box<NipartDhcpLease>),
+    /// Commander request responsible plugins to apply DHCP lease
+    ApplyDhcpLease(Box<NipartDhcpLease>),
+    ApplyDhcpLeaseReply,
 }
 
 impl std::fmt::Display for NipartPluginEvent {
@@ -220,7 +226,25 @@ impl std::fmt::Display for NipartPluginEvent {
                 Self::QueryDhcpConfigReply(_) => "query_dhcp_config_reply",
                 Self::ApplyDhcpConfig(_) => "apply_dhcp_config",
                 Self::ApplyDhcpConfigReply => "apply_dhcp_config_reply",
+                Self::GotDhcpLease(_) => "got_dhcp_lease",
+                Self::ApplyDhcpLease(_) => "apply_dhcp_lease",
+                Self::ApplyDhcpLeaseReply => "apply_dhcp_lease_reply",
             }
+        )
+    }
+}
+
+impl NipartPluginEvent {
+    pub fn is_reply(&self) -> bool {
+        matches!(
+            self,
+            Self::QueryPluginInfoReply(_)
+                | Self::QueryLogLevelReply(_)
+                | Self::QueryNetStateReply(_, _)
+                | Self::ApplyNetStateReply
+                | Self::QueryDhcpConfigReply(_)
+                | Self::ApplyDhcpConfigReply
+                | Self::ApplyDhcpLeaseReply
         )
     }
 }

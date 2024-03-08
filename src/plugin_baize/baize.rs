@@ -2,9 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use nipart::{
-    NipartError, NipartEvent, NipartExternalPlugin, NipartPlugin, NipartRole,
-};
+use nipart::{NipartError, NipartEvent, NipartExternalPlugin, NipartRole};
 use tokio::sync::mpsc::Sender;
 
 #[derive(Debug, Default)]
@@ -19,7 +17,7 @@ struct NipartPluginBaiZe {
     _data: Mutex<NipartPluginBaiZeShareData>,
 }
 
-impl NipartPlugin for NipartPluginBaiZe {
+impl NipartExternalPlugin for NipartPluginBaiZe {
     const PLUGIN_NAME: &'static str = "baize";
     const LOG_SUFFIX: &'static str = " (plugin baize)\n";
 
@@ -42,8 +40,6 @@ impl NipartPlugin for NipartPluginBaiZe {
         Ok(())
     }
 }
-
-impl NipartExternalPlugin for NipartPluginBaiZe {}
 
 #[tokio::main]
 async fn main() -> Result<(), NipartError> {

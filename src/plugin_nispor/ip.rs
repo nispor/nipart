@@ -137,15 +137,15 @@ pub(crate) fn np_ipv6_to_nipart(
 }
 
 pub(crate) fn nipart_ipv4_to_np(
-    nms_ipv4: Option<&InterfaceIpv4>,
+    npt_ipv4: Option<&InterfaceIpv4>,
 ) -> nispor::IpConf {
     let mut np_ip_conf = nispor::IpConf::default();
-    if let Some(nms_ipv4) = nms_ipv4 {
-        for nms_addr in nms_ipv4.addresses.as_deref().unwrap_or_default() {
+    if let Some(npt_ipv4) = npt_ipv4 {
+        for npt_addr in npt_ipv4.addresses.as_deref().unwrap_or_default() {
             np_ip_conf.addresses.push({
                 let mut ip_conf = nispor::IpAddrConf::default();
-                ip_conf.address = nms_addr.ip.to_string();
-                ip_conf.prefix_len = nms_addr.prefix_length;
+                ip_conf.address = npt_addr.ip.to_string();
+                ip_conf.prefix_len = npt_addr.prefix_length;
                 ip_conf
             });
         }
@@ -154,15 +154,15 @@ pub(crate) fn nipart_ipv4_to_np(
 }
 
 pub(crate) fn nipart_ipv6_to_np(
-    nms_ipv6: Option<&InterfaceIpv6>,
+    npt_ipv6: Option<&InterfaceIpv6>,
 ) -> nispor::IpConf {
     let mut np_ip_conf = nispor::IpConf::default();
-    if let Some(nms_ipv6) = nms_ipv6 {
-        for nms_addr in nms_ipv6.addresses.as_deref().unwrap_or_default() {
+    if let Some(npt_ipv6) = npt_ipv6 {
+        for npt_addr in npt_ipv6.addresses.as_deref().unwrap_or_default() {
             np_ip_conf.addresses.push({
                 let mut ip_conf = nispor::IpAddrConf::default();
-                ip_conf.address = nms_addr.ip.to_string();
-                ip_conf.prefix_len = nms_addr.prefix_length;
+                ip_conf.address = npt_addr.ip.to_string();
+                ip_conf.prefix_len = npt_addr.prefix_length;
                 ip_conf
             });
         }

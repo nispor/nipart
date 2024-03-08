@@ -5,8 +5,8 @@ use std::os::unix::fs::PermissionsExt;
 
 use nipart::{
     ErrorKind, NipartConnection, NipartError, NipartEvent, NipartEventAddress,
-    NipartLogLevel, NipartNativePlugin, NipartPlugin, NipartPluginEvent,
-    NipartRole, NipartUserEvent,
+    NipartLogLevel, NipartNativePlugin, NipartPluginEvent, NipartRole,
+    NipartUserEvent,
 };
 use nipart_plugin_mozim::NipartPluginMozim;
 use nipart_plugin_nispor::NipartPluginNispor;
@@ -338,9 +338,11 @@ async fn start_nispor_plugin() -> Result<PluginConnection, NipartError> {
     let (switch_to_nispor_tx, switch_to_nispor_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
 
-    tokio::spawn(async move {
-        NipartPluginNispor::run(nispor_to_switch_tx, switch_to_nispor_rx).await
-    });
+    let mut niport_plugin =
+        NipartPluginNispor::init(nispor_to_switch_tx, switch_to_nispor_rx)
+            .await?;
+
+    tokio::spawn(async move { niport_plugin.run().await });
     log::info!("Native plugin nispor started");
     Ok(PluginConnection::Mpsc((
         switch_to_nispor_tx,
@@ -354,9 +356,10 @@ async fn start_mozim_plugin() -> Result<PluginConnection, NipartError> {
     let (switch_to_mozim_tx, switch_to_mozim_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
 
-    tokio::spawn(async move {
-        NipartPluginMozim::run(mozim_to_switch_tx, switch_to_mozim_rx).await
-    });
+    let mut mozim_plugin =
+        NipartPluginMozim::init(mozim_to_switch_tx, switch_to_mozim_rx).await?;
+
+    tokio::spawn(async move { mozim_plugin.run().await });
     log::info!("Native plugin mozim started");
     Ok(PluginConnection::Mpsc((
         switch_to_mozim_tx,

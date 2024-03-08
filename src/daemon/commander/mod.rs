@@ -2,6 +2,7 @@
 
 mod commander_thread;
 mod log_level;
+mod dhcp;
 mod plugin;
 mod state;
 mod task;

@@ -2,7 +2,7 @@
 
 use crate::{
     HostNameState, MergedInterface, MergedNetworkState, NetworkState,
-    NipartDhcpConfig, NipartError,
+    NipartDhcpConfig, NipartDhcpConfigV4, NipartDhcpConfigV6, NipartError,
 };
 
 impl NetworkState {
@@ -47,8 +47,46 @@ impl NetworkState {
 
 impl MergedNetworkState {
     pub fn get_dhcp_changes(&self) -> Vec<NipartDhcpConfig> {
-        // TODO
-        vec![]
+        let mut ret: Vec<NipartDhcpConfig> = Vec::new();
+        for iface in self
+            .interfaces
+            .kernel_ifaces
+            .values()
+            .filter_map(|i| i.for_apply.as_ref())
+        {
+            if iface.base_iface().can_have_ip() {
+                if let Some(ipv4) = iface.base_iface().ipv4.as_ref() {
+                    let dhcp_conf = NipartDhcpConfigV4::new(
+                        iface.name().to_string(),
+                        ipv4.enabled,
+                    );
+                    if ipv4.dhcp_client_id.as_ref().is_some() {
+                        todo!()
+                    }
+                    ret.push(NipartDhcpConfig::V4(dhcp_conf));
+                }
+                if let Some(ipv6) = iface.base_iface().ipv6.as_ref() {
+                    let dhcp_conf = NipartDhcpConfigV6::new(
+                        iface.name().to_string(),
+                        ipv6.enabled,
+                    );
+                    if ipv6.dhcp_duid.as_ref().is_some() {
+                        todo!()
+                    }
+                    ret.push(NipartDhcpConfig::V6(dhcp_conf));
+                }
+            } else {
+                ret.push(NipartDhcpConfig::V4(NipartDhcpConfigV4::new(
+                    iface.name().to_string(),
+                    false,
+                )));
+                ret.push(NipartDhcpConfig::V6(NipartDhcpConfigV6::new(
+                    iface.name().to_string(),
+                    false,
+                )));
+            }
+        }
+        ret
     }
 
     pub fn get_desired_hostname(&self) -> Option<&HostNameState> {

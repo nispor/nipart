@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, Interface, InterfaceType, MergedInterface,
-    MergedInterfaces, MergedNetworkState, NipartApplyOption,
-    NipartError,
+    ErrorKind, Interface, InterfaceType, MergedInterface, MergedInterfaces,
+    MergedNetworkState, NipartApplyOption, NipartDhcpLease, NipartError,
 };
 
 use crate::{
@@ -55,6 +54,8 @@ pub(crate) async fn nispor_apply(
     }) {
         np_ifaces.push(nipart_iface_to_np(iface)?);
     }
+
+    // TODO: Purge DHCP/autoconf IP/routes if DHCP/autoconf disabled
 
     let mut net_conf = nispor::NetConf::default();
     net_conf.ifaces = Some(np_ifaces);
@@ -165,5 +166,45 @@ async fn delete_ifaces(
         ))
     } else {
         Ok(())
+    }
+}
+
+pub(crate) async fn nispor_apply_dhcp_lease(
+    lease: NipartDhcpLease,
+) -> Result<(), NipartError> {
+    match lease {
+        NipartDhcpLease::V4(lease) => {
+            let mut net_conf = nispor::NetConf::default();
+            let mut np_iface = nispor::IfaceConf::default();
+            np_iface.name = lease.iface.to_string();
+            let mut ip_conf = nispor::IpConf::default();
+            let mut ip_addr = nispor::IpAddrConf::default();
+            ip_addr.address = lease.ip.to_string();
+            ip_addr.prefix_len = lease.prefix_length;
+            ip_addr.valid_lft = format!("{}sec", lease.lease_time);
+            ip_addr.preferred_lft = format!("{}sec", lease.lease_time);
+            // BUG: We should preserve existing IP address
+            ip_conf.addresses.push(ip_addr);
+            np_iface.ipv4 = Some(ip_conf);
+            np_iface.state = nispor::IfaceState::Up;
+            net_conf.ifaces = Some(vec![np_iface]);
+
+            log::debug!("Plugin nispor apply {net_conf:?}");
+
+            if let Err(e) = net_conf.apply_async().await {
+                Err(NipartError::new(
+                    ErrorKind::PluginFailure,
+                    format!(
+                        "Unknown error nispor apply_async: {}, {}",
+                        e.kind, e.msg
+                    ),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        NipartDhcpLease::V6(_) => {
+            todo!()
+        }
     }
 }

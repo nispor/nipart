@@ -12,11 +12,12 @@ impl NetworkState {
                         .kernel_ifaces
                         .get_mut(dhcp_config.iface.as_str())
                     {
-                        iface
+                        let ipv4_conf = iface
                             .base_iface_mut()
                             .ipv4
-                            .get_or_insert(Default::default())
-                            .enabled = true;
+                            .get_or_insert(Default::default());
+                        ipv4_conf.enabled = true;
+                        ipv4_conf.dhcp = Some(true);
                     }
                 }
             }

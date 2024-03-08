@@ -3,7 +3,8 @@
 use std::time::SystemTime;
 
 use nipart::{
-    NipartApplyOption, NipartEvent, NipartLogLevel, NipartQueryOption,
+    NipartApplyOption, NipartDhcpLease, NipartEvent, NipartLogLevel,
+    NipartQueryOption,
 };
 
 use super::WorkFlowShareData;
@@ -122,6 +123,9 @@ impl Task {
             TaskKind::ChangeLogLevel(l) => {
                 vec![self.gen_request_change_log_level(*l)]
             }
+            TaskKind::ApplyDhcpLease(lease) => {
+                vec![self.gen_apply_dhcp_lease(lease.clone())]
+            }
         };
         if self.retry_count != 0 {
             for event in &mut events {
@@ -141,6 +145,7 @@ pub(crate) enum TaskKind {
     ApplyNetState(NipartApplyOption),
     QueryLogLevel,
     ChangeLogLevel(NipartLogLevel),
+    ApplyDhcpLease(NipartDhcpLease),
     Quit,
 }
 
@@ -156,6 +161,7 @@ impl std::fmt::Display for TaskKind {
                 Self::ApplyNetState(_) => "apply_state",
                 Self::QueryLogLevel => "query_log_level",
                 Self::ChangeLogLevel(_) => "change_log_level",
+                Self::ApplyDhcpLease(_) => "apply_dhcp_lease",
                 Self::Quit => "quit",
             }
         )

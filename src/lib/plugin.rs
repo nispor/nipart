@@ -27,6 +27,7 @@ pub enum NipartRole {
     Commander,
     Dhcp,
     QueryAndApply,
+    ApplyDhcpLease,
     Ovs,
     Lldp,
     Monitor,
@@ -47,6 +48,7 @@ impl std::fmt::Display for NipartRole {
                 Self::Lldp => "lldp",
                 Self::Monitor => "monitor",
                 Self::Config => "config",
+                Self::ApplyDhcpLease => "apply_dhcp_lease",
             }
         )
     }

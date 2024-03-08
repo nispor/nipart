@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::convert::TryFrom;
-
 use log::warn;
 use nipart::{
     BaseInterface, ErrorKind, LinuxBridgeConfig, LinuxBridgeInterface,

@@ -15,7 +15,8 @@ mod state_options;
 mod state;
 
 pub use self::dhcp::{
-    NipartDhcpConfig, NipartDhcpConfigV4, NipartDhcpConfigV6,
+    NipartDhcpConfig, NipartDhcpConfigV4, NipartDhcpConfigV6, NipartDhcpLease,
+    NipartDhcpLeaseV4, NipartDhcpLeaseV6,
 };
 pub use self::error::{ErrorKind, NipartError};
 pub use self::event::{
@@ -25,9 +26,7 @@ pub use self::ipc::{NipartConnection, DEFAULT_TIMEOUT};
 pub use self::logging::NipartLogLevel;
 pub use self::plugin::{NipartPluginInfo, NipartRole};
 pub use self::plugin_ipc::NipartConnectionListener;
-pub use self::plugin_trait::{
-    NipartExternalPlugin, NipartNativePlugin, NipartPlugin,
-};
+pub use self::plugin_trait::{NipartExternalPlugin, NipartNativePlugin};
 pub use self::state_options::{NipartApplyOption, NipartQueryOption};
 
 // TODO Please remove this * once we detached from nmstate code base
