@@ -603,8 +603,7 @@ fn is_opt_str_empty(opt_string: &Option<String>) -> bool {
 //    after controller/port information are ready.
 //  * Actions self-contained of each `Interface` -- `Interface.sanitize()`. #
 //    Self clean up.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedInterfaces {
     pub kernel_ifaces: HashMap<String, MergedInterface>,
     pub(crate) user_ifaces: HashMap<(String, InterfaceType), MergedInterface>,
@@ -752,9 +751,7 @@ impl MergedInterfaces {
         self.user_ifaces.values().chain(self.kernel_ifaces.values())
     }
 
-    pub fn iter_mut(
-        &mut self,
-    ) -> impl Iterator<Item = &mut MergedInterface> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MergedInterface> {
         self.user_ifaces
             .values_mut()
             .chain(self.kernel_ifaces.values_mut())

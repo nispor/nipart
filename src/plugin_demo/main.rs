@@ -34,9 +34,8 @@ impl NipartExternalPlugin for NipartPluginDemo {
     async fn handle_event(
         _plugin: &Arc<Self>,
         _to_daemon: &Sender<NipartEvent>,
-        event: NipartEvent,
+        _event: NipartEvent,
     ) -> Result<(), NipartError> {
-        log::warn!("Plugin demo got unknown event {event:?}");
         Ok(())
     }
 }

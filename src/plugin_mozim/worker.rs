@@ -5,8 +5,9 @@ use std::os::fd::AsRawFd;
 use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease};
 use nipart::{
     ErrorKind, NipartDhcpConfigV4, NipartDhcpLease, NipartDhcpLeaseV4,
-    NipartError, NipartEvent, NipartEventAddress, NipartPluginEvent,
-    NipartUserEvent, DEFAULT_TIMEOUT,
+    NipartError, NipartEvent, NipartEventAddress, NipartLinkMonitorRule,
+    NipartMonitorRule, NipartPluginEvent, NipartRole, NipartUserEvent,
+    DEFAULT_TIMEOUT,
 };
 use tokio::{io::unix::AsyncFd, sync::mpsc::Sender, task::JoinHandle};
 
@@ -16,8 +17,9 @@ const MOZIM_NO_BLOCKING_TIMEOUT: u32 = 0;
 pub(crate) enum MozimWorkerState {
     /// No DHCP client running yet, only validated the configure.
     WaitLink,
+    /// DHCP is running with or without lease.
     Running,
-    /// DHCP Disabled by user request
+    /// DHCP disabled by user request.
     Disabled,
 }
 
@@ -60,7 +62,7 @@ impl MozimWorkerV4Thread {
                 Err(e) => {
                     log::error!(
                         "Mozim worker for {iface_name} event {event_uuid}: \
-                    AsyncFd::readable() failed with {e}"
+                        AsyncFd::readable() failed with {e}"
                     );
                     return;
                 }
@@ -76,6 +78,7 @@ impl MozimWorkerV4Thread {
                     return;
                 }
             };
+            let mut has_lease = false;
             for event in events {
                 match mozim_client.process(event) {
                     Ok(Some(lease)) => {
@@ -83,6 +86,7 @@ impl MozimWorkerV4Thread {
                             lease,
                             iface_name.as_str(),
                         ));
+                        has_lease = true;
                     }
                     Ok(None) => (),
                     Err(e) => {
@@ -101,6 +105,21 @@ impl MozimWorkerV4Thread {
                     log::error!(
                         "Mozim worker for {iface_name} event {event_uuid}: \
                         Failed to send {event}: {e}"
+                    );
+                    return;
+                }
+            }
+            if has_lease {
+                if let Err(e) = register_monitor_on_link_down(
+                    &to_daemon,
+                    iface_name.as_str(),
+                    event_uuid,
+                )
+                .await
+                {
+                    log::error!(
+                        "Failed to register link down monitor rule for \
+                        interface {iface_name}: {e}"
                     );
                     return;
                 }
@@ -156,31 +175,44 @@ impl MozimWorkerV4 {
         &mut self,
         to_daemon: &Sender<NipartEvent>,
     ) -> Result<(), NipartError> {
-        if self.thread_handler.is_none() {
-            let mozim_config = gen_mozim_config(&self.config);
-            // TODO: Load existing lease
-            let cli = DhcpV4Client::init(mozim_config, None).map_err(|e| {
-                NipartError::new(
-                    ErrorKind::InvalidArgument,
-                    format!("Failed to start DHCP {}", e),
-                )
-            })?;
-            self.state = MozimWorkerState::Running;
-            let to_daemon = to_daemon.clone();
-            let event_uuid = self.event_uuid;
-            let iface_name = self.config.iface.clone();
-            self.thread_handler = Some(tokio::task::spawn(async move {
-                MozimWorkerV4Thread::new(iface_name, cli, to_daemon, event_uuid)
-                    .await
-            }));
-        } else {
-            log::error!(
-                "BUG: MozimWorkerV4::run() been invoked again \
-                with a existing thread for interface {}",
-                self.config.iface
-            );
+        if let Some(handler) = &self.thread_handler {
+            log::debug!("Stopping existing DHCP thread before invoke new");
+            handler.abort();
         }
+        let mozim_config = gen_mozim_config(&self.config);
+        // TODO: Load existing lease
+        let cli = DhcpV4Client::init(mozim_config, None).map_err(|e| {
+            NipartError::new(
+                ErrorKind::InvalidArgument,
+                format!("Failed to start DHCP {}", e),
+            )
+        })?;
+        self.state = MozimWorkerState::Running;
+        let to_daemon = to_daemon.clone();
+        let event_uuid = self.event_uuid;
+        let iface_name = self.config.iface.clone();
+        self.thread_handler = Some(tokio::task::spawn(async move {
+            MozimWorkerV4Thread::new(iface_name, cli, to_daemon, event_uuid)
+                .await
+        }));
         Ok(())
+    }
+
+    pub(crate) fn stop(&mut self) {
+        if let Some(handler) = &self.thread_handler {
+            handler.abort();
+            log::debug!(
+                "DHCP for interface {} has stopped",
+                self.config.iface.as_str()
+            )
+        } else {
+            log::debug!(
+                "No DHCP thread for interface {} require stop",
+                self.config.iface.as_str()
+            )
+        }
+        self.state = MozimWorkerState::Disabled;
+        self.thread_handler = None;
     }
 }
 
@@ -223,4 +255,27 @@ fn gen_mozim_config(conf: &NipartDhcpConfigV4) -> DhcpV4Config {
     }
     mozim_config.set_timeout(conf.timeout);
     mozim_config
+}
+
+async fn register_monitor_on_link_down(
+    to_daemon: &Sender<NipartEvent>,
+    iface: &str,
+    event_uuid: u128,
+) -> Result<(), NipartError> {
+    let mut reply = NipartEvent::new(
+        NipartUserEvent::None,
+        NipartPluginEvent::RegisterMonitorRule(Box::new(
+            NipartMonitorRule::LinkDown(NipartLinkMonitorRule::new(
+                NipartEventAddress::Dhcp,
+                event_uuid,
+                iface.to_string(),
+            )),
+        )),
+        NipartEventAddress::Dhcp,
+        NipartEventAddress::Group(NipartRole::Monitor),
+        nipart::DEFAULT_TIMEOUT,
+    );
+    reply.uuid = event_uuid;
+    to_daemon.send(reply).await?;
+    Ok(())
 }

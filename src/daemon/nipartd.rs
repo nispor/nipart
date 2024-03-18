@@ -9,9 +9,7 @@ mod uuid;
 pub(crate) use self::plugin::{PluginRoles, Plugins};
 pub(crate) use self::uuid::u128_to_uuid_string;
 
-use nipart::{
-    NipartError, DEFAULT_TIMEOUT,
-};
+use nipart::{NipartError, DEFAULT_TIMEOUT};
 
 use self::api_listener::start_api_listener_thread;
 use self::commander::start_commander_thread;

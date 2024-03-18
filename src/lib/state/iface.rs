@@ -8,8 +8,8 @@ use crate::state::{
     BaseInterface, BondInterface, DummyInterface, ErrorKind, EthernetInterface,
     HsrInterface, InfiniBandInterface, IpsecInterface, LinuxBridgeInterface,
     LoopbackInterface, MacSecInterface, MacVlanInterface, MacVtapInterface,
-    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface,
-    VrfInterface, VxlanInterface, XfrmInterface,
+    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface, VrfInterface,
+    VxlanInterface, XfrmInterface,
 };
 
 use super::json::merge_json_value;
@@ -756,8 +756,7 @@ impl Default for Interface {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedInterface {
     pub(crate) for_verify: Option<Interface>,
     pub for_apply: Option<Interface>,

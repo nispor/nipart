@@ -36,7 +36,7 @@ nispor = { version = "1.2", path = "../nispor/src/lib" }
 [workspace.dependencies.tokio]
 version ="1.35.0"
 default-fatures = false
-features = ["net", "io-util", "rt-multi-thread", "macros", "sync", "time"]
+features = ["net", "io-util", "rt", "rt-multi-thread", "macros", "sync", "time"]
 
 [workspace.dependencies.tokio-util]
 version ="0.7.0"
@@ -50,3 +50,21 @@ features = ["feature", "hostname"]
 
 [workspace.dependencies.mozim]
 version = "0.2.2"
+
+[workspace.dependencies.rtnetlink]
+version = "0.14.1"
+
+[workspace.dependencies.netlink-sys]
+version = "0.8.5"
+
+[workspace.dependencies.netlink-proto]
+version = "0.11.3"
+
+[workspace.dependencies.netlink-packet-core]
+version = "0.7.0"
+
+[workspace.dependencies.netlink-packet-route]
+version = "0.19.0"
+
+[workspace.dependencies.futures_channel]
+version = "0.3.30"

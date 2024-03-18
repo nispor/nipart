@@ -8,8 +8,8 @@ use crate::state::{BaseInterface, InterfaceType, NetworkState};
 #[non_exhaustive]
 /// The libreswan Ipsec interface. This interface does not exist in kernel
 /// space but only exist in user space tools.
-/// This is the example yaml output of [crate::state::NetworkState] with a libreswan
-/// ipsec connection:
+/// This is the example yaml output of [crate::state::NetworkState] with a
+/// libreswan ipsec connection:
 /// ```yaml
 /// ---
 /// interfaces:

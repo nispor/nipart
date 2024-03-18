@@ -3,10 +3,7 @@
 use crate::state::{MergedNetworkState, NetworkState, NipartError};
 
 impl NetworkState {
-    pub fn generate_revert(
-        &self,
-        current: &Self,
-    ) -> Result<Self, NipartError> {
+    pub fn generate_revert(&self, current: &Self) -> Result<Self, NipartError> {
         let merged_state = MergedNetworkState::new(
             self.clone(),
             current.clone(),

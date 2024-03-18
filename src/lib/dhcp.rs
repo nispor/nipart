@@ -12,12 +12,32 @@ pub enum NipartDhcpConfig {
     V6(NipartDhcpConfigV6),
 }
 
+impl std::fmt::Display for NipartDhcpConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::V4(c) => write!(f, "dhcpv4:{c}"),
+            Self::V6(c) => write!(f, "dhcpv6:{c}"),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct NipartDhcpConfigV6 {
     pub iface: String,
     pub enabled: bool,
     pub timeout: u32,
+}
+
+impl std::fmt::Display for NipartDhcpConfigV6 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}",
+            self.iface,
+            if self.enabled { "enabled" } else { "disable" }
+        )
+    }
 }
 
 impl Default for NipartDhcpConfigV6 {
@@ -67,6 +87,17 @@ impl Default for NipartDhcpConfigV4 {
             enabled: false,
             timeout: DEFAULT_DHCP_TIMEOUT,
         }
+    }
+}
+
+impl std::fmt::Display for NipartDhcpConfigV4 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}",
+            self.iface,
+            if self.enabled { "enabled" } else { "disable" },
+        )
     }
 }
 

@@ -10,8 +10,8 @@ use tokio::net::UnixStream;
 
 use crate::{
     ErrorKind, NetworkState, NipartApplyOption, NipartError, NipartEvent,
-    NipartEventAddress, NipartLogLevel, NipartPluginEvent,
-    NipartPluginInfo, NipartQueryOption, NipartUserEvent,
+    NipartEventAddress, NipartLogLevel, NipartPluginEvent, NipartPluginInfo,
+    NipartQueryOption, NipartUserEvent,
 };
 
 pub const DEFAULT_TIMEOUT: u32 = 30000;

@@ -125,7 +125,6 @@ fn pre_apply_query_related_state(
     share_data: &mut WorkFlowShareData,
 ) -> Result<Vec<NipartEvent>, NipartError> {
     let cur_state = get_state_from_replies(task.replies.as_slice());
-    log::debug!("HAHA {:?}", cur_state);
 
     let des_state = if let Some(d) = share_data.desired_state.as_ref() {
         d.clone()

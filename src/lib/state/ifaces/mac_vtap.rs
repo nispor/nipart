@@ -6,8 +6,8 @@ use crate::state::{BaseInterface, ErrorKind, InterfaceType, NipartError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// Linux kernel MAC VTAP interface. The example output of [crate::state::NetworkState]
-/// with a mac vtap interface would be:
+/// Linux kernel MAC VTAP interface. The example output of
+/// [crate::state::NetworkState] with a mac vtap interface would be:
 /// ```yml
 /// ---
 /// interfaces:
@@ -44,10 +44,7 @@ impl MacVtapInterface {
         Self::default()
     }
 
-    pub(crate) fn sanitize(
-        &self,
-        is_desired: bool,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
         if is_desired {
             if let Some(conf) = &self.mac_vtap {
                 if conf.accept_all_mac == Some(false)

@@ -42,9 +42,9 @@ pub struct Routes {
     /// This property is not overriding but adding specified routes to
     /// existing routes. To delete a route entry, please [RouteEntry.state] as
     /// [RouteState::Absent]. Any property of absent [RouteEntry] set to
-    /// `None` means wildcard. For example, this [crate::state::NetworkState] could
-    /// remove all routes next hop to interface eth1(showing in yaml):
-    /// ```yaml
+    /// `None` means wildcard. For example, this [crate::state::NetworkState]
+    /// could remove all routes next hop to interface eth1(showing in
+    /// yaml): ```yaml
     /// routes:
     ///   config:
     ///   - next-hop-interface: eth1
@@ -399,8 +399,7 @@ impl std::fmt::Display for RouteEntry {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedRoutes {
     pub(crate) indexed: HashMap<String, Vec<RouteEntry>>,
     pub(crate) route_changed_ifaces: Vec<String>,

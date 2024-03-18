@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod commander_thread;
-mod log_level;
 mod dhcp;
+mod log_level;
 mod plugin;
 mod state;
 mod task;

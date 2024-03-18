@@ -12,9 +12,16 @@ rust-version.workspace = true
 serde = { workspace = true }
 env_logger = { workspace = true }
 log = { workspace = true }
+rtnetlink = { workspace = true }
+netlink-packet-route = { workspace = true }
+netlink-packet-core = { workspace = true }
+netlink-proto = { workspace = true }
+netlink-sys = { workspace = true }
 tokio = { workspace = true }
+futures = { workspace = true }
 nipart = { path = "../lib", version = "0.1" }
+nispor = { workspace = true }
 
-[[bin]]
-name = "nipart_plugin_baize"
-path = "baize.rs"
+
+[lib]
+path = "lib.rs"

@@ -47,19 +47,23 @@ async fn run_event_switch(
         let event = tokio::select! {
             Some(Ok(event)) = plugin_futures.next() => {
                 log::trace!("run_event_switch(): from plugin {event:?}");
+                log::debug!("run_event_switch(): from plugin {event}");
                 event
             },
             Some(event) = api_to_switch.recv() => {
                 log::trace!("run_event_switch(): from daemon {event:?}");
+                log::debug!("run_event_switch(): from daemon {event}");
                 event
             }
             Some(event) = commander_to_switch.recv() => {
                 log::trace!("run_event_switch(): from commander {event:?}");
+                log::debug!("run_event_switch(): from commander {event}");
                 event
             }
             Some(event) = postponed_events.next() => {
                 let mut event = event.into_inner();
                 log::trace!("postponed event ready to process {event:?}");
+                log::trace!("postponed event ready to process {event}");
                 event.postpone_millis = 0;
                 event
             }

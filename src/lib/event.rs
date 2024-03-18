@@ -5,12 +5,13 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MergedNetworkState, NetworkState, NipartApplyOption, NipartDhcpConfig,
-    NipartDhcpLease, NipartError, NipartLogLevel, NipartPluginInfo,
-    NipartQueryOption, NipartRole,
+    NetworkState, NipartApplyOption, NipartError, NipartLogLevel,
+    NipartPluginEvent, NipartPluginInfo, NipartQueryOption, NipartRole,
 };
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(
+    Deserialize, Serialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash,
+)]
 #[non_exhaustive]
 pub enum NipartEventAddress {
     /// API user
@@ -165,86 +166,6 @@ impl std::fmt::Display for NipartUserEvent {
                 Self::ApplyNetState(_, _) => "apply_netstate",
                 Self::ApplyNetStateReply => "apply_netstate_reply",
             }
-        )
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Default)]
-#[non_exhaustive]
-pub enum NipartPluginEvent {
-    #[default]
-    None,
-    Quit,
-
-    QueryPluginInfo,
-    QueryPluginInfoReply(NipartPluginInfo),
-
-    ChangeLogLevel(NipartLogLevel),
-    QueryLogLevel,
-    QueryLogLevelReply(NipartLogLevel),
-
-    QueryNetState(NipartQueryOption),
-    QueryRelatedNetState(Box<NetworkState>),
-    QueryNetStateReply(Box<NetworkState>, u32),
-
-    ApplyNetState(Box<MergedNetworkState>, NipartApplyOption),
-    ApplyNetStateReply,
-
-    /// Empty `Vec<String>` means query all interfaces
-    QueryDhcpConfig(Box<Vec<String>>),
-    QueryDhcpConfigReply(Box<Vec<NipartDhcpConfig>>),
-
-    ApplyDhcpConfig(Box<Vec<NipartDhcpConfig>>),
-    ApplyDhcpConfigReply,
-
-    /// DHCP plugin notify commander on new lease been acquired
-    GotDhcpLease(Box<NipartDhcpLease>),
-    /// Commander request responsible plugins to apply DHCP lease
-    ApplyDhcpLease(Box<NipartDhcpLease>),
-    ApplyDhcpLeaseReply,
-}
-
-impl std::fmt::Display for NipartPluginEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::None => "none",
-                Self::Quit => "quit",
-                Self::QueryPluginInfo => "query_plugin_info",
-                Self::QueryPluginInfoReply(_) => "query_plugin_info_reply",
-                Self::ChangeLogLevel(_) => "change_log_level",
-                Self::QueryLogLevel => "query_log_level",
-                Self::QueryLogLevelReply(_) => "query_log_level_reply",
-                Self::QueryNetState(_) => "query_netstate",
-                Self::QueryNetStateReply(_, _) => "query_netstate_reply",
-                Self::QueryRelatedNetState(_) => "query_related_netstate",
-                Self::ApplyNetState(_, _) => "apply_netstate",
-                Self::ApplyNetStateReply => "apply_netstate_reply",
-                Self::QueryDhcpConfig(_) => "query_dhcp_config",
-                Self::QueryDhcpConfigReply(_) => "query_dhcp_config_reply",
-                Self::ApplyDhcpConfig(_) => "apply_dhcp_config",
-                Self::ApplyDhcpConfigReply => "apply_dhcp_config_reply",
-                Self::GotDhcpLease(_) => "got_dhcp_lease",
-                Self::ApplyDhcpLease(_) => "apply_dhcp_lease",
-                Self::ApplyDhcpLeaseReply => "apply_dhcp_lease_reply",
-            }
-        )
-    }
-}
-
-impl NipartPluginEvent {
-    pub fn is_reply(&self) -> bool {
-        matches!(
-            self,
-            Self::QueryPluginInfoReply(_)
-                | Self::QueryLogLevelReply(_)
-                | Self::QueryNetStateReply(_, _)
-                | Self::ApplyNetStateReply
-                | Self::QueryDhcpConfigReply(_)
-                | Self::ApplyDhcpConfigReply
-                | Self::ApplyDhcpLeaseReply
         )
     }
 }

@@ -5,6 +5,7 @@ mod error;
 mod event;
 mod ipc;
 mod logging;
+mod monitor;
 mod plugin;
 mod plugin_ipc;
 mod plugin_trait;
@@ -19,12 +20,14 @@ pub use self::dhcp::{
     NipartDhcpLeaseV4, NipartDhcpLeaseV6,
 };
 pub use self::error::{ErrorKind, NipartError};
-pub use self::event::{
-    NipartEvent, NipartEventAddress, NipartPluginEvent, NipartUserEvent,
-};
+pub use self::event::{NipartEvent, NipartEventAddress, NipartUserEvent};
 pub use self::ipc::{NipartConnection, DEFAULT_TIMEOUT};
 pub use self::logging::NipartLogLevel;
-pub use self::plugin::{NipartPluginInfo, NipartRole};
+pub use self::monitor::{
+    NipartAddressMonitorRule, NipartLinkMonitorRule, NipartMonitorEvent,
+    NipartMonitorRule,
+};
+pub use self::plugin::{NipartPluginEvent, NipartPluginInfo, NipartRole};
 pub use self::plugin_ipc::NipartConnectionListener;
 pub use self::plugin_trait::{NipartExternalPlugin, NipartNativePlugin};
 pub use self::state_options::{NipartApplyOption, NipartQueryOption};

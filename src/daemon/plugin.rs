@@ -8,6 +8,7 @@ use nipart::{
     NipartLogLevel, NipartNativePlugin, NipartPluginEvent, NipartRole,
     NipartUserEvent,
 };
+use nipart_plugin_baize::NipartPluginBaize;
 use nipart_plugin_mozim::NipartPluginMozim;
 use nipart_plugin_nispor::NipartPluginNispor;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -165,6 +166,11 @@ impl Plugins {
             "mozim",
             NipartPluginMozim::roles(),
             start_mozim_plugin().await?,
+        );
+        self.insert(
+            "baize",
+            NipartPluginBaize::roles(),
+            start_baize_plugin().await?,
         );
         Ok(())
     }
@@ -364,5 +370,22 @@ async fn start_mozim_plugin() -> Result<PluginConnection, NipartError> {
     Ok(PluginConnection::Mpsc((
         switch_to_mozim_tx,
         mozim_to_switch_rx,
+    )))
+}
+
+async fn start_baize_plugin() -> Result<PluginConnection, NipartError> {
+    let (baize_to_switch_tx, baize_to_switch_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+    let (switch_to_baize_tx, switch_to_baize_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+
+    let mut baize_plugin =
+        NipartPluginBaize::init(baize_to_switch_tx, switch_to_baize_rx).await?;
+
+    tokio::spawn(async move { baize_plugin.run().await });
+    log::info!("Native plugin baize started");
+    Ok(PluginConnection::Mpsc((
+        switch_to_baize_tx,
+        baize_to_switch_rx,
     )))
 }

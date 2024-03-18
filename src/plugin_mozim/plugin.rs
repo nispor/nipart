@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use nipart::{
     NipartDhcpConfig, NipartError, NipartEvent, NipartEventAddress,
+    NipartLinkMonitorRule, NipartMonitorEvent, NipartMonitorRule,
     NipartNativePlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -67,7 +68,7 @@ impl NipartNativePlugin for NipartPluginMozim {
             NipartPluginEvent::ApplyDhcpConfig(confs) => {
                 log::trace!("Apply DHCP config for {confs:?}");
                 for conf in (*confs).as_slice() {
-                    self.apply_dhcp_conf(&conf, event.uuid)?;
+                    self.apply_dhcp_conf(&conf, event.uuid).await?;
                 }
                 let mut reply = NipartEvent::new(
                     NipartUserEvent::None,
@@ -78,6 +79,9 @@ impl NipartNativePlugin for NipartPluginMozim {
                 );
                 reply.uuid = event.uuid;
                 self.to_daemon().send(reply).await?;
+            }
+            NipartPluginEvent::GotMonitorEvent(monitor_event) => {
+                self.got_monitor_event(*monitor_event).await?;
             }
             _ => log::warn!("Plugin mozim got unknown event {event}"),
         }
@@ -93,7 +97,7 @@ impl NipartPluginMozim {
             .collect()
     }
 
-    fn apply_dhcp_conf(
+    async fn apply_dhcp_conf(
         &mut self,
         dhcp_conf: &NipartDhcpConfig,
         event_uuid: u128,
@@ -104,9 +108,15 @@ impl NipartPluginMozim {
                 // Stop current DHCP process
                 self.v4_workers.remove(conf.iface.as_str());
                 // Create new one
-                let mut worker = MozimWorkerV4::new(conf, event_uuid)?;
-                //TODO: only invoke run after got link up event;
-                worker.run(self.to_daemon())?;
+                let worker = MozimWorkerV4::new(conf, event_uuid)?;
+
+                if conf.enabled {
+                    self.register_link_up_event(
+                        conf.iface.as_str(),
+                        event_uuid,
+                    )
+                    .await?;
+                }
                 self.v4_workers.insert(conf.iface.clone(), worker);
             }
             NipartDhcpConfig::V6(_) => {
@@ -114,5 +124,77 @@ impl NipartPluginMozim {
             }
         }
         Ok(())
+    }
+
+    async fn register_link_up_event(
+        &self,
+        iface: &str,
+        event_uuid: u128,
+    ) -> Result<(), NipartError> {
+        let mut reply = NipartEvent::new(
+            NipartUserEvent::None,
+            NipartPluginEvent::RegisterMonitorRule(Box::new(
+                NipartMonitorRule::LinkUp(NipartLinkMonitorRule::new(
+                    NipartEventAddress::Dhcp,
+                    event_uuid,
+                    iface.to_string(),
+                )),
+            )),
+            NipartEventAddress::Dhcp,
+            NipartEventAddress::Group(NipartRole::Monitor),
+            nipart::DEFAULT_TIMEOUT,
+        );
+        reply.uuid = event_uuid;
+        log::debug!("Registering link up monitor {reply}");
+        self.to_daemon().send(reply).await?;
+        Ok(())
+    }
+
+    async fn got_monitor_event(
+        &mut self,
+        monitor_event: NipartMonitorEvent,
+    ) -> Result<(), NipartError> {
+        match monitor_event {
+            NipartMonitorEvent::LinkUp(iface) => {
+                self.start_dhcp_if_enabled(iface.as_str())
+            }
+            NipartMonitorEvent::LinkDown(iface) => {
+                self.stop_dhcp_if_enabled(iface.as_str());
+                Ok(())
+            }
+            _ => {
+                log::warn!("Got unexpected monitor event {monitor_event:?}");
+                Ok(())
+            }
+        }
+    }
+
+    fn start_dhcp_if_enabled(
+        &mut self,
+        iface: &str,
+    ) -> Result<(), NipartError> {
+        let to_daemon = self.to_daemon().clone();
+        if let Some(worker) = self.v4_workers.get_mut(iface) {
+            if worker.config.enabled {
+                worker.run(&to_daemon)
+            } else {
+                log::debug!(
+                    "DHCP is disabled for interface {iface}, \
+                    ignore request of start DHCP"
+                );
+                Ok(())
+            }
+        } else {
+            log::debug!(
+                "No DHCP worker registered to mozim for interface {iface}"
+            );
+            Ok(())
+        }
+    }
+
+    fn stop_dhcp_if_enabled(&mut self, iface: &str) {
+        if let Some(worker) = self.v4_workers.get_mut(iface) {
+            worker.stop();
+        }
     }
 }

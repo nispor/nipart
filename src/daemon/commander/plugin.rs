@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-
-
 use nipart::{
     NipartError, NipartEvent, NipartEventAddress, NipartPluginEvent,
     NipartUserEvent,
 };
 
 use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
-
 
 impl WorkFlow {
     pub(crate) fn new_query_plugin_info(

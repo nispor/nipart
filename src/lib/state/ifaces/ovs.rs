@@ -13,8 +13,8 @@ use crate::state::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch bridge interface. Example yaml output of [crate::state::NetworkState]
-/// with an OVS bridge:
+/// OpenvSwitch bridge interface. Example yaml output of
+/// [crate::state::NetworkState] with an OVS bridge:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -370,8 +370,8 @@ impl OvsBridgePortConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch internal interface. Example yaml output of [crate::state::NetworkState]
-/// with an DPDK enabled OVS interface:
+/// OpenvSwitch internal interface. Example yaml output of
+/// [crate::state::NetworkState] with an DPDK enabled OVS interface:
 /// ```yml
 /// ---
 /// interfaces:
@@ -468,10 +468,7 @@ impl OvsInterface {
     // OVS patch interface cannot have MTU or IP configuration
     // OVS DPDK `n_rxq_desc` and `n_txq_desc` should be power of 2 within
     // 1-4096.
-    pub(crate) fn sanitize(
-        &self,
-        is_desired: bool,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
         if is_desired && self.patch.is_some() {
             if self.base.mtu.is_some() {
                 let e = NipartError::new(
@@ -730,10 +727,7 @@ fn validate_dpdk_queue_desc(
 }
 
 impl OvsDpdkConfig {
-    pub(crate) fn sanitize(
-        &self,
-        is_desired: bool,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
         if is_desired {
             if let Some(n_rxq_desc) = self.n_rxq_desc {
                 validate_dpdk_queue_desc(n_rxq_desc, "n_rxq_desc")?;
