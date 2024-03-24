@@ -5,9 +5,9 @@ use std::os::fd::AsRawFd;
 use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease};
 use nipart::{
     ErrorKind, NipartDhcpConfigV4, NipartDhcpLease, NipartDhcpLeaseV4,
-    NipartError, NipartEvent, NipartEventAddress, NipartLinkMonitorRule,
-    NipartMonitorRule, NipartPluginEvent, NipartRole, NipartUserEvent,
-    DEFAULT_TIMEOUT,
+    NipartError, NipartEvent, NipartEventAddress, NipartLinkMonitorKind,
+    NipartLinkMonitorRule, NipartMonitorRule, NipartPluginEvent, NipartRole,
+    NipartUserEvent, DEFAULT_TIMEOUT,
 };
 use tokio::{io::unix::AsyncFd, sync::mpsc::Sender, task::JoinHandle};
 
@@ -134,6 +134,7 @@ pub(crate) struct MozimWorkerV4 {
     pub(crate) config: NipartDhcpConfigV4,
     pub(crate) thread_handler: Option<JoinHandle<()>>,
     pub(crate) event_uuid: u128,
+    pub(crate) to_daemon: Sender<NipartEvent>,
 }
 
 impl Drop for MozimWorkerV4 {
@@ -145,16 +146,24 @@ impl Drop for MozimWorkerV4 {
 }
 
 impl MozimWorkerV4 {
-    pub(crate) fn new(
+    pub(crate) async fn new(
         conf: &NipartDhcpConfigV4,
         event_uuid: u128,
+        to_daemon: Sender<NipartEvent>,
     ) -> Result<Self, NipartError> {
         if conf.enabled {
+            register_monitor_on_link_up(
+                &to_daemon,
+                conf.iface.as_str(),
+                event_uuid,
+            )
+            .await?;
             Ok(Self {
                 state: MozimWorkerState::WaitLink,
                 config: conf.clone(),
                 thread_handler: None,
                 event_uuid,
+                to_daemon,
             })
         } else {
             Ok(Self {
@@ -162,6 +171,7 @@ impl MozimWorkerV4 {
                 config: conf.clone(),
                 thread_handler: None,
                 event_uuid,
+                to_daemon,
             })
         }
     }
@@ -171,10 +181,7 @@ impl MozimWorkerV4 {
     }
 
     /// Please only invoke this function after link up.
-    pub(crate) fn run(
-        &mut self,
-        to_daemon: &Sender<NipartEvent>,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn start(&mut self) -> Result<(), NipartError> {
         if let Some(handler) = &self.thread_handler {
             log::debug!("Stopping existing DHCP thread before invoke new");
             handler.abort();
@@ -188,28 +195,43 @@ impl MozimWorkerV4 {
             )
         })?;
         self.state = MozimWorkerState::Running;
-        let to_daemon = to_daemon.clone();
+        let to_daemon = self.to_daemon.clone();
         let event_uuid = self.event_uuid;
         let iface_name = self.config.iface.clone();
         self.thread_handler = Some(tokio::task::spawn(async move {
             MozimWorkerV4Thread::new(iface_name, cli, to_daemon, event_uuid)
                 .await
         }));
+
         Ok(())
     }
 
-    pub(crate) fn stop(&mut self) {
+    pub(crate) async fn stop(&mut self) {
         if let Some(handler) = &self.thread_handler {
             handler.abort();
             log::debug!(
                 "DHCP for interface {} has stopped",
                 self.config.iface.as_str()
-            )
+            );
+            if self.config.enabled {
+                if let Err(e) = register_monitor_on_link_up(
+                    &self.to_daemon,
+                    self.config.iface.as_str(),
+                    self.event_uuid,
+                )
+                .await
+                {
+                    log::error!(
+                        "BUG: MozimWorkerV4::stop(): \
+                    register_monitor_on_link_up got failure {e}"
+                    );
+                }
+            }
         } else {
             log::debug!(
                 "No DHCP thread for interface {} require stop",
                 self.config.iface.as_str()
-            )
+            );
         }
         self.state = MozimWorkerState::Disabled;
         self.thread_handler = None;
@@ -265,7 +287,8 @@ async fn register_monitor_on_link_down(
     let mut reply = NipartEvent::new(
         NipartUserEvent::None,
         NipartPluginEvent::RegisterMonitorRule(Box::new(
-            NipartMonitorRule::LinkDown(NipartLinkMonitorRule::new(
+            NipartMonitorRule::Link(NipartLinkMonitorRule::new(
+                NipartLinkMonitorKind::Down,
                 NipartEventAddress::Dhcp,
                 event_uuid,
                 iface.to_string(),
@@ -276,6 +299,31 @@ async fn register_monitor_on_link_down(
         nipart::DEFAULT_TIMEOUT,
     );
     reply.uuid = event_uuid;
+    to_daemon.send(reply).await?;
+    Ok(())
+}
+
+async fn register_monitor_on_link_up(
+    to_daemon: &Sender<NipartEvent>,
+    iface: &str,
+    event_uuid: u128,
+) -> Result<(), NipartError> {
+    let mut reply = NipartEvent::new(
+        NipartUserEvent::None,
+        NipartPluginEvent::RegisterMonitorRule(Box::new(
+            NipartMonitorRule::Link(NipartLinkMonitorRule::new(
+                NipartLinkMonitorKind::Up,
+                NipartEventAddress::Dhcp,
+                event_uuid,
+                iface.to_string(),
+            )),
+        )),
+        NipartEventAddress::Dhcp,
+        NipartEventAddress::Group(NipartRole::Monitor),
+        nipart::DEFAULT_TIMEOUT,
+    );
+    reply.uuid = event_uuid;
+    log::debug!("Registering link up monitor {reply}");
     to_daemon.send(reply).await?;
     Ok(())
 }

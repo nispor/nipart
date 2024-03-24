@@ -14,33 +14,12 @@ use crate::state::{
 /// of [crate::state::NetworkState] with SR-IOV enabled ethernet interface would
 /// be: ```yml
 /// interfaces:
-/// - name: ens1f1
-///   type: ethernet
-///   state: up
-///   mac-address: 00:11:22:33:44:55
-///   mtu: 1500
-///   min-mtu: 68
-///   max-mtu: 9702
-///   ethernet:
-///     sr-iov:
-///       total-vfs: 2
-///       vfs:
-///       - id: 0
-///         mac-address: 00:11:22:33:00:ff
-///         spoof-check: true
-///         trust: false
-///         min-tx-rate: 0
-///         max-tx-rate: 0
-///         vlan-id: 0
-///         qos: 0
-///       - id: 1
-///         mac-address: 00:11:22:33:00:ef
-///         spoof-check: true
-///         trust: false
-///         min-tx-rate: 0
-///         max-tx-rate: 0
-///         vlan-id: 0
-///         qos: 0
+/// - name: ens1f1 type: ethernet state: up mac-address: 00:11:22:33:44:55 mtu:
+///   1500 min-mtu: 68 max-mtu: 9702 ethernet: sr-iov: total-vfs: 2 vfs:
+///       - id: 0 mac-address: 00:11:22:33:00:ff spoof-check: true trust: false
+///         min-tx-rate: 0 max-tx-rate: 0 vlan-id: 0 qos: 0
+///       - id: 1 mac-address: 00:11:22:33:00:ef spoof-check: true trust: false
+///         min-tx-rate: 0 max-tx-rate: 0 vlan-id: 0 qos: 0
 /// ```
 pub struct SrIovConfig {
     #[serde(

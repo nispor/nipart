@@ -18,20 +18,12 @@ use crate::state::{BaseInterface, ErrorKind, InterfaceType, NipartError};
 /// Example yaml outpuf of `[crate::state::NetworkState]` with loopback
 /// interface: ```yml
 /// interfaces:
-/// - name: lo
-///   type: loopback
-///   state: up
-///   mtu: 65535
-///   ipv4:
-///     enabled: true
-///     address:
-///     - ip: 127.0.0.1
-///       prefix-length: 8
+/// - name: lo type: loopback state: up mtu: 65535 ipv4: enabled: true address:
+///     - ip: 127.0.0.1 prefix-length: 8
 ///   ipv6:
 ///     enabled: true
 ///     address:
-///     - ip: ::1
-///       prefix-length: 128
+///     - ip: ::1 prefix-length: 128
 ///   accept-all-mac-addresses: false
 /// ```
 pub struct LoopbackInterface {

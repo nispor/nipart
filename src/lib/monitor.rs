@@ -9,17 +9,15 @@ use crate::NipartEventAddress;
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum NipartMonitorRule {
-    LinkUp(NipartLinkMonitorRule),
-    LinkDown(NipartLinkMonitorRule),
-    AddressRemove(NipartAddressMonitorRule),
+    Link(NipartLinkMonitorRule),
+    Address(NipartAddressMonitorRule),
 }
 
 impl std::fmt::Display for NipartMonitorRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LinkUp(rule) => write!(f, "link_up:{rule}"),
-            Self::LinkDown(rule) => write!(f, "link_down:{rule}"),
-            Self::AddressRemove(rule) => write!(f, "addr_remove:{rule}"),
+            Self::Link(rule) => write!(f, "{rule}"),
+            Self::Address(rule) => write!(f, "{rule}"),
         }
     }
 }
@@ -45,6 +43,37 @@ impl std::fmt::Display for NipartMonitorEvent {
     }
 }
 
+#[derive(
+    Deserialize,
+    Serialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Copy,
+)]
+#[non_exhaustive]
+pub enum NipartLinkMonitorKind {
+    Up,
+    Down,
+}
+
+impl std::fmt::Display for NipartLinkMonitorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Up => "up",
+                Self::Down => "down",
+            }
+        )
+    }
+}
+
 /// Monitor on the link state(`IFLA_OPERSTATE`) up/down event of specified
 /// interface
 #[derive(
@@ -52,8 +81,9 @@ impl std::fmt::Display for NipartMonitorEvent {
 )]
 #[non_exhaustive]
 pub struct NipartLinkMonitorRule {
+    pub kind: NipartLinkMonitorKind,
     /// Who requested this monitor rule
-    pub requestee: NipartEventAddress,
+    pub requester: NipartEventAddress,
     /// Event ID for tracing the source of this request
     pub uuid: u128,
     /// Interface to monitor
@@ -62,18 +92,24 @@ pub struct NipartLinkMonitorRule {
 
 impl std::fmt::Display for NipartLinkMonitorRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", self.uuid, self.requestee, self.iface)
+        write!(
+            f,
+            "link_monitor: uuid:{}, kind:{}, requester:{}, iface:{}",
+            self.uuid, self.kind, self.requester, self.iface
+        )
     }
 }
 
 impl NipartLinkMonitorRule {
     pub fn new(
-        requestee: NipartEventAddress,
+        kind: NipartLinkMonitorKind,
+        requester: NipartEventAddress,
         uuid: u128,
         iface: String,
     ) -> Self {
         Self {
-            requestee,
+            kind,
+            requester,
             uuid,
             iface,
         }
@@ -87,8 +123,9 @@ impl NipartLinkMonitorRule {
 )]
 #[non_exhaustive]
 pub struct NipartAddressMonitorRule {
+    pub kind: NipartAddressMonitorKind,
     /// Who requested this monitor rule
-    pub requestee: NipartEventAddress,
+    pub requester: NipartEventAddress,
     /// Event ID for tracing the source of this request
     pub uuid: u128,
     /// Interface to monitor
@@ -99,6 +136,39 @@ pub struct NipartAddressMonitorRule {
 
 impl std::fmt::Display for NipartAddressMonitorRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", self.uuid, self.requestee, self.ip)
+        write!(
+            f,
+            "address_monitor: uuid:{}, kind:{}, requester:{}, ip:{}",
+            self.uuid, self.kind, self.requester, self.ip
+        )
+    }
+}
+
+#[derive(
+    Deserialize,
+    Serialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Copy,
+)]
+#[non_exhaustive]
+pub enum NipartAddressMonitorKind {
+    Remove,
+}
+
+impl std::fmt::Display for NipartAddressMonitorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Remove => "remove",
+            }
+        )
     }
 }

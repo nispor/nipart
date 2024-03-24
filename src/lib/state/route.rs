@@ -47,10 +47,9 @@ pub struct Routes {
     /// yaml): ```yaml
     /// routes:
     ///   config:
-    ///   - next-hop-interface: eth1
-    ///     state: absent
+    ///   - next-hop-interface: eth1 state: absent
     /// ```
-    ///
+    /// 
     /// To change a route entry, you need to delete old one and add new one(can
     /// be in single transaction).
     pub config: Option<Vec<RouteEntry>>,

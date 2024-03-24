@@ -6,7 +6,7 @@ use nipart::{
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::link::{is_link_up, send_link_up_notify, BaizeLinkMonitor};
+use crate::link::BaizeLinkMonitor;
 
 #[derive(Debug)]
 pub struct NipartPluginBaize {
@@ -66,13 +66,8 @@ impl NipartPluginBaize {
         rule: NipartMonitorRule,
     ) -> Result<(), NipartError> {
         match rule {
-            NipartMonitorRule::LinkUp(rule) => {
-                if is_link_up(rule.iface.as_str()).await? {
-                    log::debug!("Interface {} is already UP", rule.iface);
-                    send_link_up_notify(self.to_daemon(), &rule).await
-                } else {
-                    self.link_monitor.add_link_rule(rule).await
-                }
+            NipartMonitorRule::Link(rule) => {
+                self.link_monitor.add_link_rule(rule).await
             }
             _ => {
                 log::error!("TODO: register_monitor_rule() {rule}");
@@ -86,8 +81,7 @@ impl NipartPluginBaize {
         rule: NipartMonitorRule,
     ) -> Result<(), NipartError> {
         match rule {
-            NipartMonitorRule::LinkUp(rule)
-            | NipartMonitorRule::LinkDown(rule) => {
+            NipartMonitorRule::Link(rule) => {
                 self.link_monitor.del_link_rule(rule).await?;
                 Ok(())
             }

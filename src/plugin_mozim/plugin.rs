@@ -4,8 +4,9 @@ use std::collections::HashMap;
 
 use nipart::{
     NipartDhcpConfig, NipartError, NipartEvent, NipartEventAddress,
-    NipartLinkMonitorRule, NipartMonitorEvent, NipartMonitorRule,
-    NipartNativePlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
+    NipartLinkMonitorKind, NipartLinkMonitorRule, NipartMonitorEvent,
+    NipartMonitorRule, NipartNativePlugin, NipartPluginEvent, NipartRole,
+    NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -108,7 +109,12 @@ impl NipartPluginMozim {
                 // Stop current DHCP process
                 self.v4_workers.remove(conf.iface.as_str());
                 // Create new one
-                let worker = MozimWorkerV4::new(conf, event_uuid)?;
+                let worker = MozimWorkerV4::new(
+                    conf,
+                    event_uuid,
+                    self.to_daemon.clone(),
+                )
+                .await?;
 
                 if conf.enabled {
                     self.register_link_up_event(
@@ -134,7 +140,8 @@ impl NipartPluginMozim {
         let mut reply = NipartEvent::new(
             NipartUserEvent::None,
             NipartPluginEvent::RegisterMonitorRule(Box::new(
-                NipartMonitorRule::LinkUp(NipartLinkMonitorRule::new(
+                NipartMonitorRule::Link(NipartLinkMonitorRule::new(
+                    NipartLinkMonitorKind::Up,
                     NipartEventAddress::Dhcp,
                     event_uuid,
                     iface.to_string(),
@@ -159,7 +166,7 @@ impl NipartPluginMozim {
                 self.start_dhcp_if_enabled(iface.as_str())
             }
             NipartMonitorEvent::LinkDown(iface) => {
-                self.stop_dhcp_if_enabled(iface.as_str());
+                self.stop_dhcp_if_enabled(iface.as_str()).await;
                 Ok(())
             }
             _ => {
@@ -173,10 +180,9 @@ impl NipartPluginMozim {
         &mut self,
         iface: &str,
     ) -> Result<(), NipartError> {
-        let to_daemon = self.to_daemon().clone();
         if let Some(worker) = self.v4_workers.get_mut(iface) {
             if worker.config.enabled {
-                worker.run(&to_daemon)
+                worker.start()
             } else {
                 log::debug!(
                     "DHCP is disabled for interface {iface}, \
@@ -192,9 +198,9 @@ impl NipartPluginMozim {
         }
     }
 
-    fn stop_dhcp_if_enabled(&mut self, iface: &str) {
+    async fn stop_dhcp_if_enabled(&mut self, iface: &str) {
         if let Some(worker) = self.v4_workers.get_mut(iface) {
-            worker.stop();
+            worker.stop().await;
         }
     }
 }
