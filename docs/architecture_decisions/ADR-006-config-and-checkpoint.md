@@ -1,25 +1,32 @@
-# Title: ADR-006: Persistent Configuration and Checkpoint
+# Title: ADR-006: Persist Configuration and Manage Checkpoint
 
 ## Status: Proposed
 
 ## Context
 
-We need to persistent the network configurations and restore it after reboot.
-The configurations should be stored in a git-like manner allowing history
-tracking, checkpoint rollback.
+User needs persistent configuration and checkpoint.
+
+Use cases for persisting configurations:
+ * Tracking changes between apply requests.
+ * Converting changes made by external tools to persistent.
+
+Use cases for managing checkpoint:
+ * Multiple con-current checkpoints tracking
+ * Checkpoint rollback or commit
+ * Provide incremental network change report between checkpoint point-of-time
+   network state and current.
 
 ## Decision
 
 Introducing `NipartRole::Tracking` plugin hooking on these events:
 
- * Network state changes desired by user of plugins.
+ * Network state changes desired by user or plugins.
  * Network changes made by external tools.
- * Configurations changes(e.g. User do `git revert <commit_id>` in
-   /etc/nipart folder).
+ * Configurations changes in `/etc/nipart` folder.
 
-In order to avoid tracking intermediate network state:
+In order to avoid tracking intermediate states:
 
- * When `ApplyNetState`, all monitor rule will be suspended.
+ * During `ApplyNetState`, all monitor rules will be suspended.
 
  * When external events happens, we wait some time till last notification
    arrived. For example:
@@ -44,13 +51,14 @@ The `NipartRole::Tracking` plugin will tracking two types of network changes:
    Will use `/run/nipart` folder for volatile state tracking.
 
 The `NipartRole::Tracking` plugin should provide a way to disable state
-tracking and only use /etc/nipart for one-time network configuration.
+tracking and only use /etc/nipart for one-time(up on start of daemon) network
+configuration.
 
 ### Approaches been considered but dismissed:
 
 #### A: Providing API supporting a subset of git commands.
 
-Reason of dismission: User have to learn new terminology and niport have to
+Reason of dismission: User have to learn new terminologies and niport have to
 maintain its own git-mimicking code. It means we are reinvent the wheel of git.
 
 #### B: Old fashion way of using files in /etc and /run
