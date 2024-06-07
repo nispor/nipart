@@ -2,13 +2,13 @@
 
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::state::{BaseInterface, InterfaceType};
+use crate::{BaseInterface, InterfaceType};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
 /// IP over InfiniBand interface. The example yaml output of a
-/// [crate::state::NetworkState] with an infiniband interface would be:
+/// [crate::NetworkState] with an infiniband interface would be:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -77,9 +77,7 @@ impl std::fmt::Display for InfiniBandMode {
 pub struct InfiniBandConfig {
     /// Mode of InfiniBand interface.
     pub mode: InfiniBandMode,
-    #[serde(
-        skip_serializing_if = "crate::state::serializer::is_option_string_empty"
-    )]
+    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
     /// For pkey sub-interface only. Empty for base interface.
     pub base_iface: Option<String>,
     #[serde(

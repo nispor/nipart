@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
+use crate::{
     DnsState, ErrorKind, HostNameState, Interface, Interfaces, MergedDnsState,
     MergedHostNameState, MergedInterfaces, MergedOvnConfiguration,
     MergedOvsDbGlobalConfig, MergedRouteRules, MergedRoutes, NipartError,
@@ -77,6 +77,11 @@ use crate::state::{
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct NetworkState {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    /// Description for the whole desire state. Currently it will not be
+    /// persisted by network backend and will be ignored during applying or
+    /// querying.
+    pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Hostname of current host.
     pub hostname: Option<HostNameState>,
@@ -142,6 +147,10 @@ impl NetworkState {
     pub fn set_kernel_only(&mut self, value: bool) -> &mut Self {
         self.kernel_only = value;
         self
+    }
+
+    pub fn kernel_only(&self) -> bool {
+        self.kernel_only
     }
 
     /// By default(true), When nmstate applying the network state, after applied
@@ -245,6 +254,15 @@ impl NetworkState {
         ))
     }
 
+    #[cfg(not(feature = "query_apply"))]
+    pub async fn retrieve_async(&mut self) -> Result<&mut Self, NipartError> {
+        Err(NipartError::new(
+            ErrorKind::DependencyError,
+            "NetworkState::retrieve_async() need `query_apply` feature enabled"
+                .into(),
+        ))
+    }
+
     /// Replace secret string with `<_password_hid_by_nmstate>`
     pub fn hide_secrets(&mut self) {
         self.interfaces.hide_secrets();
@@ -252,6 +270,14 @@ impl NetworkState {
 
     #[cfg(not(feature = "query_apply"))]
     pub fn apply(&mut self) -> Result<(), NipartError> {
+        Err(NipartError::new(
+            ErrorKind::DependencyError,
+            "NetworkState::apply() need `query_apply` feature enabled".into(),
+        ))
+    }
+
+    #[cfg(not(feature = "query_apply"))]
+    pub async fn apply_async(&mut self) -> Result<(), NipartError> {
         Err(NipartError::new(
             ErrorKind::DependencyError,
             "NetworkState::apply() need `query_apply` feature enabled".into(),
@@ -289,7 +315,8 @@ impl NetworkState {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedNetworkState {
     pub interfaces: MergedInterfaces,
     pub(crate) hostname: MergedHostNameState,

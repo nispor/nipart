@@ -2,12 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{BaseInterface, InterfaceType};
+use crate::{BaseInterface, InterfaceType};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 /// Linux kernel VxLAN interface. The example yaml output of
-/// [crate::state::NetworkState] with a VxLAN interface would be:
+/// [crate::NetworkState] with a VxLAN interface would be:
 /// ```yml
 /// interfaces:
 /// - name: eth1.102

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::convert::TryFrom;
+use std::hash::{Hash, Hasher};
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
-    ip::{is_ipv6_addr, sanitize_ip_network, AddressFamily},
+use crate::{
+    state::ip::{is_ipv6_addr, sanitize_ip_network, AddressFamily},
     ErrorKind, InterfaceIpAddr, InterfaceType, NipartError,
 };
 
@@ -20,10 +20,9 @@ pub struct RouteRules {
     /// When applying, `None` means preserve existing route rules.
     /// Nmstate is using partial editing for route rule, which means
     /// desired route rules only append to existing instead of overriding.
-    /// To delete any route rule, please set
-    /// [crate::state::RouteRuleEntry.state] to [RouteRuleState::Absent].
-    /// Any property set to None in absent route rule means wildcard. For
-    /// example, this [crate::state::NetworkState] will delete all
+    /// To delete any route rule, please set [crate::RouteRuleEntry.state] to
+    /// [RouteRuleState::Absent]. Any property set to None in absent route rule
+    /// means wildcard. For example, this [crate::NetworkState] will delete all
     /// route rule looking up route table 500:
     /// ```yml
     /// ---
@@ -429,6 +428,12 @@ impl PartialOrd for RouteRuleEntry {
     }
 }
 
+impl Hash for RouteRuleEntry {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.sort_key().hash(state);
+    }
+}
+
 impl std::fmt::Display for RouteRuleEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut props = Vec::new();
@@ -507,7 +512,8 @@ impl From<RouteRuleAction> for u8 {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedRouteRules {
     pub(crate) desired: RouteRules,
     pub(crate) current: RouteRules,

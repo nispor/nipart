@@ -20,6 +20,7 @@ mod revert;
 mod route;
 mod route_rule;
 mod serializer;
+mod statistic;
 // This one is not copy from nmstate
 mod not_synced;
 
@@ -78,5 +79,6 @@ pub use self::route_rule::MergedRouteRules;
 pub use self::route_rule::{
     RouteRuleAction, RouteRuleEntry, RouteRuleState, RouteRules,
 };
+pub use self::statistic::NmstateFeature;
 
 pub(crate) use super::{ErrorKind, NipartError};

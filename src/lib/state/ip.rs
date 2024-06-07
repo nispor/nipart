@@ -4,9 +4,9 @@ use std::fmt::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
-use serde::{self, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::state::{
+use crate::{
     BaseInterface, DnsClientState, ErrorKind, MergedInterface,
     MptcpAddressFlag, NipartError, RouteRuleEntry,
 };
@@ -227,7 +227,7 @@ impl InterfaceIpv4 {
             && !self.is_auto()
             && is_ip_addrs_none_or_all_auto(self.addresses.as_deref())
         {
-            self.addresses = current.addresses.clone();
+            self.addresses.clone_from(&current.addresses);
             if let Some(addrs) = self.addresses.as_mut() {
                 addrs.as_mut_slice().iter_mut().for_each(|a| {
                     a.valid_life_time = None;
@@ -256,8 +256,12 @@ impl InterfaceIpv4 {
             && !self.is_auto()
             && is_ip_addrs_none_or_all_auto(self.addresses.as_deref())
         {
-            self.addresses = current.addresses.clone();
+            self.addresses.clone_from(&current.addresses);
         }
+
+        // The rules is `pub(crate)`, it will not merged by `merge_json_value()`
+        self.rules.clone_from(&current.rules);
+
         self.sanitize(false).ok();
     }
 
@@ -293,14 +297,6 @@ impl InterfaceIpv4 {
                     }
                 }
             }
-        } else if self.addresses.as_ref().map_or(false, Vec::is_empty)
-            && self.enabled
-        {
-            // Empty address should equal to disabled IPv4 stack
-            if is_desired {
-                log::info!("Empty IPv4 address is considered as IPv4 disabled");
-            }
-            self.enabled = false;
         }
 
         if let Some(addrs) = self.addresses.as_mut() {
@@ -738,8 +734,12 @@ impl InterfaceIpv6 {
             && !self.is_auto()
             && is_ip_addrs_none_or_all_auto(desired.addresses.as_deref())
         {
-            self.addresses = current.addresses.clone();
+            self.addresses.clone_from(&current.addresses);
         }
+
+        // The rules is `pub(crate)`, it will not merged by `merge_json_value()`
+        self.rules.clone_from(&current.rules);
+
         self.sanitize(false).ok();
     }
 
@@ -763,7 +763,7 @@ impl InterfaceIpv6 {
             && !self.is_auto()
             && is_ip_addrs_none_or_all_auto(self.addresses.as_deref())
         {
-            self.addresses = current.addresses.clone();
+            self.addresses.clone_from(&current.addresses);
             if let Some(addrs) = self.addresses.as_mut() {
                 addrs.as_mut_slice().iter_mut().for_each(|a| {
                     a.valid_life_time = None;
@@ -1164,7 +1164,9 @@ fn validate_wait_ip(base_iface: &BaseInterface) -> Result<(), NipartError> {
     Ok(())
 }
 
-pub(crate) fn sanitize_ip_network(ip_net: &str) -> Result<String, NipartError> {
+pub(crate) fn sanitize_ip_network(
+    ip_net: &str,
+) -> Result<String, NipartError> {
     let ip_nets: Vec<&str> = ip_net.split('/').collect();
     match ip_nets.len() {
         0 => Err(NipartError::new(

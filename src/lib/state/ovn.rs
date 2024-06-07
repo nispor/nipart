@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::{BTreeMap, HashSet};
-use std::convert::{TryFrom, TryInto};
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{ErrorKind, NipartError};
+use crate::{ErrorKind, NipartError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 #[serde(deny_unknown_fields)]
 /// Global OVN bridge mapping configuration. Example yaml output of
-/// [crate::state::NetworkState]:
+/// [crate::NetworkState]:
 /// ```yml
 /// ---
 /// ovn:
@@ -121,7 +120,8 @@ impl TryFrom<&str> for OvnConfiguration {
 // `NetworkState::isolate_ovn()` to isolate this `external_ids` entry
 // into `OvnConfiguration`.
 // For verification, we are treating it as normal property without extracting.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedOvnConfiguration {
     pub(crate) desired: OvnConfiguration,
     pub(crate) current: OvnConfiguration,

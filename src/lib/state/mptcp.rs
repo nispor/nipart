@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{BaseInterface, ErrorKind, MergedInterface, NipartError};
+use crate::{BaseInterface, ErrorKind, MergedInterface, NipartError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]

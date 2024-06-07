@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{Interfaces, MergedInterfaces, NipartError};
+use crate::{Interfaces, MergedInterfaces, NipartError};
 
 impl MergedInterfaces {
     pub(crate) fn generate_revert(&self) -> Result<Interfaces, NipartError> {

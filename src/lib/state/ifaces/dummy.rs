@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::state::{BaseInterface, InterfaceType};
+use crate::{BaseInterface, InterfaceType};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 /// Dummy interface. Only contain information of [BaseInterface].
-/// Example yaml outpuf of `[crate::state::NetworkState]` with dummy interface:
+/// Example yaml outpuf of `[crate::NetworkState]` with dummy interface:
 /// ```yml
 /// interfaces:
 /// - name: dummy1

@@ -3,8 +3,8 @@
 use std::time::SystemTime;
 
 use nipart::{
-    NipartApplyOption, NipartDhcpLease, NipartEvent, NipartLogLevel,
-    NipartQueryOption,
+    NetworkCommitQueryOption, NipartApplyOption, NipartDhcpLease, NipartEvent,
+    NipartLogLevel, NipartQueryOption,
 };
 
 use super::WorkFlowShareData;
@@ -126,6 +126,10 @@ impl Task {
             TaskKind::ApplyDhcpLease(lease) => {
                 vec![self.gen_apply_dhcp_lease(lease.clone())]
             }
+            TaskKind::QueryCommits(opt) => {
+                self.gen_request_query_commits(opt.clone())
+            }
+            TaskKind::Commit => self.gen_request_commit(share_data),
         };
         if self.retry_count != 0 {
             for event in &mut events {
@@ -147,6 +151,8 @@ pub(crate) enum TaskKind {
     ChangeLogLevel(NipartLogLevel),
     ApplyDhcpLease(NipartDhcpLease),
     Quit,
+    QueryCommits(NetworkCommitQueryOption),
+    Commit,
 }
 
 impl std::fmt::Display for TaskKind {
@@ -163,6 +169,8 @@ impl std::fmt::Display for TaskKind {
                 Self::ChangeLogLevel(_) => "change_log_level",
                 Self::ApplyDhcpLease(_) => "apply_dhcp_lease",
                 Self::Quit => "quit",
+                Self::QueryCommits(_) => "query_commits",
+                Self::Commit => "commit",
             }
         )
     }

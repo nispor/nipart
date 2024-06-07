@@ -2,13 +2,12 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::convert::TryFrom;
 
 use serde::{
     ser::SerializeTuple, Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::state::{ErrorKind, NipartError};
+use crate::{ErrorKind, NipartError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
@@ -99,7 +98,10 @@ impl BridgePortVlanConfig {
         }
     }
 
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if self.mode == Some(BridgePortVlanMode::Trunk)
                 && self.tag.is_some()

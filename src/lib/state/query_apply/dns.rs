@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{DnsState, ErrorKind, MergedDnsState, NipartError};
+use crate::{DnsState, ErrorKind, MergedDnsState, NipartError};
 
 impl MergedDnsState {
     pub(crate) fn verify(&self, current: DnsState) -> Result<(), NipartError> {

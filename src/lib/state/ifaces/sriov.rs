@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
+use crate::{
     ErrorKind, Interface, InterfaceType, Interfaces, MergedInterface,
     NipartError, VlanProtocol,
 };
@@ -11,15 +11,36 @@ use crate::state::{
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[non_exhaustive]
 /// Single Root I/O Virtualization(SRIOV) configuration. The example yaml output
-/// of [crate::state::NetworkState] with SR-IOV enabled ethernet interface would
-/// be: ```yml
+/// of [crate::NetworkState] with SR-IOV enabled ethernet interface would be:
+/// ```yml
 /// interfaces:
-/// - name: ens1f1 type: ethernet state: up mac-address: 00:11:22:33:44:55 mtu:
-///   1500 min-mtu: 68 max-mtu: 9702 ethernet: sr-iov: total-vfs: 2 vfs:
-///       - id: 0 mac-address: 00:11:22:33:00:ff spoof-check: true trust: false
-///         min-tx-rate: 0 max-tx-rate: 0 vlan-id: 0 qos: 0
-///       - id: 1 mac-address: 00:11:22:33:00:ef spoof-check: true trust: false
-///         min-tx-rate: 0 max-tx-rate: 0 vlan-id: 0 qos: 0
+/// - name: ens1f1
+///   type: ethernet
+///   state: up
+///   mac-address: 00:11:22:33:44:55
+///   mtu: 1500
+///   min-mtu: 68
+///   max-mtu: 9702
+///   ethernet:
+///     sr-iov:
+///       total-vfs: 2
+///       vfs:
+///       - id: 0
+///         mac-address: 00:11:22:33:00:ff
+///         spoof-check: true
+///         trust: false
+///         min-tx-rate: 0
+///         max-tx-rate: 0
+///         vlan-id: 0
+///         qos: 0
+///       - id: 1
+///         mac-address: 00:11:22:33:00:ef
+///         spoof-check: true
+///         trust: false
+///         min-tx-rate: 0
+///         max-tx-rate: 0
+///         vlan-id: 0
+///         qos: 0
 /// ```
 pub struct SrIovConfig {
     #[serde(
@@ -223,7 +244,7 @@ impl Interfaces {
         for changed_iface_name in changed_iface_names {
             if let Some(iface) = self.kernel_ifaces.remove(&changed_iface_name)
             {
-                if self.kernel_ifaces.get(iface.name()).is_some() {
+                if self.kernel_ifaces.contains_key(iface.name()) {
                     let e = NipartError::new(
                         ErrorKind::InvalidArgument,
                         format!(

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{EthernetConfig, EthernetInterface, Interface, SrIovConfig};
+use crate::{EthernetConfig, EthernetInterface, Interface, SrIovConfig};
 
 impl EthernetInterface {
     pub(crate) fn generate_revert_extra(

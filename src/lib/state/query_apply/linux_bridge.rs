@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{
-    BridgePortVlanConfig, LinuxBridgeConfig, LinuxBridgeInterface,
+use crate::{
+    BridgePortVlanConfig, Interface, LinuxBridgeConfig, LinuxBridgeInterface,
+    MergedInterface,
 };
 
 impl LinuxBridgeInterface {
@@ -37,7 +38,7 @@ impl LinuxBridgeInterface {
         if let Some(br_conf) = &mut self.bridge {
             br_conf.update(other.bridge.as_ref());
         } else {
-            self.bridge = other.bridge.clone();
+            self.bridge.clone_from(&other.bridge);
         }
     }
 
@@ -57,8 +58,38 @@ impl LinuxBridgeInterface {
 impl LinuxBridgeConfig {
     pub(crate) fn update(&mut self, other: Option<&LinuxBridgeConfig>) {
         if let Some(other) = other {
-            self.options = other.options.clone();
-            self.port = other.port.clone();
+            self.options.clone_from(&other.options);
+            self.port.clone_from(&other.port);
         }
+    }
+}
+
+impl MergedInterface {
+    pub(crate) fn is_default_pvid_changed(&self) -> bool {
+        let des_default_pvid = if let Some(Interface::LinuxBridge(des_iface)) =
+            self.for_apply.as_ref()
+        {
+            des_iface
+                .bridge
+                .as_ref()
+                .and_then(|b| b.options.as_ref())
+                .and_then(|o| o.vlan_default_pvid.as_ref())
+        } else {
+            None
+        };
+
+        let cur_default_pvid = if let Some(Interface::LinuxBridge(cur_iface)) =
+            self.current.as_ref()
+        {
+            cur_iface
+                .bridge
+                .as_ref()
+                .and_then(|b| b.options.as_ref())
+                .and_then(|o| o.vlan_default_pvid.as_ref())
+        } else {
+            None
+        };
+
+        des_default_pvid != cur_default_pvid
     }
 }

@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    NetworkState, NipartApplyOption, NipartError, NipartLogLevel,
-    NipartPluginEvent, NipartPluginInfo, NipartQueryOption, NipartRole,
+    NetworkCommit, NetworkCommitQueryOption, NetworkState, NipartApplyOption,
+    NipartError, NipartLogLevel, NipartPluginEvent, NipartPluginInfo,
+    NipartQueryOption, NipartRole,
 };
 
 #[derive(
@@ -24,6 +25,8 @@ pub enum NipartEventAddress {
     Commander,
     /// The chosen dhcp plugin
     Dhcp,
+    /// The chosen track plugin
+    Track,
     /// Group of plugins holding specified [NipartRole]
     Group(NipartRole),
     /// All plugins
@@ -38,6 +41,7 @@ impl std::fmt::Display for NipartEventAddress {
             Self::Daemon => write!(f, "daemon"),
             Self::Commander => write!(f, "commander"),
             Self::Dhcp => write!(f, "dhcp"),
+            Self::Track => write!(f, "track"),
             Self::Group(v) => write!(f, "group:{v}"),
             Self::AllPlugins => write!(f, "all_plugins"),
         }
@@ -143,8 +147,10 @@ pub enum NipartUserEvent {
     QueryNetStateReply(Box<NetworkState>),
 
     ApplyNetState(Box<NetworkState>, NipartApplyOption),
-    // TODO: Return applied state and revert state
     ApplyNetStateReply,
+
+    QueryCommits(NetworkCommitQueryOption),
+    QueryCommitsReply(Box<Vec<NetworkCommit>>),
 }
 
 impl std::fmt::Display for NipartUserEvent {
@@ -165,6 +171,8 @@ impl std::fmt::Display for NipartUserEvent {
                 Self::QueryNetStateReply(_) => "query_netstate_reply",
                 Self::ApplyNetState(_, _) => "apply_netstate",
                 Self::ApplyNetStateReply => "apply_netstate_reply",
+                Self::QueryCommits(_) => "query_commits",
+                Self::QueryCommitsReply(_) => "query_commits_reply",
             }
         )
     }

@@ -72,6 +72,7 @@ impl WorkFlow {
         verify_task.set_retry(VERIFY_RETRY_COUNT, VERIFY_RETRY_INTERVAL);
 
         tasks.push(verify_task);
+        tasks.push(Task::new(uuid, TaskKind::Commit, 1, timeout));
 
         let share_data = WorkFlowShareData {
             desired_state: Some(des_state),
@@ -82,6 +83,7 @@ impl WorkFlow {
             Some(pre_apply_query_related_state),
             Some(apply_net_state),
             Some(post_apply_query_related_state),
+            Some(post_commit_net_state),
         ];
 
         (
@@ -175,7 +177,13 @@ fn post_apply_query_related_state(
     };
 
     merged_state.verify(&post_apply_state)?;
+    Ok(Vec::new())
+}
 
+fn post_commit_net_state(
+    task: &Task,
+    _share_data: &mut WorkFlowShareData,
+) -> Result<Vec<NipartEvent>, NipartError> {
     let mut reply = NipartEvent::new(
         NipartUserEvent::ApplyNetStateReply,
         NipartPluginEvent::None,

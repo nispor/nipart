@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::state::{MergedOvsDbGlobalConfig, OvsDbGlobalConfig};
+use crate::{MergedOvsDbGlobalConfig, OvsDbGlobalConfig};
 
 impl MergedOvsDbGlobalConfig {
     pub(crate) fn generate_revert(&self) -> Option<OvsDbGlobalConfig> {

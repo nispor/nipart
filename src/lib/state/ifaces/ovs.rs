@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashSet;
-use std::convert::TryFrom;
 
 use serde::{de, Deserialize, Deserializer, Serialize};
 
-use crate::state::{
+use crate::{
     BaseInterface, BridgePortVlanConfig, ErrorKind, Interface, InterfaceState,
     InterfaceType, LinuxBridgeStpOptions, MergedInterface, MergedInterfaces,
     NipartError, OvsDbIfaceConfig,
@@ -13,8 +12,8 @@ use crate::state::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch bridge interface. Example yaml output of
-/// [crate::state::NetworkState] with an OVS bridge:
+/// OpenvSwitch bridge interface. Example yaml output of [crate::NetworkState]
+/// with an OVS bridge:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -62,12 +61,6 @@ impl Default for OvsBridgeInterface {
 }
 
 impl OvsBridgeInterface {
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        if let Some(i) = self.bridge.as_mut() {
-            i.post_deserialize_cleanup()
-        }
-    }
-
     // Return None when desire state does not mention ports
     pub fn ports(&self) -> Option<Vec<&str>> {
         if let Some(br_conf) = &self.bridge {
@@ -117,7 +110,7 @@ impl OvsBridgeInterface {
         }
     }
 
-    // * OVS Bridge cannot have MTU, IP
+    // * OVS Bridge cannot have MTU, IP or MAC address
     pub(crate) fn sanitize(
         &mut self,
         is_desired: bool,
@@ -131,15 +124,35 @@ impl OvsBridgeInterface {
                 );
             }
         }
+        if let Some(mac) = self.base.mac_address.as_ref() {
+            if !mac.is_empty() && is_desired {
+                return Err(NipartError::new(
+                    ErrorKind::InvalidArgument,
+                    format!(
+                        "OVS Bridge {} can not hold MAC address, \
+                        please set MAC address on OVS internal interface \
+                        instead",
+                        self.base.name.as_str()
+                    ),
+                ));
+            }
+        }
         self.base.mtu = None;
         self.base.ipv4 = None;
         self.base.ipv6 = None;
         self.sort_ports();
 
-        if let Some(br_conf) = self.bridge.as_mut() {
-            br_conf.sanitize(is_desired)?;
+        if let Some(port_confs) = self
+            .bridge
+            .as_ref()
+            .and_then(|br_conf| br_conf.ports.as_ref())
+        {
+            for port_conf in port_confs {
+                if let Some(vlan_conf) = port_conf.vlan.as_ref() {
+                    vlan_conf.sanitize(is_desired)?;
+                }
+            }
         }
-
         Ok(())
     }
 
@@ -226,7 +239,7 @@ impl OvsBridgeInterface {
                         if cur_port_conf.name.as_str()
                             == des_port_conf.name.as_str()
                         {
-                            new_port.vlan = cur_port_conf.vlan.clone();
+                            new_port.vlan.clone_from(&cur_port_conf.vlan);
                             break;
                         }
                     }
@@ -261,52 +274,13 @@ pub struct OvsBridgeConfig {
         rename = "port",
         alias = "ports"
     )]
-    /// Serialize to 'port'. Deserialize from `port` or `ports` or
-    /// `slaves`(deprecated).
+    /// Serialize to 'port'. Deserialize from `port` or `ports`.
     pub ports: Option<Vec<OvsBridgePortConfig>>,
-    // Deprecated, please use `ports`, this is only for backwards compatibility
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        rename = "port",
-        alias = "slaves"
-    )]
-    pub(crate) slaves: Option<Vec<OvsBridgePortConfig>>,
 }
 
 impl OvsBridgeConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        if self.slaves.as_ref().is_some() {
-            log::warn!(
-                "The `slaves` is deprecated, please replace with `ports`."
-            );
-            self.ports = self.slaves.clone();
-            self.slaves = None;
-        }
-        if let Some(ports) = self.ports.as_mut() {
-            for port in ports {
-                if let Some(bond_conf) = port.bond.as_mut() {
-                    bond_conf.post_deserialize_cleanup();
-                }
-            }
-        }
-    }
-
-    pub(crate) fn sanitize(
-        &mut self,
-        is_desired: bool,
-    ) -> Result<(), NipartError> {
-        if let Some(port_confs) = self.ports.as_ref() {
-            for port_conf in port_confs {
-                if let Some(vlan_conf) = port_conf.vlan.as_ref() {
-                    vlan_conf.sanitize(is_desired)?;
-                }
-            }
-        }
-        Ok(())
     }
 }
 
@@ -370,8 +344,8 @@ impl OvsBridgePortConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
-/// OpenvSwitch internal interface. Example yaml output of
-/// [crate::state::NetworkState] with an DPDK enabled OVS interface:
+/// OpenvSwitch internal interface. Example yaml output of [crate::NetworkState]
+/// with an DPDK enabled OVS interface:
 /// ```yml
 /// ---
 /// interfaces:
@@ -468,7 +442,10 @@ impl OvsInterface {
     // OVS patch interface cannot have MTU or IP configuration
     // OVS DPDK `n_rxq_desc` and `n_txq_desc` should be power of 2 within
     // 1-4096.
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired && self.patch.is_some() {
             if self.base.mtu.is_some() {
                 let e = NipartError::new(
@@ -509,7 +486,6 @@ impl OvsInterface {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(deny_unknown_fields)]
 #[non_exhaustive]
 /// The example yaml output of OVS bond:
 /// ```yml
@@ -545,13 +521,6 @@ pub struct OvsBridgeBondConfig {
     )]
     /// Serialize to 'port'. Deserialize from `port` or `ports`.
     pub ports: Option<Vec<OvsBridgeBondPortConfig>>,
-    // Deprecated, please use `ports`, this is only for backwards compatibility
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        rename = "port",
-        alias = "slaves"
-    )]
-    pub(crate) slaves: Option<Vec<OvsBridgeBondPortConfig>>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
@@ -580,16 +549,6 @@ pub struct OvsBridgeBondConfig {
 impl OvsBridgeBondConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        if self.slaves.as_ref().is_some() {
-            log::warn!(
-                "The `slaves` is deprecated, please replace with `ports`."
-            );
-            self.ports = self.slaves.clone();
-            self.slaves = None;
-        }
     }
 
     pub fn ports(&self) -> Vec<&str> {
@@ -727,7 +686,10 @@ fn validate_dpdk_queue_desc(
 }
 
 impl OvsDpdkConfig {
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if let Some(n_rxq_desc) = self.n_rxq_desc {
                 validate_dpdk_queue_desc(n_rxq_desc, "n_rxq_desc")?;

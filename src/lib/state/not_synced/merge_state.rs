@@ -24,7 +24,7 @@ impl NetworkState {
 // query_apply/net_state.rs which is removed by copy_nmstate_code.py
 
 impl NetworkState {
-    fn update_state(&mut self, other: &Self) {
+    pub(crate) fn update_state(&mut self, other: &Self) {
         if let Some(other_hostname) = other.hostname.as_ref() {
             if let Some(h) = self.hostname.as_mut() {
                 h.update(other_hostname);
@@ -104,8 +104,11 @@ impl MergedNetworkState {
             .filter(|(_, t)| !t.is_userspace())
             .map(|(n, _)| n.as_str())
             .collect();
-        self.routes
-            .verify(&current.routes, ignored_kernel_ifaces.as_slice())?;
+        self.routes.verify(
+            &current.routes,
+            ignored_kernel_ifaces.as_slice(),
+            &current.interfaces,
+        )?;
         self.rules
             .verify(&current.rules, ignored_kernel_ifaces.as_slice())?;
         self.dns.verify(current.dns.clone().unwrap_or_default())?;

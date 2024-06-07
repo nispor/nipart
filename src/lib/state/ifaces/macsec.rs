@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
+use crate::{
     BaseInterface, ErrorKind, InterfaceType, NetworkState, NipartError,
 };
 
@@ -10,7 +10,7 @@ use crate::state::{
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
 /// MACsec interface. The example YAML output of a
-/// [crate::state::NetworkState] with an MACsec interface would be:
+/// [crate::NetworkState] with an MACsec interface would be:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -51,13 +51,16 @@ impl MacSecInterface {
         Self::default()
     }
 
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if let Some(conf) = &self.macsec {
                 if conf.mka_cak.is_none() ^ conf.mka_ckn.is_none() {
                     let e = NipartError::new(
                         ErrorKind::InvalidArgument,
-                        "The mka_cak and mka_cnk must be all missing or present.".to_string(),
+                        "The mka_cak and mka_cnk must be all missing or present.".to_string()
                     );
                     log::error!("{}", e);
                     return Err(e);
@@ -78,8 +81,10 @@ impl MacSecInterface {
                         || mka_ckn.len() < 2
                         || mka_ckn.len() % 2 == 1
                     {
-                        let e = NipartError::new(ErrorKind::InvalidArgument,
-                        "The mka_ckn must be a string of even size between 2 and 64 characters".to_string());
+                        let e = NipartError::new(
+                            ErrorKind::InvalidArgument,
+                            "The mka_ckn must be a string of even size between 2 and 64 characters".to_string()
+                        );
                         log::error!("{}", e);
                         return Err(e);
                     }
@@ -94,7 +99,7 @@ impl MacSecInterface {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
 #[derive(Default)]
@@ -120,6 +125,8 @@ pub struct MacSecConfig {
     /// Specifies whether the SCI (Secure Channel Identifier) is included in
     /// every packet.
     pub send_sci: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offload: Option<MacSecOffload>,
 }
 
 impl MacSecConfig {
@@ -132,6 +139,24 @@ impl MacSecConfig {
             self.mka_cak =
                 Some(NetworkState::PASSWORD_HID_BY_NMSTATE.to_string());
         }
+    }
+}
+
+impl std::fmt::Debug for MacSecConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MacSecConfig")
+            .field("encrypt", &self.encrypt)
+            .field("base_iface", &self.base_iface)
+            .field(
+                "mka_cak",
+                &Some(NetworkState::PASSWORD_HID_BY_NMSTATE.to_string()),
+            )
+            .field("mka_ckn", &self.mka_ckn)
+            .field("port", &self.port)
+            .field("validation", &self.validation)
+            .field("send_sci", &self.send_sci)
+            .field("offload", &self.offload)
+            .finish()
     }
 }
 
@@ -168,4 +193,14 @@ impl From<MacSecValidate> for i32 {
             MacSecValidate::Strict => 2,
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum MacSecOffload {
+    #[default]
+    Off,
+    Phy,
+    Mac,
 }

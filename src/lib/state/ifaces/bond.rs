@@ -6,8 +6,8 @@ use serde::{
     de::IntoDeserializer, Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::state::{
-    deserializer::NumberAsString, BaseInterface, ErrorKind, Interface,
+use crate::{
+    state::deserializer::NumberAsString, BaseInterface, ErrorKind, Interface,
     InterfaceState, InterfaceType, MergedInterface, NipartError,
 };
 
@@ -16,7 +16,7 @@ use crate::state::{
 #[non_exhaustive]
 /// Bond interface. When serializing or deserializing, the [BaseInterface] will
 /// be flatted and [BondConfig] stored as `link-aggregation` section. The yaml
-/// output [crate::state::NetworkState] containing an example bond interface:
+/// output [crate::NetworkState] containing an example bond interface:
 /// ```yml
 /// interfaces:
 /// - name: bond99
@@ -80,7 +80,7 @@ impl BondInterface {
                 (desired.bond.as_ref(), current.bond.as_ref())
             {
                 if des_bond_conf.mode != cur_bond_conf.mode {
-                    bond_conf.options = des_bond_conf.options.clone();
+                    bond_conf.options.clone_from(&des_bond_conf.options);
                 }
             }
         }
@@ -119,6 +119,42 @@ impl BondInterface {
         self.sort_ports_config();
         self.drop_empty_arp_ip_target();
         self.make_ad_actor_system_mac_upper_case();
+        self.check_overlap_queue_id()?;
+        Ok(())
+    }
+
+    // In kernel code drivers/net/bonding/bond_options.c
+    // bond_option_queue_id_set(), kernel is not allowing multiple bond port
+    // holding the same queue ID, hence we raise error when queue id overlapped.
+    fn check_overlap_queue_id(&self) -> Result<(), NipartError> {
+        let mut existing_qids: HashMap<u16, &str> = HashMap::new();
+        if let Some(ports_conf) =
+            self.bond.as_ref().and_then(|b| b.ports_config.as_deref())
+        {
+            for port_conf in ports_conf
+                .iter()
+                .filter(|p| p.queue_id.is_some() && p.queue_id != Some(0))
+            {
+                if let Some(queue_id) = port_conf.queue_id {
+                    if let Some(exist_port_name) = existing_qids.get(&queue_id)
+                    {
+                        return Err(NipartError::new(
+                            ErrorKind::InvalidArgument,
+                            format!(
+                                "Port {} and {} of Bond {} are sharing the \
+                                same queue-id which is not supported by \
+                                linux kernel yet",
+                                exist_port_name,
+                                port_conf.name.as_str(),
+                                self.base.name.as_str()
+                            ),
+                        ));
+                    } else {
+                        existing_qids.insert(queue_id, port_conf.name.as_str());
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -376,12 +412,6 @@ impl BondInterface {
         }
         ret
     }
-
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        if let Some(i) = self.bond.as_mut() {
-            i.post_deserialize_cleanup()
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
@@ -483,16 +513,9 @@ pub struct BondConfig {
     pub options: Option<BondOptions>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "ports")]
     /// Deserialize and serialize from/to `port`.
-    /// You can also use `ports` or `slaves`(deprecated) for deserializing.
+    /// You can also use `ports` for deserializing.
     /// When applying, if defined, it will override current port list.
     pub port: Option<Vec<String>>,
-    // Deprecated, please use `ports`, this is only for backwards compatibility
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        rename = "port",
-        alias = "slaves"
-    )]
-    pub(crate) slaves: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Deserialize and serialize from/to `ports-config`.
     /// When applying, if defined, it will override current ports
@@ -506,16 +529,6 @@ pub struct BondConfig {
 impl BondConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        if self.slaves.as_ref().is_some() {
-            log::warn!(
-                "The `slaves` is deprecated, please replace with `ports`."
-            );
-            self.port = self.slaves.clone();
-            self.slaves = None;
-        }
     }
 }
 

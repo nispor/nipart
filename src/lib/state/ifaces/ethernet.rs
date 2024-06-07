@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
+use crate::{
     BaseInterface, ErrorKind, Interface, InterfaceType, Interfaces,
     MergedInterfaces, NipartError, SrIovConfig,
 };
@@ -12,8 +12,8 @@ use crate::state::{
 /// Ethernet(IEEE 802.3) interface.
 /// Besides [BaseInterface], optionally could hold [EthernetConfig] and/or
 /// [VethConfig].
-/// The yaml output of [crate::state::NetworkState] containing ethernet
-/// interface would be:
+/// The yaml output of [crate::NetworkState] containing ethernet interface would
+/// be:
 /// ```yml
 /// interfaces:
 /// - name: ens3
@@ -338,7 +338,7 @@ impl Interfaces {
         for iface in self.kernel_ifaces.values().filter(|i| {
             i.is_up()
                 && i.iface_type() == InterfaceType::Veth
-                && current.kernel_ifaces.get(i.name()).is_none()
+                && !current.kernel_ifaces.contains_key(i.name())
         }) {
             if let Interface::Ethernet(eth_iface) = iface {
                 if eth_iface.veth.is_none() {

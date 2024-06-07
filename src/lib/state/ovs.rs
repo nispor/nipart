@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::state::{ErrorKind, MergedOvnConfiguration, NipartError};
+use crate::{ErrorKind, MergedOvnConfiguration, NipartError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -181,7 +181,8 @@ fn value_to_hash_map(
     ret
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedOvsDbGlobalConfig {
     pub(crate) desired: Option<OvsDbGlobalConfig>,
     pub(crate) current: OvsDbGlobalConfig,
@@ -228,8 +229,8 @@ impl MergedOvsDbGlobalConfig {
                 );
             }
         } else {
-            external_ids = cur_external_ids.clone();
-            other_config = cur_other_config.clone();
+            external_ids.clone_from(&cur_external_ids);
+            other_config.clone_from(&cur_other_config);
         }
 
         if let Some(v) = merged_ovn.to_ovsdb_external_id_value() {

@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::state::{ErrorKind, NipartError};
+use crate::{ErrorKind, NipartError};
 
 const BUFFER_SIZE: usize = 4096;
 

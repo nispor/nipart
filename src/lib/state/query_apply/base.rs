@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{
-    BaseInterface, InterfaceState, InterfaceType, OvsDbIfaceConfig,
-};
+use crate::{BaseInterface, InterfaceState, InterfaceType, OvsDbIfaceConfig};
 
 impl BaseInterface {
     pub(crate) fn sanitize_current_for_verify(&mut self) {
@@ -50,9 +48,15 @@ impl BaseInterface {
 
     pub(crate) fn update(&mut self, other: &BaseInterface) {
         if other.description.is_some() {
-            self.description = other.description.clone();
+            self.description.clone_from(&other.description);
         }
-        if other.iface_type != InterfaceType::Unknown {
+
+        // Do not allow unknown interface type overriding existing
+        // Do not allow ethernet interface type overriding veth
+        if other.iface_type != InterfaceType::Unknown
+            && !(other.iface_type == InterfaceType::Ethernet
+                && self.iface_type == InterfaceType::Veth)
+        {
             self.iface_type = other.iface_type.clone();
         }
         if other.state != InterfaceState::Unknown {
@@ -68,34 +72,35 @@ impl BaseInterface {
             self.max_mtu = other.max_mtu;
         }
         if other.mac_address.is_some() {
-            self.mac_address = other.mac_address.clone();
+            self.mac_address.clone_from(&other.mac_address);
         }
         if other.permanent_mac_address.is_some() {
-            self.permanent_mac_address = other.permanent_mac_address.clone();
+            self.permanent_mac_address
+                .clone_from(&other.permanent_mac_address);
         }
         if other.controller.is_some() {
-            self.controller = other.controller.clone();
+            self.controller.clone_from(&other.controller);
         }
         if other.controller_type.is_some() {
-            self.controller_type = other.controller_type.clone();
+            self.controller_type.clone_from(&other.controller_type);
         }
         if other.accept_all_mac_addresses.is_some() {
             self.accept_all_mac_addresses = other.accept_all_mac_addresses;
         }
         if other.ovsdb.is_some() {
-            self.ovsdb = other.ovsdb.clone();
+            self.ovsdb.clone_from(&other.ovsdb);
         }
         if other.ieee8021x.is_some() {
-            self.ieee8021x = other.ieee8021x.clone();
+            self.ieee8021x.clone_from(&other.ieee8021x);
         }
         if other.lldp.is_some() {
-            self.lldp = other.lldp.clone();
+            self.lldp.clone_from(&other.lldp);
         }
         if other.ethtool.is_some() {
-            self.ethtool = other.ethtool.clone();
+            self.ethtool.clone_from(&other.ethtool);
         }
         if other.mptcp.is_some() {
-            self.mptcp = other.mptcp.clone();
+            self.mptcp.clone_from(&other.mptcp);
         }
         if other.wait_ip.is_some() {
             self.wait_ip = other.wait_ip;
@@ -106,7 +111,7 @@ impl BaseInterface {
                 if let Some(ref mut self_ipv4) = self.ipv4 {
                     self_ipv4.update(other_ipv4);
                 } else {
-                    self.ipv4 = other.ipv4.clone();
+                    self.ipv4.clone_from(&other.ipv4);
                 }
             }
         }
@@ -116,21 +121,21 @@ impl BaseInterface {
                 if let Some(ref mut self_ipv6) = self.ipv6 {
                     self_ipv6.update(other_ipv6);
                 } else {
-                    self.ipv6 = other.ipv6.clone();
+                    self.ipv6.clone_from(&other.ipv6);
                 }
             }
         }
         if other.mptcp.is_some() {
-            self.mptcp = other.mptcp.clone();
+            self.mptcp.clone_from(&other.mptcp);
         }
         if other.identifier.is_some() {
             self.identifier = other.identifier;
         }
         if other.profile_name.is_some() {
-            self.profile_name = other.profile_name.clone();
+            self.profile_name.clone_from(&other.profile_name);
         }
         if other.dispatch.is_some() {
-            self.dispatch = other.dispatch.clone();
+            self.dispatch.clone_from(&other.dispatch);
         }
     }
 }

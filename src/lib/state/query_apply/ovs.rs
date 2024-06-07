@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryInto;
 
-use crate::state::{
-    json::get_json_value_difference, ErrorKind, Interface, InterfaceState,
+use crate::{
+    state::json::get_json_value_difference, ErrorKind, Interface, InterfaceState,
     InterfaceType, Interfaces, MergedInterfaces, MergedOvsDbGlobalConfig,
     NetworkState, NipartError, OvsBridgeBondConfig, OvsBridgeConfig,
     OvsBridgeInterface, OvsDbGlobalConfig, OvsDbIfaceConfig, OvsInterface,
 };
 
 impl MergedOvsDbGlobalConfig {
+    pub(crate) fn is_changed(&self) -> bool {
+        self.is_changed
+    }
+
     pub(crate) fn verify(
         &self,
         current: OvsDbGlobalConfig,
@@ -85,7 +88,7 @@ impl MergedOvsDbGlobalConfig {
 impl OvsBridgeConfig {
     pub(crate) fn update(&mut self, other: Option<&OvsBridgeConfig>) {
         if let Some(other) = other {
-            self.ports = other.ports.clone();
+            self.ports.clone_from(&other.ports);
         }
     }
 }
@@ -109,7 +112,7 @@ impl OvsBridgeInterface {
         if let Some(br_conf) = &mut self.bridge {
             br_conf.update(other.bridge.as_ref());
         } else {
-            self.bridge = other.bridge.clone();
+            self.bridge.clone_from(&other.bridge);
         }
     }
 }
@@ -117,10 +120,10 @@ impl OvsBridgeInterface {
 impl OvsInterface {
     pub(crate) fn update_ovs_iface(&mut self, other: &Self) {
         if other.patch.is_some() {
-            self.patch = other.patch.clone();
+            self.patch.clone_from(&other.patch);
         }
         if other.dpdk.is_some() {
-            self.dpdk = other.dpdk.clone();
+            self.dpdk.clone_from(&other.dpdk);
         }
     }
 }

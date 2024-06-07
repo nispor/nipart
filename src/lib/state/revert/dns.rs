@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{DnsState, MergedDnsState};
+use crate::{DnsState, MergedDnsState};
 
 impl MergedDnsState {
     pub(crate) fn generate_revert(&self) -> Option<DnsState> {

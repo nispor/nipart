@@ -2,14 +2,14 @@
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::state::{BaseInterface, InterfaceType, NetworkState};
+use crate::{BaseInterface, InterfaceType, NetworkState};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 /// The libreswan Ipsec interface. This interface does not exist in kernel
 /// space but only exist in user space tools.
-/// This is the example yaml output of [crate::state::NetworkState] with a
-/// libreswan ipsec connection:
+/// This is the example yaml output of [crate::NetworkState] with a libreswan
+/// ipsec connection:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -57,9 +57,30 @@ impl IpsecInterface {
             }
         }
     }
+
+    // * IPv4 `dhcp: false` with empty static address list should be considered
+    //   as IPv4 disabled.
+    pub(crate) fn sanitize(&mut self, is_desired: bool) {
+        if let Some(ipv4_conf) = self.base.ipv4.as_mut() {
+            if ipv4_conf.dhcp == Some(false)
+                && ipv4_conf.enabled
+                && ipv4_conf.enabled_defined
+            {
+                if is_desired {
+                    log::info!(
+                        "Treating IPv4 `dhcp: false` for IPSec interface {} \
+                        as IPv4 disabled",
+                        self.base.name.as_str()
+                    );
+                }
+                ipv4_conf.enabled = false;
+                ipv4_conf.dhcp = None;
+            }
+        }
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct LibreswanConfig {
@@ -68,6 +89,8 @@ pub struct LibreswanConfig {
     pub rightid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rightrsasigkey: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rightcert: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub left: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -115,6 +138,8 @@ pub struct LibreswanConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rightsubnet: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub leftsubnet: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub leftmodecfgclient: Option<bool>,
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub kind: Option<LibreswanConnectionType>,
@@ -127,6 +152,41 @@ pub struct LibreswanConfig {
 impl LibreswanConfig {
     pub fn new() -> Self {
         Self::default()
+    }
+}
+
+impl std::fmt::Debug for LibreswanConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LibreswanConfig")
+            .field("right", &self.right)
+            .field("rightid", &self.rightid)
+            .field("rightrsasigkey", &self.rightrsasigkey)
+            .field("rightcert", &self.rightcert)
+            .field("left", &self.left)
+            .field("leftid", &self.leftid)
+            .field("leftrsasigkey", &self.leftrsasigkey)
+            .field("leftcert", &self.leftcert)
+            .field("ikev2", &self.ikev2)
+            .field(
+                "psk",
+                &Some(NetworkState::PASSWORD_HID_BY_NMSTATE.to_string()),
+            )
+            .field("ikelifetime", &self.ikelifetime)
+            .field("salifetime", &self.salifetime)
+            .field("ike", &self.ike)
+            .field("esp", &self.esp)
+            .field("dpddelay", &self.dpddelay)
+            .field("dpdtimeout", &self.dpdtimeout)
+            .field("dpdaction", &self.dpdaction)
+            .field("ipsec_interface", &self.ipsec_interface)
+            .field("authby", &self.authby)
+            .field("rightsubnet", &self.rightsubnet)
+            .field("leftsubnet", &self.leftsubnet)
+            .field("leftmodecfgclient", &self.leftmodecfgclient)
+            .field("kind", &self.kind)
+            .field("hostaddrfamily", &self.hostaddrfamily)
+            .field("clientaddrfamily", &self.clientaddrfamily)
+            .finish()
     }
 }
 

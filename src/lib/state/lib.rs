@@ -112,20 +112,20 @@ mod state;
 mod statistic;
 mod unit_tests;
 
-pub use crate::state::dispatch::DispatchConfig;
-pub use crate::state::dns::MergedDnsState;
-pub use crate::state::dns::{DnsClientState, DnsState};
-pub use crate::state::error::{ErrorKind, NipartError};
-pub use crate::state::hostname::HostNameState;
-pub use crate::state::hostname::MergedHostNameState;
-pub use crate::state::ieee8021x::Ieee8021XConfig;
-pub use crate::state::iface::MergedInterface;
-pub use crate::state::iface::{
+pub use crate::dispatch::DispatchConfig;
+pub use crate::dns::MergedDnsState;
+pub use crate::dns::{DnsClientState, DnsState};
+pub use crate::error::{ErrorKind, NipartError};
+pub use crate::hostname::HostNameState;
+pub use crate::hostname::MergedHostNameState;
+pub use crate::ieee8021x::Ieee8021XConfig;
+pub use crate::iface::MergedInterface;
+pub use crate::iface::{
     Interface, InterfaceIdentifier, InterfaceState, InterfaceType,
     UnknownInterface,
 };
-pub use crate::state::ifaces::MergedInterfaces;
-pub use crate::state::ifaces::{
+pub use crate::ifaces::MergedInterfaces;
+pub use crate::ifaces::{
     BaseInterface, BondAdSelect, BondAllPortsActive, BondArpAllTargets,
     BondArpValidate, BondConfig, BondFailOverMac, BondInterface, BondLacpRate,
     BondMode, BondOptions, BondPortConfig, BondPrimaryReselect,
@@ -138,42 +138,42 @@ pub use crate::state::ifaces::{
     LibreswanConfig, LibreswanConnectionType, LinuxBridgeConfig,
     LinuxBridgeInterface, LinuxBridgeMulticastRouterType, LinuxBridgeOptions,
     LinuxBridgePortConfig, LinuxBridgeStpOptions, LoopbackInterface,
-    MacSecConfig, MacSecInterface, MacSecValidate, MacVlanConfig,
-    MacVlanInterface, MacVlanMode, MacVtapConfig, MacVtapInterface,
-    MacVtapMode, OvsBridgeBondConfig, OvsBridgeBondMode,
+    MacSecConfig, MacSecInterface, MacSecOffload, MacSecValidate,
+    MacVlanConfig, MacVlanInterface, MacVlanMode, MacVtapConfig,
+    MacVtapInterface, MacVtapMode, OvsBridgeBondConfig, OvsBridgeBondMode,
     OvsBridgeBondPortConfig, OvsBridgeConfig, OvsBridgeInterface,
     OvsBridgeOptions, OvsBridgePortConfig, OvsBridgeStpOptions, OvsDpdkConfig,
     OvsInterface, OvsPatchConfig, SrIovConfig, SrIovVfConfig, VethConfig,
     VlanConfig, VlanInterface, VlanProtocol, VlanRegistrationProtocol,
     VrfConfig, VrfInterface, VxlanConfig, VxlanInterface, XfrmInterface,
 };
-pub use crate::state::ip::{
+pub use crate::ip::{
     AddressFamily, Dhcpv4ClientId, Dhcpv6Duid, InterfaceIpAddr, InterfaceIpv4,
     InterfaceIpv6, Ipv6AddrGenMode, WaitIp,
 };
-pub use crate::state::lldp::{
+pub use crate::lldp::{
     LldpAddressFamily, LldpChassisId, LldpChassisIdType, LldpConfig,
     LldpMacPhy, LldpMaxFrameSize, LldpMgmtAddr, LldpMgmtAddrs, LldpNeighborTlv,
     LldpPortId, LldpPortIdType, LldpPpvids, LldpSystemCapabilities,
     LldpSystemCapability, LldpSystemDescription, LldpSystemName, LldpVlan,
     LldpVlans,
 };
-pub use crate::state::mptcp::{MptcpAddressFlag, MptcpConfig};
-pub use crate::state::net_state::MergedNetworkState;
-pub use crate::state::net_state::NetworkState;
-pub use crate::state::ovn::MergedOvnConfiguration;
-pub use crate::state::ovn::{
+pub use crate::mptcp::{MptcpAddressFlag, MptcpConfig};
+pub use crate::net_state::MergedNetworkState;
+pub use crate::net_state::NetworkState;
+pub use crate::ovn::MergedOvnConfiguration;
+pub use crate::ovn::{
     OvnBridgeMapping, OvnBridgeMappingState, OvnConfiguration,
 };
-pub use crate::state::ovs::MergedOvsDbGlobalConfig;
-pub use crate::state::ovs::{OvsDbGlobalConfig, OvsDbIfaceConfig};
-pub use crate::state::policy::{
+pub use crate::ovs::MergedOvsDbGlobalConfig;
+pub use crate::ovs::{OvsDbGlobalConfig, OvsDbIfaceConfig};
+pub use crate::policy::{
     NetworkCaptureRules, NetworkPolicy, NetworkStateTemplate,
 };
-pub use crate::state::route::MergedRoutes;
-pub use crate::state::route::{RouteEntry, RouteState, RouteType, Routes};
-pub use crate::state::route_rule::MergedRouteRules;
-pub use crate::state::route_rule::{
+pub use crate::route::MergedRoutes;
+pub use crate::route::{RouteEntry, RouteState, RouteType, Routes};
+pub use crate::route_rule::MergedRouteRules;
+pub use crate::route_rule::{
     RouteRuleAction, RouteRuleEntry, RouteRuleState, RouteRules,
 };
-pub use crate::state::statistic::{NmstateFeature, NmstateStatistic};
+pub use crate::statistic::{NmstateFeature, NmstateStatistic};

@@ -11,6 +11,7 @@ use nipart::{
 use nipart_plugin_baize::NipartPluginBaize;
 use nipart_plugin_mozim::NipartPluginMozim;
 use nipart_plugin_nispor::NipartPluginNispor;
+use nipart_plugin_sima::NipartPluginSima;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{DEFAULT_TIMEOUT, MPSC_CHANNLE_SIZE};
@@ -172,6 +173,11 @@ impl Plugins {
             NipartPluginBaize::roles(),
             start_baize_plugin().await?,
         );
+        self.insert(
+            "sima",
+            NipartPluginSima::roles(),
+            start_sima_plugin().await?,
+        );
         Ok(())
     }
 
@@ -189,6 +195,23 @@ impl Plugins {
         Err(NipartError::new(
             ErrorKind::Bug,
             "No DHCP plugin found".to_string(),
+        ))
+    }
+
+    pub(crate) fn get_track_connection_mut(
+        &mut self,
+    ) -> Result<&mut PluginConnection, NipartError> {
+        if let Some(plugin_name) =
+            self.roles.get(NipartRole::Track).and_then(|p| p.first())
+        {
+            if let Some(connection) = self.connections.get_mut(plugin_name) {
+                return Ok(connection);
+            }
+        }
+
+        Err(NipartError::new(
+            ErrorKind::Bug,
+            "No track plugin found".to_string(),
         ))
     }
 }
@@ -387,5 +410,22 @@ async fn start_baize_plugin() -> Result<PluginConnection, NipartError> {
     Ok(PluginConnection::Mpsc((
         switch_to_baize_tx,
         baize_to_switch_rx,
+    )))
+}
+
+async fn start_sima_plugin() -> Result<PluginConnection, NipartError> {
+    let (sima_to_switch_tx, sima_to_switch_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+    let (switch_to_sima_tx, switch_to_sima_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+
+    let mut sima_plugin =
+        NipartPluginSima::init(sima_to_switch_tx, switch_to_sima_rx).await?;
+
+    tokio::spawn(async move { sima_plugin.run().await });
+    log::info!("Native plugin sima started");
+    Ok(PluginConnection::Mpsc((
+        switch_to_sima_tx,
+        sima_to_switch_rx,
     )))
 }

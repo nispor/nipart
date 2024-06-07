@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{
-    revert::state::gen_revert_state, Interface, InterfaceState,
+use crate::{
+    state::revert::state::gen_revert_state, Interface, InterfaceState,
     MergedInterface, NipartError,
 };
 

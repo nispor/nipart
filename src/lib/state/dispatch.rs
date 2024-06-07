@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{ErrorKind, MergedInterfaces, NipartError};
+use crate::{ErrorKind, MergedInterfaces, NipartError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]

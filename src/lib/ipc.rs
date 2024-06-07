@@ -9,9 +9,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 use crate::{
-    ErrorKind, NetworkState, NipartApplyOption, NipartError, NipartEvent,
-    NipartEventAddress, NipartLogLevel, NipartPluginEvent, NipartPluginInfo,
-    NipartQueryOption, NipartUserEvent,
+    ErrorKind, NetworkCommit, NetworkCommitQueryOption, NetworkState,
+    NipartApplyOption, NipartError, NipartEvent, NipartEventAddress,
+    NipartLogLevel, NipartPluginEvent, NipartPluginInfo, NipartQueryOption,
+    NipartUserEvent,
 };
 
 pub const DEFAULT_TIMEOUT: u32 = 30000;
@@ -226,6 +227,29 @@ impl NipartConnection {
         );
         self.send(&request).await?;
         Ok(())
+    }
+
+    pub async fn query_commits(
+        &mut self,
+        option: NetworkCommitQueryOption,
+    ) -> Result<Vec<NetworkCommit>, NipartError> {
+        let request = NipartEvent::new(
+            NipartUserEvent::QueryCommits(option),
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+            self.timeout,
+        );
+        self.send(&request).await?;
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+        if let NipartUserEvent::QueryCommitsReply(s) = event.user {
+            Ok(*s)
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for QueryCommits"),
+            ))
+        }
     }
 
     pub async fn send<T>(&mut self, data: &T) -> Result<(), NipartError>

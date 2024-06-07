@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{MergedRoutes, RouteEntry, RouteState, Routes};
+use crate::{MergedRoutes, RouteEntry, RouteState, Routes};
 
 impl MergedRoutes {
     pub(crate) fn generate_revert(&self) -> Routes {

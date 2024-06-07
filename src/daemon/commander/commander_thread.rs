@@ -174,6 +174,9 @@ async fn process_user_event(
                 event.timeout,
             )
         }
+        NipartUserEvent::QueryCommits(opt) => {
+            WorkFlow::new_query_commits(opt, event.uuid, event.timeout)
+        }
         _ => {
             log::error!("Unknown user event {event:?}");
             return Ok(());

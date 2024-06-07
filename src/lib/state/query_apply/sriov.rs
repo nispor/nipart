@@ -2,7 +2,7 @@
 
 use std::collections::hash_map::Entry;
 
-use crate::state::{
+use crate::{
     BaseInterface, ErrorKind, EthernetConfig, EthernetInterface, Interface,
     InterfaceType, Interfaces, NipartError, SrIovConfig, SrIovVfConfig,
 };

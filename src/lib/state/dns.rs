@@ -5,8 +5,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
-    ip::is_ipv6_addr, ErrorKind, MergedInterface, MergedNetworkState,
+use crate::{
+    state::ip::is_ipv6_addr, ErrorKind, MergedInterface, MergedNetworkState,
     NipartError,
 };
 
@@ -224,7 +224,8 @@ impl DnsClientState {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedDnsState {
     pub(crate) desired: Option<DnsState>,
     pub(crate) current: DnsState,

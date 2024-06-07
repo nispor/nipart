@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{
-    json::get_json_value_difference, ErrorKind, MergedOvnConfiguration,
+use crate::{
+    state::json::get_json_value_difference, ErrorKind, MergedOvnConfiguration,
     NipartError, OvnConfiguration,
 };
 
 impl MergedOvnConfiguration {
+    pub(crate) fn is_changed(&self) -> bool {
+        self.to_ovsdb_external_id_value()
+            != self.current.to_ovsdb_external_id_value()
+    }
+
     pub(crate) fn verify(
         &self,
         current: &OvnConfiguration,

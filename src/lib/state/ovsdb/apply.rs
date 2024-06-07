@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{ovsdb::db::OvsDbConnection, MergedNetworkState, NipartError};
+use crate::{ovsdb::db::OvsDbConnection, MergedNetworkState, NipartError};
 
 pub(crate) fn ovsdb_apply(
     merged_state: &MergedNetworkState,

@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::str::FromStr;
 
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize};
 
-use crate::state::{
-    BaseInterface, BridgePortVlanConfig, ErrorKind, InterfaceType, NipartError,
-    VlanProtocol,
+use crate::{
+    BaseInterface, BridgePortVlanConfig, ErrorKind, InterfaceType,
+    NipartError, VlanProtocol,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,23 +16,58 @@ use crate::state::{
 /// Bridge interface provided by linux kernel.
 /// When serializing or deserializing, the [BaseInterface] will
 /// be flatted and [LinuxBridgeConfig] stored as `bridge` section. The yaml
-/// output [crate::state::NetworkState] containing an example linux bridge
-/// interface: ```yml
+/// output [crate::NetworkState] containing an example linux bridge interface:
+/// ```yml
 /// interfaces:
-/// - name: br0 type: linux-bridge state: up mac-address: 9A:91:53:6C:67:DA mtu:
-///   1500 min-mtu: 68 max-mtu: 65535 wait-ip: any ipv4: enabled: false ipv6:
-///   enabled: false bridge: options: gc-timer: 29594 group-addr:
-///   01:80:C2:00:00:00 group-forward-mask: 0 group-fwd-mask: 0 hash-max: 4096
-///   hello-timer: 46 mac-ageing-time: 300 multicast-last-member-count: 2
-///   multicast-last-member-interval: 100 multicast-membership-interval: 26000
-///   multicast-querier: false multicast-querier-interval: 25500
-///   multicast-query-interval: 12500 multicast-query-response-interval: 1000
-///   multicast-query-use-ifaddr: false multicast-router: auto
-///   multicast-snooping: true multicast-startup-query-count: 2
-///   multicast-startup-query-interval: 3125 stp: enabled: true forward-delay:
-///   15 hello-time: 2 max-age: 20 priority: 32768 vlan-protocol: 802.1q port:
-///     - name: eth1 stp-hairpin-mode: false stp-path-cost: 100 stp-priority: 32
-///     - name: eth2 stp-hairpin-mode: false stp-path-cost: 100 stp-priority: 32
+/// - name: br0
+///   type: linux-bridge
+///   state: up
+///   mac-address: 9A:91:53:6C:67:DA
+///   mtu: 1500
+///   min-mtu: 68
+///   max-mtu: 65535
+///   wait-ip: any
+///   ipv4:
+///     enabled: false
+///   ipv6:
+///     enabled: false
+///   bridge:
+///     options:
+///       gc-timer: 29594
+///       group-addr: 01:80:C2:00:00:00
+///       group-forward-mask: 0
+///       group-fwd-mask: 0
+///       hash-max: 4096
+///       hello-timer: 46
+///       mac-ageing-time: 300
+///       multicast-last-member-count: 2
+///       multicast-last-member-interval: 100
+///       multicast-membership-interval: 26000
+///       multicast-querier: false
+///       multicast-querier-interval: 25500
+///       multicast-query-interval: 12500
+///       multicast-query-response-interval: 1000
+///       multicast-query-use-ifaddr: false
+///       multicast-router: auto
+///       multicast-snooping: true
+///       multicast-startup-query-count: 2
+///       multicast-startup-query-interval: 3125
+///       stp:
+///         enabled: true
+///         forward-delay: 15
+///         hello-time: 2
+///         max-age: 20
+///         priority: 32768
+///       vlan-protocol: 802.1q
+///     port:
+///     - name: eth1
+///       stp-hairpin-mode: false
+///       stp-path-cost: 100
+///       stp-priority: 32
+///     - name: eth2
+///       stp-hairpin-mode: false
+///       stp-path-cost: 100
+///       stp-priority: 32
 /// ```
 pub struct LinuxBridgeInterface {
     #[serde(flatten)]
@@ -291,7 +325,7 @@ impl LinuxBridgeInterface {
                         if cur_port_conf.name.as_str()
                             == des_port_conf.name.as_str()
                         {
-                            new_port.vlan = cur_port_conf.vlan.clone();
+                            new_port.vlan.clone_from(&cur_port_conf.vlan);
                             break;
                         }
                     }
@@ -303,12 +337,6 @@ impl LinuxBridgeInterface {
             if let Some(br_conf) = self.bridge.as_mut() {
                 br_conf.port = Some(new_ports);
             }
-        }
-    }
-
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        if let Some(i) = self.bridge.as_mut() {
-            i.post_deserialize_cleanup()
         }
     }
 }
@@ -325,30 +353,12 @@ pub struct LinuxBridgeConfig {
     #[serde(skip_serializing_if = "Option::is_none", alias = "ports")]
     /// Linux bridge ports. When applying, desired port list will __override__
     /// current port list.
-    /// Serialize to 'port'. Deserialize from `port` or `ports`.
     pub port: Option<Vec<LinuxBridgePortConfig>>,
-    // Deprecated, please use `ports`, this is only for backwards compatibility
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        rename = "port",
-        alias = "slaves"
-    )]
-    pub(crate) slaves: Option<Vec<LinuxBridgePortConfig>>,
 }
 
 impl LinuxBridgeConfig {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        if self.slaves.as_ref().is_some() {
-            log::warn!(
-                "The `slaves` is deprecated, please replace with `ports`."
-            );
-            self.port = self.slaves.clone();
-            self.slaves = None;
-        }
     }
 }
 

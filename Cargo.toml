@@ -7,6 +7,7 @@ members = [
     "src/plugin_baize",
     "src/plugin_mozim",
     "src/plugin_nispor",
+    "src/plugin_sima",
     "src/plugin_demo",
 ]
 
@@ -28,19 +29,17 @@ log = "0.4.17"
 serde_json = "1.0.87"
 serde_yaml = "0.9.27"
 uuid = { version = "1.6.1", default-features = false, features = ["std", "v7"] }
-futures = {version = "0.3.29", default-fatures = false, features = [ "std" ] }
+futures = {version = "0.3.29", features = [ "std" ] }
 clap = { version = "4.4" }
 #nispor = { version = "1.2", git = "https://github.com/nispor/nispor" }
 nispor = { version = "1.2", path = "../nispor/src/lib" }
 
 [workspace.dependencies.tokio]
 version ="1.35.0"
-default-fatures = false
 features = ["net", "io-util", "rt", "rt-multi-thread", "macros", "sync", "time"]
 
 [workspace.dependencies.tokio-util]
 version ="0.7.0"
-default-fatures = false
 features = ["time"]
 
 [workspace.dependencies.nix]
@@ -68,3 +67,6 @@ version = "0.19.0"
 
 [workspace.dependencies.futures_channel]
 version = "0.3.30"
+
+[workspace.dependencies.gix]
+version = "0.63.0"

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::{Map, Value};
 
-use crate::state::{
+use crate::{
     ovsdb::db::{parse_str_map, OvsDbUpdate, GLOBAL_CONFIG_TABLE},
     MergedOvsDbGlobalConfig, OvsDbGlobalConfig,
 };

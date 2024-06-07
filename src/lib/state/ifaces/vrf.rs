@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
+use crate::{
     BaseInterface, ErrorKind, Interface, InterfaceType, MergedInterface,
     NipartError,
 };
@@ -10,7 +10,7 @@ use crate::state::{
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 /// Linux kernel Virtual Routing and Forwarding(VRF) interface. The example
-/// yaml output of a [crate::state::NetworkState] with a VRF interface would be:
+/// yaml output of a [crate::NetworkState] with a VRF interface would be:
 /// ```yml
 /// interfaces:
 /// - name: vrf0

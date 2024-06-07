@@ -3,9 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    MergedNetworkState, NetworkState, NipartApplyOption, NipartDhcpConfig,
-    NipartDhcpLease, NipartLogLevel, NipartMonitorEvent, NipartMonitorRule,
-    NipartQueryOption,
+    MergedNetworkState, NetworkCommit, NetworkCommitQueryOption, NetworkState,
+    NipartApplyOption, NipartDhcpConfig, NipartDhcpLease, NipartLogLevel,
+    NipartMonitorEvent, NipartMonitorRule, NipartQueryOption,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -35,7 +35,7 @@ pub enum NipartRole {
     Ovs,
     Lldp,
     Monitor,
-    Config,
+    Track,
 }
 
 impl std::fmt::Display for NipartRole {
@@ -49,7 +49,7 @@ impl std::fmt::Display for NipartRole {
                 Self::Ovs => "ovs",
                 Self::Lldp => "lldp",
                 Self::Monitor => "monitor",
-                Self::Config => "config",
+                Self::Track => "track",
                 Self::ApplyDhcpLease => "apply_dhcp_lease",
             }
         )
@@ -98,6 +98,25 @@ pub enum NipartPluginEvent {
     RemoveMonitorRule(Box<NipartMonitorRule>),
     /// Monitor plugin notify. No reply required.
     GotMonitorEvent(Box<NipartMonitorEvent>),
+
+    QueryCommits(NetworkCommitQueryOption),
+    QueryCommitsReply(Box<Vec<NetworkCommit>>),
+
+    /// Store specified NetworkState as persistent commit
+    /// No reply required.
+    Commit(Box<NetworkState>),
+    /// Ack on commit finished.
+    CommitReply,
+
+    /// Instruct tracking and monitoring plugins to suspend their effort
+    /// as tracking network changes for specified time in seconds.
+    /// No reply required.
+    SuspendTracking(u32),
+
+    /// Restore tracking and monitor plugins as self-initialized changes
+    /// have finished.
+    /// No reply required.
+    ResumeTracking,
 }
 
 impl std::fmt::Display for NipartPluginEvent {
@@ -154,6 +173,16 @@ impl std::fmt::Display for NipartPluginEvent {
             Self::GotMonitorEvent(event) => {
                 write!(f, "got_monitor_event:{event}")
             }
+            Self::QueryCommits(_) => write!(f, "query_commits"),
+            Self::QueryCommitsReply(_) => write!(f, "query_commits_reply"),
+            Self::Commit(_) => write!(f, "commit"),
+            Self::CommitReply => write!(f, "commit_reply"),
+            Self::SuspendTracking(t) => {
+                write!(f, "suspend_tracking:{t}seconds")
+            }
+            Self::ResumeTracking => {
+                write!(f, "resume_tracking")
+            }
         }
     }
 }
@@ -170,6 +199,8 @@ impl NipartPluginEvent {
                 | Self::ApplyDhcpConfigReply
                 | Self::ApplyDhcpLeaseReply
                 | Self::GotMonitorEvent(_)
+                | Self::QueryCommitsReply(_)
+                | Self::CommitReply
         )
     }
 }

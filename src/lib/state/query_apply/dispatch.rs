@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::DispatchConfig;
+use crate::DispatchConfig;
 
 impl DispatchConfig {
     // For current in verify, None means empty string

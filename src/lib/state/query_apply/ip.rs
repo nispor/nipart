@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{Interface, InterfaceIpv4, InterfaceIpv6};
+use crate::{Interface, InterfaceIpv4, InterfaceIpv6};
 
 impl InterfaceIpv4 {
     // Sort addresses and dedup
@@ -14,12 +14,12 @@ impl InterfaceIpv4 {
         }
 
         // No IP address means empty.
-        if self.enabled && self.addresses.is_none() {
+        if self.addresses.is_none() {
             self.addresses = Some(Vec::new());
         }
 
         // No DHCP means off
-        if self.enabled && self.dhcp.is_none() {
+        if self.dhcp.is_none() {
             self.dhcp = Some(false);
         }
     }
@@ -27,8 +27,14 @@ impl InterfaceIpv4 {
     // Sort addresses and dedup
     pub(crate) fn sanitize_desired_for_verify(&mut self) {
         if let Some(addrs) = self.addresses.as_mut() {
-            addrs.sort_unstable();
-            addrs.dedup();
+            if addrs.is_empty() {
+                // For empty address, we do not care about ip stack enabled or
+                // false as it might varied depend on whether have route on it
+                self.enabled_defined = false;
+            } else {
+                addrs.sort_unstable();
+                addrs.dedup();
+            }
         }
     }
     pub(crate) fn update(&mut self, other: &Self) {
@@ -40,16 +46,16 @@ impl InterfaceIpv4 {
             self.dhcp = other.dhcp;
         }
         if other.dhcp_client_id.is_some() {
-            self.dhcp_client_id = other.dhcp_client_id.clone();
+            self.dhcp_client_id.clone_from(&other.dhcp_client_id);
         }
         if other.addresses.is_some() {
-            self.addresses = other.addresses.clone();
+            self.addresses.clone_from(&other.addresses);
         }
         if other.dns.is_some() {
-            self.dns = other.dns.clone();
+            self.dns.clone_from(&other.dns);
         }
         if other.rules.is_some() {
-            self.rules = other.rules.clone();
+            self.rules.clone_from(&other.rules);
         }
         if other.auto_dns.is_some() {
             self.auto_dns = other.auto_dns;
@@ -73,7 +79,8 @@ impl InterfaceIpv4 {
             self.dhcp_send_hostname = other.dhcp_send_hostname;
         }
         if other.dhcp_custom_hostname.is_some() {
-            self.dhcp_custom_hostname = other.dhcp_custom_hostname.clone();
+            self.dhcp_custom_hostname
+                .clone_from(&other.dhcp_custom_hostname);
         }
     }
 }
@@ -125,16 +132,16 @@ impl InterfaceIpv6 {
             self.dhcp = other.dhcp;
         }
         if other.dhcp_duid.is_some() {
-            self.dhcp_duid = other.dhcp_duid.clone();
+            self.dhcp_duid.clone_from(&other.dhcp_duid);
         }
         if other.autoconf.is_some() {
             self.autoconf = other.autoconf;
         }
         if other.addr_gen_mode.is_some() {
-            self.addr_gen_mode = other.addr_gen_mode.clone();
+            self.addr_gen_mode.clone_from(&other.addr_gen_mode);
         }
         if other.addresses.is_some() {
-            self.addresses = other.addresses.clone();
+            self.addresses.clone_from(&other.addresses);
         }
         if other.auto_dns.is_some() {
             self.auto_dns = other.auto_dns;
@@ -149,25 +156,26 @@ impl InterfaceIpv6 {
             self.auto_table_id = other.auto_table_id;
         }
         if other.dns.is_some() {
-            self.dns = other.dns.clone();
+            self.dns.clone_from(&other.dns);
         }
         if other.rules.is_some() {
-            self.rules = other.rules.clone();
+            self.rules.clone_from(&other.rules);
         }
         if other.addr_gen_mode.is_some() {
-            self.addr_gen_mode = other.addr_gen_mode.clone();
+            self.addr_gen_mode.clone_from(&other.addr_gen_mode);
         }
         if other.auto_route_metric.is_some() {
             self.auto_route_metric = other.auto_route_metric;
         }
         if other.token.is_some() {
-            self.token = other.token.clone();
+            self.token.clone_from(&other.token);
         }
         if other.dhcp_send_hostname.is_some() {
             self.dhcp_send_hostname = other.dhcp_send_hostname;
         }
         if other.dhcp_custom_hostname.is_some() {
-            self.dhcp_custom_hostname = other.dhcp_custom_hostname.clone();
+            self.dhcp_custom_hostname
+                .clone_from(&other.dhcp_custom_hostname);
         }
     }
 }

@@ -6,8 +6,8 @@ mod state;
 use std::str::FromStr;
 
 use nipart::{
-    NipartApplyOption, NipartConnection, NipartEvent, NipartLogLevel,
-    NipartQueryOption,
+    NetworkCommitQueryOption, NipartApplyOption, NipartConnection, NipartEvent,
+    NipartLogLevel, NipartQueryOption,
 };
 
 use crate::{error::CliError, state::state_from_file};
@@ -82,6 +82,17 @@ async fn main() -> Result<(), CliError> {
                 ),
         )
         .subcommand(
+            clap::Command::new("track")
+                .alias("t")
+                .arg_required_else_help(true)
+                .about("Nipartd tracking control")
+                .subcommand(
+                    clap::Command::new("show")
+                        .alias("s")
+                        .about("Show all network commits"),
+                ),
+        )
+        .subcommand(
             clap::Command::new("debug")
                 .about(
                     "For developer debug purpose only, \
@@ -112,6 +123,8 @@ async fn main() -> Result<(), CliError> {
         handle_daemon_cmd(matches).await?;
     } else if let Some(matches) = matches.subcommand_matches("apply") {
         handle_apply(matches).await?;
+    } else if let Some(matches) = matches.subcommand_matches("track") {
+        handle_track_cmd(matches).await?;
     }
 
     Ok(())
@@ -175,6 +188,17 @@ async fn handle_daemon_cmd(matches: &clap::ArgMatches) -> Result<(), CliError> {
     let mut conn = NipartConnection::new().await?;
     if matches.subcommand_matches("stop").is_some() {
         conn.stop_daemon().await?;
+    }
+    Ok(())
+}
+
+async fn handle_track_cmd(matches: &clap::ArgMatches) -> Result<(), CliError> {
+    let mut conn = NipartConnection::new().await?;
+    if matches.subcommand_matches("show").is_some() {
+        let replies = conn
+            .query_commits(NetworkCommitQueryOption::default())
+            .await?;
+        println!("{}", serde_yaml::to_string(&replies)?);
     }
     Ok(())
 }

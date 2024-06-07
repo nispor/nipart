@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::MptcpConfig;
+use crate::MptcpConfig;
 
 impl MptcpConfig {
     pub(crate) fn sanitize_desired_for_verify(&mut self) {

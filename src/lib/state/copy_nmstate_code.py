@@ -12,7 +12,6 @@ DENY_LIST = (
     "unit_tests",
     "gen_conf.rs",
     "policy",
-    "statistic",
 )
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -21,10 +20,35 @@ NMSTATE_RUST_CODE_DIR = os.path.realpath(
 )
 
 
-def replace_crate_with_crate_state():
+def fix_relative_import():
     subprocess.run(
         f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
-        + ["s/crate::/crate::state::/g", "{}", ";"],
+        + ["s/crate::deserializer/crate::state::deserializer/g", "{}", ";"],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + ["s/crate::serializer/crate::state::serializer/g", "{}", ";"],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + ["s/ip::is_ip/state::ip::is_ip/g", "{}", ";"],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + ["s/ip::{is_ip/state::ip::{is_ip/g", "{}", ";"],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + ["s/revert::state/state::revert::state/g", "{}", ";"],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + ["s/ deserializer::/ state::deserializer::/g", "{}", ";"],
         check=True,
     )
 
@@ -64,9 +88,17 @@ def fix_merge_json_value():
     subprocess.run(
         f"sed -i -e".split()
         + [
-            "s/use crate::state::state::merge_json_value/"
+            "s/use crate::state::merge_json_value/"
             "use super::json::merge_json_value/",
             f"{SCRIPT_DIR}/iface.rs",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/state::{gen_diff_json_value/state::json::{gen_diff_json_value/",
+            f"{SCRIPT_DIR}/query_apply/inter_ifaces.rs",
         ],
         check=True,
     )
@@ -74,7 +106,7 @@ def fix_merge_json_value():
         f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
         + [
             "s/state::get_json_value_difference/"
-            "json::get_json_value_difference/g",
+            "state::json::get_json_value_difference/g",
             "{}",
             ";",
         ],
@@ -269,6 +301,17 @@ def expose_ip_enabled_defined():
     )
 
 
+def expose_is_userspace():
+    subprocess.run(
+        f"sed -i -e".split()
+        + [
+            "s/pub(crate) fn is_userspace/pub fn is_userspace/",
+            f"{SCRIPT_DIR}/iface.rs",
+        ],
+        check=True,
+    )
+
+
 def main():
     for file in os.listdir(NMSTATE_RUST_CODE_DIR):
         if file not in DENY_LIST:
@@ -280,7 +323,7 @@ def main():
                 shutil.copy(src_path, dst_path)
 
     remove_query_apply_net_state()
-    replace_crate_with_crate_state()
+    fix_relative_import()
     exposing_merged_xxx()
     replace_nmstate_error_with_nipart_error()
     fix_merge_json_value()
@@ -295,6 +338,7 @@ def main():
     change_base_iface_props_to_public()
     serde_merged_state()
     expose_ip_enabled_defined()
+    expose_is_userspace()
 
 
 main()

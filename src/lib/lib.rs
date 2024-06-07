@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod commit;
 mod dhcp;
 mod error;
 mod event;
@@ -12,9 +13,10 @@ mod plugin_trait;
 mod state_options;
 // TODO: Currently we are copy code from nmstate, hence suppressed warnings,
 //       Need to clean up the code once detached from nmstate code base
-#[allow(dead_code, unused_imports)]
+#[allow(dead_code, unused_imports, unexpected_cfgs)]
 mod state;
 
+pub use self::commit::{NetworkCommit, NetworkCommitQueryOption};
 pub use self::dhcp::{
     NipartDhcpConfig, NipartDhcpConfigV4, NipartDhcpConfigV6, NipartDhcpLease,
     NipartDhcpLeaseV4, NipartDhcpLeaseV6,

@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 
 use serde::{
     ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::state::{
+use crate::{
     ErrorKind, EthernetInterface, Interface, InterfaceIdentifier,
     InterfaceState, InterfaceType, MergedInterface, NipartError,
 };
@@ -105,7 +104,7 @@ impl Interfaces {
         iface_type: InterfaceType,
     ) -> Option<&'a Interface> {
         if iface_type == InterfaceType::Unknown {
-            self.kernel_ifaces.get(&iface_name.to_string()).or_else(|| {
+            self.kernel_ifaces.get(iface_name).or_else(|| {
                 self.user_ifaces
                     .values()
                     .find(|&iface| iface.name() == iface_name)
@@ -113,35 +112,33 @@ impl Interfaces {
         } else if iface_type.is_userspace() {
             self.user_ifaces.get(&(iface_name.to_string(), iface_type))
         } else {
-            self.kernel_ifaces.get(&iface_name.to_string())
+            self.kernel_ifaces.get(iface_name)
         }
     }
 
-    fn remove_iface(
+    pub fn remove_iface(
         &mut self,
         iface_name: &str,
         iface_type: InterfaceType,
     ) -> Option<Interface> {
         if iface_type == InterfaceType::Unknown {
-            self.kernel_ifaces
-                .remove(&iface_name.to_string())
-                .or_else(|| {
-                    if let Some((n, t)) = self
-                        .user_ifaces
-                        .keys()
-                        .find(|&(i, _)| i == iface_name)
-                        .cloned()
-                    {
-                        self.user_ifaces.remove(&(n, t))
-                    } else {
-                        None
-                    }
-                })
+            self.kernel_ifaces.remove(iface_name).or_else(|| {
+                if let Some((n, t)) = self
+                    .user_ifaces
+                    .keys()
+                    .find(|&(i, _)| i == iface_name)
+                    .cloned()
+                {
+                    self.user_ifaces.remove(&(n, t))
+                } else {
+                    None
+                }
+            })
         } else if iface_type.is_userspace() {
             self.user_ifaces
                 .remove(&(iface_name.to_string(), iface_type))
         } else {
-            self.kernel_ifaces.remove(&iface_name.to_string())
+            self.kernel_ifaces.remove(iface_name)
         }
     }
 
@@ -471,8 +468,10 @@ impl Interfaces {
 
                     new_iface.base_iface_mut().identifier =
                         Some(InterfaceIdentifier::MacAddress);
-                    new_iface.base_iface_mut().mac_address =
-                        cur_iface.base_iface().mac_address.clone();
+                    new_iface
+                        .base_iface_mut()
+                        .mac_address
+                        .clone_from(&cur_iface.base_iface().mac_address);
                     new_iface.base_iface_mut().name =
                         cur_iface.name().to_string();
                     new_iface.base_iface_mut().profile_name =
@@ -501,7 +500,7 @@ impl Interfaces {
             self.user_ifaces
                 .get_mut(&(iface_name.to_string(), iface_type))
         } else {
-            self.kernel_ifaces.get_mut(&iface_name.to_string())
+            self.kernel_ifaces.get_mut(iface_name)
         }
     }
 
@@ -520,7 +519,7 @@ impl Interfaces {
         }
         for iface_name in iface_names_to_add {
             let mut iface = EthernetInterface::default();
-            iface.base.name = iface_name.clone();
+            iface.base.name.clone_from(&iface_name);
             log::warn!("Assuming undefined port {} as ethernet", iface_name);
             self.kernel_ifaces
                 .insert(iface_name, Interface::Ethernet(iface));
@@ -531,13 +530,13 @@ impl Interfaces {
         &mut self,
     ) -> Result<(), NipartError> {
         let mut new_ifaces = Vec::new();
-        for iface in self.kernel_ifaces.values_mut() {
-            if let Interface::Unknown(iface) = iface {
+        for iface in self.kernel_ifaces.values() {
+            if let Interface::Unknown(iface) = &iface {
                 log::warn!(
                     "Setting unknown type interface {} to ethernet",
                     iface.base.name.as_str()
                 );
-                let iface_value = match serde_json::to_value(&iface) {
+                let iface_value = match serde_json::to_value(iface) {
                     Ok(mut v) => {
                         if let Some(v) = v.as_object_mut() {
                             v.insert(
@@ -553,8 +552,8 @@ impl Interfaces {
                         return Err(NipartError::new(
                             ErrorKind::Bug,
                             format!(
-                                "BUG: Failed to convert {iface:?} to serde_json \
-                                value: {e}"
+                                "BUG: Failed to convert {iface:?} to \
+                                serde_json value: {e}"
                             ),
                         ));
                     }
@@ -603,7 +602,8 @@ fn is_opt_str_empty(opt_string: &Option<String>) -> bool {
 //    after controller/port information are ready.
 //  * Actions self-contained of each `Interface` -- `Interface.sanitize()`. #
 //    Self clean up.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedInterfaces {
     pub kernel_ifaces: HashMap<String, MergedInterface>,
     pub(crate) user_ifaces: HashMap<(String, InterfaceType), MergedInterface>,
@@ -629,14 +629,6 @@ impl MergedInterfaces {
             (String, InterfaceType),
             MergedInterface,
         > = HashMap::new();
-
-        for iface in desired
-            .kernel_ifaces
-            .values_mut()
-            .chain(desired.user_ifaces.values_mut())
-        {
-            iface.post_deserialize_cleanup();
-        }
 
         if gen_conf_mode {
             desired.set_unknown_iface_to_eth()?;
@@ -735,7 +727,7 @@ impl MergedInterfaces {
         iface_type: InterfaceType,
     ) -> Option<&'a MergedInterface> {
         if iface_type == InterfaceType::Unknown {
-            self.kernel_ifaces.get(&iface_name.to_string()).or_else(|| {
+            self.kernel_ifaces.get(iface_name).or_else(|| {
                 self.user_ifaces
                     .values()
                     .find(|&iface| iface.merged.name() == iface_name)
@@ -743,7 +735,7 @@ impl MergedInterfaces {
         } else if iface_type.is_userspace() {
             self.user_ifaces.get(&(iface_name.to_string(), iface_type))
         } else {
-            self.kernel_ifaces.get(&iface_name.to_string())
+            self.kernel_ifaces.get(iface_name)
         }
     }
 
@@ -751,7 +743,9 @@ impl MergedInterfaces {
         self.user_ifaces.values().chain(self.kernel_ifaces.values())
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MergedInterface> {
+    pub fn iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut MergedInterface> {
         self.user_ifaces
             .values_mut()
             .chain(self.kernel_ifaces.values_mut())

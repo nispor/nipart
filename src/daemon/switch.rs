@@ -158,6 +158,21 @@ async fn run_event_switch(
                     }
                 }
             }
+            NipartEventAddress::Track => {
+                match plugins.get_track_connection_mut() {
+                    Ok(plugin_conn) => {
+                        if let Err(e) = plugin_conn.send(&event).await {
+                            log::warn!(
+                                "Failed to send event {event} to \
+                                track plugin: {e}",
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("{e}");
+                    }
+                }
+            }
             _ => {
                 log::error!("BUG: Unknown dst of event {event:?}");
             }

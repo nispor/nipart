@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{
+use crate::{
     DispatchConfig, ErrorKind, EthtoolConfig, Ieee8021XConfig,
     InterfaceIdentifier, InterfaceIpv4, InterfaceIpv6, InterfaceState,
     InterfaceType, LldpConfig, MergedInterface, MptcpConfig, NipartError,
@@ -21,15 +21,16 @@ pub struct BaseInterface {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_name: Option<String>,
-    #[serde(
-        skip_serializing_if = "crate::state::serializer::is_option_string_empty"
-    )]
+    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
     /// Interface description stored in network backend. Not available for
     /// kernel only mode.
     pub description: Option<String>,
     #[serde(rename = "type", default = "default_iface_type")]
     /// Interface type. Serialize and deserialize to/from `type`
     pub iface_type: InterfaceType,
+    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
+    /// The driver of the specified network device.
+    pub driver: Option<String>,
     #[serde(default = "default_state")]
     /// Interface state. Default to [InterfaceState::Up] when applying.
     pub state: InterfaceState,
@@ -95,7 +96,7 @@ pub struct BaseInterface {
     /// Only valid for applying, `None` means no change, empty string means
     /// detach from current controller, please be advise, an error will trigger
     /// if this property conflict with ports list of bridge/bond/etc.
-    /// Been always set to `None` by [crate::state::NetworkState::retrieve()].
+    /// Been always set to `None` by [crate::NetworkState::retrieve()].
     pub controller: Option<String>,
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -162,9 +163,10 @@ impl BaseInterface {
             }
         }
         if self.permanent_mac_address.is_none() {
-            self.permanent_mac_address = current.permanent_mac_address.clone();
+            self.permanent_mac_address
+                .clone_from(&current.permanent_mac_address);
         }
-        self.copy_mac_from = desired.copy_mac_from.clone();
+        self.copy_mac_from.clone_from(&desired.copy_mac_from);
     }
 
     fn has_controller(&self) -> bool {
@@ -233,6 +235,7 @@ impl BaseInterface {
         self.max_mtu = None;
         self.min_mtu = None;
         self.copy_mac_from = None;
+        self.driver = None;
 
         if let Some(ipv4_conf) = self.ipv4.as_mut() {
             ipv4_conf.sanitize(is_desired)?;

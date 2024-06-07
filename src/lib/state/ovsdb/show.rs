@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashMap;
-use std::iter::FromIterator;
 
 use serde_json::Value;
 
-use crate::state::{
+use crate::{
     BridgePortTrunkTag, BridgePortVlanConfig, BridgePortVlanMode,
     BridgePortVlanRange, Interface, InterfaceType, Interfaces, NetworkState,
     NipartError, OvsBridgeBondConfig, OvsBridgeBondMode,
@@ -81,7 +80,7 @@ fn parse_ovs_bridge_conf(
     for port_uuid in ovsdb_br.ports.as_slice() {
         if let Some(ovsdb_port) = ovsdb_ports.get(port_uuid) {
             let mut port_conf = OvsBridgePortConfig::new();
-            port_conf.name = ovsdb_port.name.clone();
+            port_conf.name.clone_from(&ovsdb_port.name);
             if ovsdb_port.ports.len() > 1 {
                 port_conf.bond =
                     Some(parse_ovs_bond_conf(ovsdb_port, ovsdb_ifaces));

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{HostNameState, MergedHostNameState};
+use crate::{HostNameState, MergedHostNameState};
 
 impl MergedHostNameState {
     pub(crate) fn generate_revert(&self) -> Option<HostNameState> {

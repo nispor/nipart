@@ -2,13 +2,13 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{BaseInterface, InterfaceType, NipartError};
+use crate::{BaseInterface, InterfaceType, NipartError};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 #[non_exhaustive]
 /// HSR interface. The example YAML output of a
-/// [crate::state::NetworkState] with an HSR interface would be:
+/// [crate::NetworkState] with an HSR interface would be:
 /// ```yaml
 /// ---
 /// interfaces:

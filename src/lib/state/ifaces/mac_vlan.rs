@@ -2,12 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::state::{BaseInterface, ErrorKind, InterfaceType, NipartError};
+use crate::{BaseInterface, ErrorKind, InterfaceType, NipartError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 /// Linux kernel MAC VLAN interface. The example yaml output of
-/// [crate::state::NetworkState] with a mac vlan interface would be:
+/// [crate::NetworkState] with a mac vlan interface would be:
 /// ```yaml
 /// ---
 /// interfaces:
@@ -44,7 +44,10 @@ impl MacVlanInterface {
         Self::default()
     }
 
-    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &self,
+        is_desired: bool,
+    ) -> Result<(), NipartError> {
         if is_desired {
             if let Some(conf) = &self.mac_vlan {
                 if conf.accept_all_mac == Some(false)

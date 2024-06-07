@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
+
 use std::collections::HashSet;
-use std::iter::FromIterator;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::state::{
+use crate::{
     BaseInterface, BondInterface, DummyInterface, ErrorKind, EthernetInterface,
     HsrInterface, InfiniBandInterface, IpsecInterface, LinuxBridgeInterface,
     LoopbackInterface, MacSecInterface, MacVlanInterface, MacVtapInterface,
-    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface, VrfInterface,
-    VxlanInterface, XfrmInterface,
+    NipartError, OvsBridgeInterface, OvsInterface, VlanInterface,
+    VrfInterface, VxlanInterface, XfrmInterface,
 };
 
 use super::json::merge_json_value;
@@ -130,7 +130,7 @@ impl InterfaceType {
         [Self::Bond, Self::LinuxBridge, Self::OvsBridge, Self::Vrf];
 
     // other interfaces are also considered as userspace
-    pub(crate) fn is_userspace(&self) -> bool {
+    pub fn is_userspace(&self) -> bool {
         self.is_other() || Self::USERSPACE_IFACE_TYPES.contains(self)
     }
 
@@ -420,7 +420,7 @@ impl Interface {
         self.base_iface().name.as_str()
     }
 
-    pub(crate) fn is_userspace(&self) -> bool {
+    pub fn is_userspace(&self) -> bool {
         self.base_iface().iface_type.is_userspace()
     }
 
@@ -695,6 +695,7 @@ impl Interface {
             Interface::MacVtap(iface) => iface.sanitize(is_desired)?,
             Interface::Loopback(iface) => iface.sanitize(is_desired)?,
             Interface::MacSec(iface) => iface.sanitize(is_desired)?,
+            Interface::Ipsec(iface) => iface.sanitize(is_desired),
             _ => (),
         }
         Ok(())
@@ -736,15 +737,6 @@ impl Interface {
             iface.change_port_name(org_port_name, new_port_name);
         }
     }
-
-    pub(crate) fn post_deserialize_cleanup(&mut self) {
-        match self {
-            Interface::OvsBridge(iface) => iface.post_deserialize_cleanup(),
-            Interface::Bond(iface) => iface.post_deserialize_cleanup(),
-            Interface::LinuxBridge(iface) => iface.post_deserialize_cleanup(),
-            _ => (),
-        }
-    }
 }
 
 // The default on enum is experimental, but clippy is suggestion we use
@@ -756,7 +748,8 @@ impl Default for Interface {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Deserialize, Serialize)]
 pub struct MergedInterface {
     pub(crate) for_verify: Option<Interface>,
     pub for_apply: Option<Interface>,
@@ -822,6 +815,7 @@ impl MergedInterface {
         self.post_inter_ifaces_process_sriov()?;
         self.post_inter_ifaces_process_vrf()?;
         self.post_inter_ifaces_process_bond()?;
+        self.post_inter_ifaces_process_vlan();
 
         if let Some(apply_iface) = self.for_apply.as_mut() {
             apply_iface.sanitize(true)?;
@@ -1069,7 +1063,10 @@ impl MergedInterface {
             }
         } else {
             apply_iface.base_iface_mut().controller = Some(ctrl_name.clone());
-            apply_iface.base_iface_mut().controller_type = ctrl_type.clone();
+            apply_iface
+                .base_iface_mut()
+                .controller_type
+                .clone_from(&ctrl_type);
             self.merged.base_iface_mut().controller = Some(ctrl_name);
             self.merged.base_iface_mut().controller_type = ctrl_type;
             if !self.merged.base_iface().can_have_ip() {
@@ -1085,10 +1082,16 @@ impl MergedInterface {
             if apply_iface.base_iface().controller.is_none() {
                 if let Some(cur_iface) = self.current.as_ref() {
                     if cur_iface.base_iface().controller.as_ref().is_some() {
-                        apply_iface.base_iface_mut().controller =
-                            cur_iface.base_iface().controller.clone();
-                        apply_iface.base_iface_mut().controller_type =
-                            cur_iface.base_iface().controller_type.clone();
+                        apply_iface
+                            .base_iface_mut()
+                            .controller
+                            .clone_from(&cur_iface.base_iface().controller);
+                        apply_iface
+                            .base_iface_mut()
+                            .controller_type
+                            .clone_from(
+                                &cur_iface.base_iface().controller_type,
+                            );
                     }
                 }
             }

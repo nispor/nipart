@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::str::FromStr;
 
 use serde::{de, de::Visitor, Deserialize, Deserializer};
 
-use crate::state::{ErrorKind, NipartError};
+use crate::{ErrorKind, NipartError};
 
 pub(crate) fn u8_or_string<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where

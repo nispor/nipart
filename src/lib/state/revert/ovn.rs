@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{
+use crate::{
     MergedOvnConfiguration, OvnBridgeMapping, OvnBridgeMappingState,
     OvnConfiguration,
 };

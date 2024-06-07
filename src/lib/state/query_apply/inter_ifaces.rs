@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state::{
+use crate::{
+    state::json::{gen_diff_json_value, merge_json_value},
     ErrorKind, Interface, InterfaceType, Interfaces, MergedInterfaces,
     NipartError,
 };
 
 impl Interfaces {
+    pub(crate) fn has_up_ovs_iface(&self) -> bool {
+        self.iter().any(|i| {
+            i.iface_type() == InterfaceType::OvsBridge
+                || i.iface_type() == InterfaceType::OvsInterface
+        })
+    }
+
     pub fn update(&mut self, other: &Self) {
         let mut new_ifaces: Vec<Interface> = Vec::new();
         let other_ifaces = other.to_vec();
@@ -31,10 +39,13 @@ impl Interfaces {
                             new_iface.base.state = other_ovs_iface.base.state;
                             new_iface.base.iface_type =
                                 InterfaceType::OvsInterface;
-                            new_iface.base.controller =
-                                other_ovs_iface.base.controller.clone();
-                            new_iface.base.controller_type =
-                                other_ovs_iface.base.controller_type.clone();
+                            new_iface
+                                .base
+                                .controller
+                                .clone_from(&other_ovs_iface.base.controller);
+                            new_iface.base.controller_type.clone_from(
+                                &other_ovs_iface.base.controller_type,
+                            );
                             let mut new_iface =
                                 Interface::OvsInterface(new_iface);
                             new_iface.update(other_iface);
@@ -132,6 +143,44 @@ fn verify_desire_absent_but_found_in_current(
 }
 
 impl MergedInterfaces {
+    pub(crate) fn gen_diff(&self) -> Result<Interfaces, NipartError> {
+        let mut ret = Interfaces::default();
+        for merged_iface in self
+            .kernel_ifaces
+            .values()
+            .chain(self.user_ifaces.values())
+            .filter(|i| i.is_desired() && i.desired != i.current)
+        {
+            let des_iface = if let Some(i) = merged_iface.for_apply.as_ref() {
+                i
+            } else {
+                continue;
+            };
+            let cur_iface = if let Some(i) = merged_iface.current.as_ref() {
+                let mut cur_iface = i.clone();
+                cur_iface.sanitize(false).ok();
+                cur_iface
+            } else {
+                ret.push(des_iface.clone());
+                continue;
+            };
+            let desired_value = serde_json::to_value(des_iface)?;
+            let current_value = serde_json::to_value(&cur_iface)?;
+            if let Some(diff_value) =
+                gen_diff_json_value(&desired_value, &current_value)
+            {
+                let mut new_iface = des_iface.clone_name_type_only();
+                new_iface.base_iface_mut().state = des_iface.base_iface().state;
+                let mut new_iface_value = serde_json::to_value(&new_iface)?;
+                merge_json_value(&mut new_iface_value, &diff_value);
+                let new_iface =
+                    serde_json::from_value::<Interface>(new_iface_value)?;
+                ret.push(new_iface);
+            }
+        }
+        Ok(ret)
+    }
+
     pub(crate) fn verify(
         &self,
         current: &Interfaces,

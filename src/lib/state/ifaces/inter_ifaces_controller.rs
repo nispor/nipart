@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 
-use crate::state::{
+use crate::{
     BondMode, ErrorKind, Interface, InterfaceState, InterfaceType, Interfaces,
     MergedInterface, MergedInterfaces, NipartError, OvsInterface,
 };
@@ -540,6 +539,7 @@ impl Interfaces {
         for iface in self
             .kernel_ifaces
             .values()
+            .chain(self.user_ifaces.values())
             .filter(|i| i.is_controller() && i.is_up())
         {
             let cur_iface = current.get_iface(iface.name(), iface.iface_type());
