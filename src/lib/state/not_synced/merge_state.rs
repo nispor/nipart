@@ -58,7 +58,7 @@ impl MergedNetworkState {
                 if let Some(ipv4) = iface.base_iface().ipv4.as_ref() {
                     let dhcp_conf = NipartDhcpConfigV4::new(
                         iface.name().to_string(),
-                        ipv4.enabled,
+                        ipv4.enabled && ipv4.dhcp == Some(true),
                     );
                     if ipv4.dhcp_client_id.as_ref().is_some() {
                         todo!()
@@ -68,7 +68,7 @@ impl MergedNetworkState {
                 if let Some(ipv6) = iface.base_iface().ipv6.as_ref() {
                     let dhcp_conf = NipartDhcpConfigV6::new(
                         iface.name().to_string(),
-                        ipv6.enabled,
+                        ipv6.enabled && ipv6.dhcp == Some(true),
                     );
                     if ipv6.dhcp_duid.as_ref().is_some() {
                         todo!()
