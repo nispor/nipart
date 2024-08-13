@@ -43,16 +43,10 @@ pub(crate) async fn nispor_apply(
     });
 
     let mut np_ifaces: Vec<nispor::IfaceConf> = Vec::new();
-    for iface in ifaces.iter().filter_map(|i| {
-        if i.merged.iface_type() != InterfaceType::Unknown
-            && !i.merged.is_absent()
-        {
-            i.for_apply.as_ref()
-        } else {
-            None
-        }
+    for merged_iface in ifaces.iter().filter(|i| {
+        i.merged.iface_type() != InterfaceType::Unknown && !i.merged.is_absent()
     }) {
-        np_ifaces.push(nipart_iface_to_np(iface)?);
+        np_ifaces.push(nipart_iface_to_np(merged_iface)?);
     }
 
     // TODO: Purge DHCP/autoconf IP/routes if DHCP/autoconf disabled
@@ -84,28 +78,41 @@ fn nipart_iface_type_to_np(
 }
 
 fn nipart_iface_to_np(
-    nms_iface: &Interface,
+    merged_iface: &MergedInterface,
 ) -> Result<nispor::IfaceConf, NipartError> {
     let mut np_iface = nispor::IfaceConf::default();
 
-    let mut np_iface_type = nipart_iface_type_to_np(&nms_iface.iface_type());
+    let for_apply = match merged_iface.for_apply.as_ref() {
+        Some(i) => i,
+        None => {
+            return Err(NipartError::new(
+                ErrorKind::Bug,
+                format!(
+                    "nipart_iface_to_np() got MergedInterface with \
+                    for_apply set to None: {merged_iface:?}"
+                ),
+            ));
+        }
+    };
 
-    if let Interface::Ethernet(iface) = nms_iface {
+    let mut np_iface_type = nipart_iface_type_to_np(&for_apply.iface_type());
+
+    if let Interface::Ethernet(iface) = for_apply {
         if iface.veth.is_some() {
             np_iface_type = nispor::IfaceType::Veth;
         }
     }
 
-    np_iface.name = nms_iface.name().to_string();
+    np_iface.name = for_apply.name().to_string();
     np_iface.iface_type = Some(np_iface_type);
-    if nms_iface.is_absent() {
+    if for_apply.is_absent() {
         np_iface.state = nispor::IfaceState::Absent;
         return Ok(np_iface);
     }
 
     np_iface.state = nispor::IfaceState::Up;
 
-    let base_iface = &nms_iface.base_iface();
+    let base_iface = &for_apply.base_iface();
     if let Some(ctrl_name) = &base_iface.controller {
         np_iface.controller = Some(ctrl_name.to_string())
     }
@@ -116,9 +123,9 @@ fn nipart_iface_to_np(
 
     np_iface.mac_address = base_iface.mac_address.clone();
 
-    if let Interface::Ethernet(eth_iface) = nms_iface {
+    if let Interface::Ethernet(eth_iface) = for_apply {
         np_iface.veth = nms_veth_conf_to_np(eth_iface.veth.as_ref());
-    } else if let Interface::Vlan(vlan_iface) = nms_iface {
+    } else if let Interface::Vlan(vlan_iface) = &merged_iface.merged {
         np_iface.vlan = nms_vlan_conf_to_np(vlan_iface.vlan.as_ref());
     }
 
@@ -150,10 +157,8 @@ async fn delete_ifaces(
                 deleted_veths.push(peer_name);
             }
         }
-        if let Some(apply_iface) = iface.for_apply.as_ref() {
-            log::debug!("Deleting interface {}", apply_iface.name());
-            np_ifaces.push(nipart_iface_to_np(apply_iface)?);
-        }
+        log::debug!("Deleting interface {}", iface.merged.name());
+        np_ifaces.push(nipart_iface_to_np(iface)?);
     }
 
     let mut net_conf = nispor::NetConf::default();
