@@ -1,4 +1,4 @@
-name: Rustfmt and clippy check
+name: lint
 
 on:
   pull_request:
