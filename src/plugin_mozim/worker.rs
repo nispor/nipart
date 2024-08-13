@@ -37,15 +37,16 @@ impl std::fmt::Display for MozimWorkerState {
     }
 }
 
-struct MozimWorkerV4Thread {}
+#[derive(Debug)]
+pub(crate) struct MozimWorkerV4Thread {}
 
 impl MozimWorkerV4Thread {
-    async fn new(
+    pub(crate) async fn new(
         iface_name: String,
         mut mozim_client: DhcpV4Client,
         to_daemon: Sender<NipartEvent>,
         event_uuid: u128,
-    ) {
+    ) -> Self {
         let fd = match AsyncFd::new(mozim_client.as_raw_fd()) {
             Ok(fd) => fd,
             Err(e) => {
@@ -53,7 +54,7 @@ impl MozimWorkerV4Thread {
                     "Mozim worker for {iface_name} event {event_uuid}: \
                     AsyncFd::new() failed with {e}"
                 );
-                return;
+                return Self {};
             }
         };
         loop {
@@ -64,7 +65,7 @@ impl MozimWorkerV4Thread {
                         "Mozim worker for {iface_name} event {event_uuid}: \
                         AsyncFd::readable() failed with {e}"
                     );
-                    return;
+                    return Self {};
                 }
             }
             let mut reply_events = Vec::new();
@@ -75,7 +76,7 @@ impl MozimWorkerV4Thread {
                         "Mozim worker for {iface_name} event {event_uuid}: \
                     mozim_client.poll() failed with {e}"
                     );
-                    return;
+                    return Self {};
                 }
             };
             let mut has_lease = false;
@@ -94,7 +95,7 @@ impl MozimWorkerV4Thread {
                         "Mozim worker for {iface_name} event {event_uuid}: \
                         mozim_client.process() failed with {e}"
                     );
-                        return;
+                        return Self {};
                     }
                 }
             }
@@ -106,7 +107,7 @@ impl MozimWorkerV4Thread {
                         "Mozim worker for {iface_name} event {event_uuid}: \
                         Failed to send {event}: {e}"
                     );
-                    return;
+                    return Self {};
                 }
             }
             if has_lease {
@@ -121,7 +122,7 @@ impl MozimWorkerV4Thread {
                         "Failed to register link down monitor rule for \
                         interface {iface_name}: {e}"
                     );
-                    return;
+                    return Self {};
                 }
             }
         }
@@ -132,7 +133,7 @@ impl MozimWorkerV4Thread {
 pub(crate) struct MozimWorkerV4 {
     pub(crate) state: MozimWorkerState,
     pub(crate) config: NipartDhcpConfigV4,
-    pub(crate) thread_handler: Option<JoinHandle<()>>,
+    pub(crate) thread_handler: Option<JoinHandle<MozimWorkerV4Thread>>,
     pub(crate) event_uuid: u128,
     pub(crate) to_daemon: Sender<NipartEvent>,
 }

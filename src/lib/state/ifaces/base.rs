@@ -21,14 +21,18 @@ pub struct BaseInterface {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile_name: Option<String>,
-    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
+    #[serde(
+        skip_serializing_if = "crate::state::serializer::is_option_string_empty"
+    )]
     /// Interface description stored in network backend. Not available for
     /// kernel only mode.
     pub description: Option<String>,
     #[serde(rename = "type", default = "default_iface_type")]
     /// Interface type. Serialize and deserialize to/from `type`
     pub iface_type: InterfaceType,
-    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
+    #[serde(
+        skip_serializing_if = "crate::state::serializer::is_option_string_empty"
+    )]
     /// The driver of the specified network device.
     pub driver: Option<String>,
     #[serde(default = "default_state")]

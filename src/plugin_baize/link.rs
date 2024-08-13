@@ -193,7 +193,7 @@ impl LinkMonitorThread {
             if let Some(iface_rules) = rules.get(iface.as_str()) {
                 for rule in iface_rules {
                     if rule.kind == kind {
-                        if let Err(e) = send_link_notify(to_daemon, &rule).await
+                        if let Err(e) = send_link_notify(to_daemon, rule).await
                         {
                             log::error!(
                                 "BUG: process_netlink_message failed \

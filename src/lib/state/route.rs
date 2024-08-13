@@ -425,8 +425,7 @@ impl std::fmt::Display for RouteEntry {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedRoutes {
     pub(crate) indexed: HashMap<String, Vec<RouteEntry>>,
     pub(crate) route_changed_ifaces: Vec<String>,

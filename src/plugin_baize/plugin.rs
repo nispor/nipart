@@ -29,11 +29,11 @@ impl NipartNativePlugin for NipartPluginBaize {
         })
     }
 
-    fn from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
+    fn recver_from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
         &mut self.from_daemon
     }
 
-    fn to_daemon(&self) -> &Sender<NipartEvent> {
+    fn sender_to_daemon(&self) -> &Sender<NipartEvent> {
         &self.to_daemon
     }
 

@@ -210,7 +210,7 @@ impl Task {
         ));
         ret.push(NipartEvent::new(
             NipartUserEvent::None,
-            NipartPluginEvent::QueryDhcpConfig(Box::new(Vec::new())),
+            NipartPluginEvent::QueryDhcpConfig(Box::default()),
             NipartEventAddress::Commander,
             NipartEventAddress::Dhcp,
             self.timeout,
@@ -247,7 +247,7 @@ impl Task {
         // TODO: Only query DHCP config for related  interfaces
         ret.push(NipartEvent::new(
             NipartUserEvent::None,
-            NipartPluginEvent::QueryDhcpConfig(Box::new(Vec::new())),
+            NipartPluginEvent::QueryDhcpConfig(Box::default()),
             NipartEventAddress::Commander,
             NipartEventAddress::Dhcp,
             self.timeout,
@@ -307,7 +307,6 @@ fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
         {
             // Will process later after multiple NetState been merged into
             // one.
-            ()
         } else {
             log::error!(
                 "BUG: Got unexpected reply, \
@@ -321,7 +320,7 @@ fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
         if let NipartPluginEvent::QueryDhcpConfigReply(dhcp_confs) =
             &reply.plugin
         {
-            state.fill_dhcp_config(&dhcp_confs);
+            state.fill_dhcp_config(dhcp_confs);
         }
     }
     state

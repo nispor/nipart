@@ -120,8 +120,7 @@ impl TryFrom<&str> for OvnConfiguration {
 // `NetworkState::isolate_ovn()` to isolate this `external_ids` entry
 // into `OvnConfiguration`.
 // For verification, we are treating it as normal property without extracting.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedOvnConfiguration {
     pub(crate) desired: OvnConfiguration,
     pub(crate) current: OvnConfiguration,
