@@ -53,10 +53,7 @@ impl LoopbackInterface {
         Self::default()
     }
 
-    pub(crate) fn sanitize(
-        &self,
-        is_desired: bool,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
         if is_desired {
             if self.base.ipv4.as_ref().map(|i| i.enabled) == Some(false) {
                 return Err(NipartError::new(

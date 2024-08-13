@@ -3,10 +3,11 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    state::json::get_json_value_difference, ErrorKind, Interface, InterfaceState,
-    InterfaceType, Interfaces, MergedInterfaces, MergedOvsDbGlobalConfig,
-    NetworkState, NipartError, OvsBridgeBondConfig, OvsBridgeConfig,
-    OvsBridgeInterface, OvsDbGlobalConfig, OvsDbIfaceConfig, OvsInterface,
+    state::json::get_json_value_difference, ErrorKind, Interface,
+    InterfaceState, InterfaceType, Interfaces, MergedInterfaces,
+    MergedOvsDbGlobalConfig, NetworkState, NipartError, OvsBridgeBondConfig,
+    OvsBridgeConfig, OvsBridgeInterface, OvsDbGlobalConfig, OvsDbIfaceConfig,
+    OvsInterface,
 };
 
 impl MergedOvsDbGlobalConfig {

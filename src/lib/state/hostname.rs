@@ -11,8 +11,7 @@ pub struct HostNameState {
     pub config: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize, Serialize)]
 pub struct MergedHostNameState {
     pub(crate) desired: Option<HostNameState>,
     pub(crate) current: Option<HostNameState>,

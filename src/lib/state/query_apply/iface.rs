@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    state::json::get_json_value_difference, ErrorKind, Interface, InterfaceType,
-    LinuxBridgeInterface, NipartError,
+    state::json::get_json_value_difference, ErrorKind, Interface,
+    InterfaceType, LinuxBridgeInterface, NipartError,
 };
 
 impl Interface {
@@ -27,10 +27,7 @@ impl Interface {
         }
     }
 
-    pub(crate) fn verify(
-        &mut self,
-        current: &Self,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn verify(&mut self, current: &Self) -> Result<(), NipartError> {
         let mut current = current.clone();
         self.process_allow_extra_address(&mut current);
 

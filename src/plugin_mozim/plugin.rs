@@ -35,11 +35,11 @@ impl NipartNativePlugin for NipartPluginMozim {
         })
     }
 
-    fn from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
+    fn recver_from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
         &mut self.from_daemon
     }
 
-    fn to_daemon(&self) -> &Sender<NipartEvent> {
+    fn sender_to_daemon(&self) -> &Sender<NipartEvent> {
         &self.to_daemon
     }
 
@@ -64,12 +64,12 @@ impl NipartNativePlugin for NipartPluginMozim {
                     event.timeout,
                 );
                 reply.uuid = event.uuid;
-                self.to_daemon().send(reply).await?;
+                self.sender_to_daemon().send(reply).await?;
             }
             NipartPluginEvent::ApplyDhcpConfig(confs) => {
                 log::trace!("Apply DHCP config for {confs:?}");
                 for conf in (*confs).as_slice() {
-                    self.apply_dhcp_conf(&conf, event.uuid).await?;
+                    self.apply_dhcp_conf(conf, event.uuid).await?;
                 }
                 let mut reply = NipartEvent::new(
                     NipartUserEvent::None,
@@ -79,7 +79,7 @@ impl NipartNativePlugin for NipartPluginMozim {
                     event.timeout,
                 );
                 reply.uuid = event.uuid;
-                self.to_daemon().send(reply).await?;
+                self.sender_to_daemon().send(reply).await?;
             }
             NipartPluginEvent::GotMonitorEvent(monitor_event) => {
                 self.got_monitor_event(*monitor_event).await?;
@@ -153,7 +153,7 @@ impl NipartPluginMozim {
         );
         reply.uuid = event_uuid;
         log::debug!("Registering link up monitor {reply}");
-        self.to_daemon().send(reply).await?;
+        self.sender_to_daemon().send(reply).await?;
         Ok(())
     }
 

@@ -26,11 +26,11 @@ impl NipartNativePlugin for NipartPluginNispor {
         vec![NipartRole::QueryAndApply, NipartRole::ApplyDhcpLease]
     }
 
-    fn from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
+    fn recver_from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
         &mut self.from_daemon
     }
 
-    fn to_daemon(&self) -> &Sender<NipartEvent> {
+    fn sender_to_daemon(&self) -> &Sender<NipartEvent> {
         &self.to_daemon
     }
 
@@ -62,7 +62,7 @@ impl NipartNativePlugin for NipartPluginNispor {
                     DEFAULT_TIMEOUT,
                 );
                 reply.uuid = event.uuid;
-                self.to_daemon().send(reply).await?;
+                self.sender_to_daemon().send(reply).await?;
                 Ok(())
             }
             // TODO: Currently, we are returning full state, but we should
@@ -80,13 +80,13 @@ impl NipartNativePlugin for NipartPluginNispor {
                     DEFAULT_TIMEOUT,
                 );
                 reply.uuid = event.uuid;
-                self.to_daemon().send(reply).await?;
+                self.sender_to_daemon().send(reply).await?;
                 Ok(())
             }
             NipartPluginEvent::ApplyNetState(merged_state, opt) => {
                 // We spawn new thread for apply instead of blocking
                 // here
-                let to_daemon_clone = self.to_daemon().clone();
+                let to_daemon_clone = self.sender_to_daemon().clone();
                 tokio::spawn(async move {
                     handle_apply(
                         *merged_state,
@@ -101,7 +101,7 @@ impl NipartNativePlugin for NipartPluginNispor {
             NipartPluginEvent::ApplyDhcpLease(lease) => {
                 // We spawn new thread for apply instead of blocking
                 // here
-                let to_daemon_clone = self.to_daemon().clone();
+                let to_daemon_clone = self.sender_to_daemon().clone();
                 tokio::spawn(async move {
                     handle_apply_dhcp_lease(*lease, to_daemon_clone, event.uuid)
                         .await

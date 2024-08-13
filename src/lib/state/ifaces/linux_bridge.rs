@@ -7,8 +7,8 @@ use std::str::FromStr;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize};
 
 use crate::{
-    BaseInterface, BridgePortVlanConfig, ErrorKind, InterfaceType,
-    NipartError, VlanProtocol,
+    BaseInterface, BridgePortVlanConfig, ErrorKind, InterfaceType, NipartError,
+    VlanProtocol,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

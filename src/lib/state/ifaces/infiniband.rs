@@ -77,7 +77,9 @@ impl std::fmt::Display for InfiniBandMode {
 pub struct InfiniBandConfig {
     /// Mode of InfiniBand interface.
     pub mode: InfiniBandMode,
-    #[serde(skip_serializing_if = "crate::state::serializer::is_option_string_empty")]
+    #[serde(
+        skip_serializing_if = "crate::state::serializer::is_option_string_empty"
+    )]
     /// For pkey sub-interface only. Empty for base interface.
     pub base_iface: Option<String>,
     #[serde(

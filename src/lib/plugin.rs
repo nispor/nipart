@@ -122,29 +122,29 @@ pub enum NipartPluginEvent {
 impl std::fmt::Display for NipartPluginEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::None => write!(f, "{}", "none"),
-            Self::Quit => write!(f, "{}", "quit"),
-            Self::QueryPluginInfo => write!(f, "{}", "query_plugin_info"),
+            Self::None => write!(f, "none"),
+            Self::Quit => write!(f, "quit"),
+            Self::QueryPluginInfo => write!(f, "query_plugin_info"),
             Self::QueryPluginInfoReply(_) => {
-                write!(f, "{}", "query_plugin_info_reply")
+                write!(f, "query_plugin_info_reply")
             }
             Self::ChangeLogLevel(l) => write!(f, "change_log_level:{l}"),
-            Self::QueryLogLevel => write!(f, "{}", "query_log_level"),
+            Self::QueryLogLevel => write!(f, "query_log_level"),
             Self::QueryLogLevelReply(_) => {
-                write!(f, "{}", "query_log_level_reply")
+                write!(f, "query_log_level_reply")
             }
-            Self::QueryNetState(_) => write!(f, "{}", "query_netstate"),
+            Self::QueryNetState(_) => write!(f, "query_netstate"),
             Self::QueryNetStateReply(_, _) => {
-                write!(f, "{}", "query_netstate_reply")
+                write!(f, "query_netstate_reply")
             }
             Self::QueryRelatedNetState(_) => {
-                write!(f, "{}", "query_related_netstate")
+                write!(f, "query_related_netstate")
             }
-            Self::ApplyNetState(_, _) => write!(f, "{}", "apply_netstate"),
-            Self::ApplyNetStateReply => write!(f, "{}", "apply_netstate_reply"),
-            Self::QueryDhcpConfig(_) => write!(f, "{}", "query_dhcp_config"),
+            Self::ApplyNetState(_, _) => write!(f, "apply_netstate"),
+            Self::ApplyNetStateReply => write!(f, "apply_netstate_reply"),
+            Self::QueryDhcpConfig(_) => write!(f, "query_dhcp_config"),
             Self::QueryDhcpConfigReply(_) => {
-                write!(f, "{}", "query_dhcp_config_reply")
+                write!(f, "query_dhcp_config_reply")
             }
             Self::ApplyDhcpConfig(configs) => write!(
                 f,
@@ -157,12 +157,12 @@ impl std::fmt::Display for NipartPluginEvent {
                     .join(",")
             ),
             Self::ApplyDhcpConfigReply => {
-                write!(f, "{}", "apply_dhcp_config_reply")
+                write!(f, "apply_dhcp_config_reply")
             }
-            Self::GotDhcpLease(_) => write!(f, "{}", "got_dhcp_lease"),
-            Self::ApplyDhcpLease(_) => write!(f, "{}", "apply_dhcp_lease"),
+            Self::GotDhcpLease(_) => write!(f, "got_dhcp_lease"),
+            Self::ApplyDhcpLease(_) => write!(f, "apply_dhcp_lease"),
             Self::ApplyDhcpLeaseReply => {
-                write!(f, "{}", "apply_dhcp_lease_reply")
+                write!(f, "apply_dhcp_lease_reply")
             }
             Self::RegisterMonitorRule(rule) => {
                 write!(f, "register_monitor_rule:{rule}")

@@ -512,8 +512,7 @@ impl From<RouteRuleAction> for u8 {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct MergedRouteRules {
     pub(crate) desired: RouteRules,
     pub(crate) current: RouteRules,

@@ -44,10 +44,7 @@ impl MacVtapInterface {
         Self::default()
     }
 
-    pub(crate) fn sanitize(
-        &self,
-        is_desired: bool,
-    ) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(&self, is_desired: bool) -> Result<(), NipartError> {
         if is_desired {
             if let Some(conf) = &self.mac_vtap {
                 if conf.accept_all_mac == Some(false)

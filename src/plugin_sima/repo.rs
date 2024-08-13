@@ -10,7 +10,7 @@ use nipart::{
 
 use crate::{state::flatten_net_state, NipartPluginSima};
 
-const ETC_REPO_PATH: &'static str = "/etc/nipart/states";
+const ETC_REPO_PATH: &str = "/etc/nipart/states";
 
 const GIT_USER_NAME: &str = "Gris Ge";
 const GIT_USER_EMAIL: &str = "fge@redhat.com";
@@ -105,7 +105,7 @@ impl NipartPluginSima {
         opt.count = 1;
         opt.persisted_only = true;
         self.query_commits(&opt)
-            .map(|commits| commits.get(0).cloned())
+            .map(|commits| commits.first().cloned())
     }
 
     pub(crate) fn query_commit(
@@ -161,7 +161,7 @@ impl NipartPluginSima {
             };
             match std::str::from_utf8(object.data.as_slice()) {
                 Ok(content) => {
-                    match serde_yaml::from_str::<NetworkState>(&content) {
+                    match serde_yaml::from_str::<NetworkState>(content) {
                         Ok(s) => state.merge_desire(&s),
                         Err(e) => {
                             log::debug!(
@@ -179,10 +179,10 @@ impl NipartPluginSima {
             }
         }
         if state == NetworkState::default() {
-            return None;
+            None
         } else {
             ret.state = state;
-            return Some(ret);
+            Some(ret)
         }
     }
 
@@ -223,17 +223,17 @@ impl NipartPluginSima {
 pub(crate) fn load_config_repo() -> Result<ThreadSafeRepository, NipartError> {
     let etc_path = std::path::Path::new(ETC_REPO_PATH);
     if !etc_path.is_dir() || !is_git_repo(etc_path) {
-        init_config_repo(&etc_path)
+        init_config_repo(etc_path)
     } else {
-        open_config_repo(&etc_path)
+        open_config_repo(etc_path)
     }
 }
 
 fn is_git_repo(path: &std::path::Path) -> bool {
-    match gix::discover::is_git(path) {
-        Err(gix::discover::is_git::Error::MissingHead) | Ok(_) => true,
-        _ => false,
-    }
+    matches!(
+        gix::discover::is_git(path),
+        Err(gix::discover::is_git::Error::MissingHead) | Ok(_)
+    )
 }
 
 fn init_config_repo(

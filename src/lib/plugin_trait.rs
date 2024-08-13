@@ -325,9 +325,9 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
 pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
     const PLUGIN_NAME: &'static str;
 
-    fn to_daemon(&self) -> &Sender<NipartEvent>;
+    fn sender_to_daemon(&self) -> &Sender<NipartEvent>;
 
-    fn from_daemon(&mut self) -> &mut Receiver<NipartEvent>;
+    fn recver_from_daemon(&mut self) -> &mut Receiver<NipartEvent>;
 
     fn roles() -> Vec<NipartRole>;
 
@@ -373,7 +373,7 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
         async {
             log::debug!("Plugin {} got event {event}", Self::PLUGIN_NAME);
             log::trace!("Plugin {} got event {event:?}", Self::PLUGIN_NAME);
-            let to_daemon = self.to_daemon();
+            let to_daemon = self.sender_to_daemon();
 
             match event.plugin {
                 NipartPluginEvent::QueryPluginInfo => {
@@ -418,7 +418,7 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
     fn run(&mut self) -> impl std::future::Future<Output = ()> + Send {
         async move {
             loop {
-                match self.from_daemon().recv().await {
+                match self.recver_from_daemon().recv().await {
                     Some(event) if event.plugin == NipartPluginEvent::Quit => {
                         break;
                     }

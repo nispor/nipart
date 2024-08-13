@@ -2,8 +2,8 @@
 
 use gix::ThreadSafeRepository;
 use nipart::{
-    NipartError, NipartEvent, NipartEventAddress,
-    NipartNativePlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
+    NipartError, NipartEvent, NipartEventAddress, NipartNativePlugin,
+    NipartPluginEvent, NipartRole, NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -30,11 +30,11 @@ impl NipartNativePlugin for NipartPluginSima {
         })
     }
 
-    fn from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
+    fn recver_from_daemon(&mut self) -> &mut Receiver<NipartEvent> {
         &mut self.from_daemon
     }
 
-    fn to_daemon(&self) -> &Sender<NipartEvent> {
+    fn sender_to_daemon(&self) -> &Sender<NipartEvent> {
         &self.to_daemon
     }
 
@@ -58,7 +58,7 @@ impl NipartNativePlugin for NipartPluginSima {
                     event.timeout,
                 );
                 reply.uuid = event.uuid;
-                self.to_daemon().send(reply).await?;
+                self.sender_to_daemon().send(reply).await?;
             }
             NipartPluginEvent::QueryCommits(opt) => {
                 log::trace!("Querying commits with option {opt}");
@@ -72,7 +72,7 @@ impl NipartNativePlugin for NipartPluginSima {
                     event.timeout,
                 );
                 reply.uuid = event.uuid;
-                self.to_daemon().send(reply).await?;
+                self.sender_to_daemon().send(reply).await?;
             }
             _ => log::warn!("Plugin sima got unknown event {event}"),
         }
