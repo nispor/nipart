@@ -22,6 +22,7 @@ nipart-plugin-nispor = { path = "../plugin_nispor", version = "0.1" }
 nipart-plugin-mozim = { path = "../plugin_mozim", version = "0.1" }
 nipart-plugin-baize = { path = "../plugin_baize", version = "0.1" }
 nipart-plugin-sima = { path = "../plugin_sima", version = "0.1" }
+nipart-plugin-smith = { path = "../plugin_smith", version = "0.1" }
 
 [[bin]]
 name = "nipartd"

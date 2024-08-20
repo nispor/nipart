@@ -149,6 +149,34 @@ def change_merged_network_state_props_to_public():
     subprocess.run(
         f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
         + [
+            "s/pub(crate) dns: MergedDnsState/" "pub dns: MergedDnsState/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
+            "s/pub(crate) routes: MergedRoutes/" "pub routes: MergedRoutes/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
+            "s/pub(crate) rules: MergedRouteRules/"
+            "pub rules: MergedRouteRules/g",
+            "{}",
+            ";",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + [
             "s/pub(crate) kernel_ifaces: HashMap<String, Interface>/"
             "pub kernel_ifaces: HashMap<String, Interface>/g",
             "{}",
@@ -244,6 +272,9 @@ def change_merged_interface_props_to_public():
         ],
         check=True,
     )
+
+
+def expose_merged_xxx_is_changed_func():
     subprocess.run(
         f"sed -i -e".split()
         + [
@@ -255,6 +286,11 @@ def change_merged_interface_props_to_public():
 
 
 def change_base_iface_props_to_public():
+    subprocess.run(
+        f"find {SCRIPT_DIR} -type f -name *.rs -exec sed -i -e".split()
+        + ["s/pub(crate) fn is_changed(/pub fn is_changed(/g", "{}", ";"],
+        check=True,
+    )
     subprocess.run(
         f"sed -i -e".split()
         + [
@@ -339,6 +375,7 @@ def main():
     serde_merged_state()
     expose_ip_enabled_defined()
     expose_is_userspace()
+    expose_merged_xxx_is_changed_func()
 
 
 main()

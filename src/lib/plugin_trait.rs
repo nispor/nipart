@@ -52,15 +52,14 @@ fn _handle_query_plugin_info(
     plugin_name: &str,
 ) -> NipartEvent {
     log::debug!("Querying plugin info of {}", plugin_name);
-    let mut reply = NipartEvent::new(
+    NipartEvent::new_with_uuid(
+        uuid,
         NipartUserEvent::None,
         NipartPluginEvent::QueryPluginInfoReply(plugin_info),
         NipartEventAddress::Unicast(plugin_name.to_string()),
         src.clone(),
         crate::DEFAULT_TIMEOUT,
-    );
-    reply.uuid = uuid;
-    reply
+    )
 }
 
 fn _handle_change_log_level(
@@ -70,28 +69,26 @@ fn _handle_change_log_level(
 ) -> NipartEvent {
     log::debug!("Setting log level of {} to {log_level}", plugin_name);
     log::set_max_level(log_level.into());
-    let mut reply = NipartEvent::new(
+    NipartEvent::new_with_uuid(
+        uuid,
         NipartUserEvent::None,
         NipartPluginEvent::QueryLogLevelReply(log_level),
         NipartEventAddress::Unicast(plugin_name.to_string()),
         NipartEventAddress::Commander,
         crate::DEFAULT_TIMEOUT,
-    );
-    reply.uuid = uuid;
-    reply
+    )
 }
 
 fn _handle_query_log_level(uuid: u128, plugin_name: &str) -> NipartEvent {
     log::debug!("Querying log level of {}", plugin_name);
-    let mut reply = NipartEvent::new(
+    NipartEvent::new_with_uuid(
+        uuid,
         NipartUserEvent::None,
         NipartPluginEvent::QueryLogLevelReply(log::max_level().into()),
         NipartEventAddress::Unicast(plugin_name.to_string()),
         NipartEventAddress::Commander,
         crate::DEFAULT_TIMEOUT,
-    );
-    reply.uuid = uuid;
-    reply
+    )
 }
 
 pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
@@ -148,7 +145,8 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
             log::trace!("Plugin {} got event {event:?}", Self::PLUGIN_NAME);
             match event.plugin {
                 NipartPluginEvent::Quit => {
-                    let mut reply = NipartEvent::new(
+                    let reply = NipartEvent::new_with_uuid(
+                        event.uuid,
                         NipartUserEvent::None,
                         NipartPluginEvent::Quit,
                         NipartEventAddress::Unicast(
@@ -157,7 +155,6 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
                         NipartEventAddress::Commander,
                         crate::DEFAULT_TIMEOUT,
                     );
-                    reply.uuid = event.uuid;
                     log::debug!("Sending {event}");
                     to_daemon.send(reply).await.ok();
                 }

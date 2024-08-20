@@ -647,7 +647,7 @@ impl MergedRoutes {
             .retain(|n| !ignored_ifaces.contains(&n.as_str()));
     }
 
-    pub(crate) fn is_changed(&self) -> bool {
+    pub fn is_changed(&self) -> bool {
         !self.route_changed_ifaces.is_empty()
     }
 }

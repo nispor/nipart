@@ -11,7 +11,7 @@ use crate::{
 };
 
 impl MergedOvsDbGlobalConfig {
-    pub(crate) fn is_changed(&self) -> bool {
+    pub fn is_changed(&self) -> bool {
         self.is_changed
     }
 

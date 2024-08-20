@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     MergedNetworkState, NetworkCommit, NetworkCommitQueryOption, NetworkState,
-    NipartApplyOption, NipartDhcpConfig, NipartDhcpLease, NipartLogLevel,
-    NipartMonitorEvent, NipartMonitorRule, NipartQueryOption,
+    NipartApplyOption, NipartDhcpConfig, NipartDhcpLease, NipartLockEntry,
+    NipartLockOption, NipartLogLevel, NipartMonitorEvent, NipartMonitorRule,
+    NipartQueryOption,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -36,6 +37,7 @@ pub enum NipartRole {
     Lldp,
     Monitor,
     Track,
+    Locker,
 }
 
 impl std::fmt::Display for NipartRole {
@@ -51,6 +53,7 @@ impl std::fmt::Display for NipartRole {
                 Self::Monitor => "monitor",
                 Self::Track => "track",
                 Self::ApplyDhcpLease => "apply_dhcp_lease",
+                Self::Locker => "locker",
             }
         )
     }
@@ -117,6 +120,16 @@ pub enum NipartPluginEvent {
     /// have finished.
     /// No reply required.
     ResumeTracking,
+
+    /// Request lock on specified entries, reply required.
+    Lock(Box<Vec<(NipartLockEntry, NipartLockOption)>>),
+    /// Request unlock on specified entries, no reply required.
+    /// Cannot unlock other event's entry.
+    Unlock(Box<Vec<NipartLockEntry>>),
+
+    // TBD: do we need to indicate who is currently taking lock when fails
+    /// Indicate all requested lock entries has been locked as requested.
+    LockReply,
 }
 
 impl std::fmt::Display for NipartPluginEvent {
@@ -183,6 +196,9 @@ impl std::fmt::Display for NipartPluginEvent {
             Self::ResumeTracking => {
                 write!(f, "resume_tracking")
             }
+            Self::Lock(_) => write!(f, "lock"),
+            Self::Unlock(_) => write!(f, "unlock"),
+            Self::LockReply => write!(f, "lock_reply"),
         }
     }
 }
@@ -201,6 +217,7 @@ impl NipartPluginEvent {
                 | Self::GotMonitorEvent(_)
                 | Self::QueryCommitsReply(_)
                 | Self::CommitReply
+                | Self::LockReply
         )
     }
 }

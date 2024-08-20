@@ -12,6 +12,7 @@ use nipart_plugin_baize::NipartPluginBaize;
 use nipart_plugin_mozim::NipartPluginMozim;
 use nipart_plugin_nispor::NipartPluginNispor;
 use nipart_plugin_sima::NipartPluginSima;
+use nipart_plugin_smith::NipartPluginSmith;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{DEFAULT_TIMEOUT, MPSC_CHANNLE_SIZE};
@@ -178,6 +179,11 @@ impl Plugins {
             NipartPluginSima::roles(),
             start_sima_plugin().await?,
         );
+        self.insert(
+            "smith",
+            NipartPluginSmith::roles(),
+            start_smith_plugin().await?,
+        );
         Ok(())
     }
 
@@ -212,6 +218,23 @@ impl Plugins {
         Err(NipartError::new(
             ErrorKind::Bug,
             "No track plugin found".to_string(),
+        ))
+    }
+
+    pub(crate) fn get_locker_connection_mut(
+        &mut self,
+    ) -> Result<&mut PluginConnection, NipartError> {
+        if let Some(plugin_name) =
+            self.roles.get(NipartRole::Locker).and_then(|p| p.first())
+        {
+            if let Some(connection) = self.connections.get_mut(plugin_name) {
+                return Ok(connection);
+            }
+        }
+
+        Err(NipartError::new(
+            ErrorKind::Bug,
+            "No DHCP plugin found".to_string(),
         ))
     }
 }
@@ -367,11 +390,11 @@ async fn start_nispor_plugin() -> Result<PluginConnection, NipartError> {
     let (switch_to_nispor_tx, switch_to_nispor_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
 
-    let mut niport_plugin =
+    let mut plugin =
         NipartPluginNispor::init(nispor_to_switch_tx, switch_to_nispor_rx)
             .await?;
 
-    tokio::spawn(async move { niport_plugin.run().await });
+    tokio::spawn(async move { plugin.run().await });
     log::info!("Native plugin nispor started");
     Ok(PluginConnection::Mpsc((
         switch_to_nispor_tx,
@@ -410,6 +433,23 @@ async fn start_baize_plugin() -> Result<PluginConnection, NipartError> {
     Ok(PluginConnection::Mpsc((
         switch_to_baize_tx,
         baize_to_switch_rx,
+    )))
+}
+
+async fn start_smith_plugin() -> Result<PluginConnection, NipartError> {
+    let (smith_to_switch_tx, smith_to_switch_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+    let (switch_to_smith_tx, switch_to_smith_rx) =
+        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
+
+    let mut plugin =
+        NipartPluginSmith::init(smith_to_switch_tx, switch_to_smith_rx).await?;
+
+    tokio::spawn(async move { plugin.run().await });
+    log::info!("Native plugin smith started");
+    Ok(PluginConnection::Mpsc((
+        switch_to_smith_tx,
+        smith_to_switch_rx,
     )))
 }
 

@@ -319,11 +319,11 @@ impl NetworkState {
 pub struct MergedNetworkState {
     pub interfaces: MergedInterfaces,
     pub(crate) hostname: MergedHostNameState,
-    pub(crate) dns: MergedDnsState,
+    pub dns: MergedDnsState,
     pub(crate) ovn: MergedOvnConfiguration,
     pub(crate) ovsdb: MergedOvsDbGlobalConfig,
-    pub(crate) routes: MergedRoutes,
-    pub(crate) rules: MergedRouteRules,
+    pub routes: MergedRoutes,
+    pub rules: MergedRouteRules,
     pub(crate) memory_only: bool,
 }
 

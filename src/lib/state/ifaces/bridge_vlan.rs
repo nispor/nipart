@@ -46,7 +46,7 @@ impl BridgePortVlanConfig {
         Self::default()
     }
 
-    pub(crate) fn is_changed(&self, current: &Self) -> bool {
+    pub fn is_changed(&self, current: &Self) -> bool {
         (self.enable_native.is_some()
             && self.enable_native != current.enable_native)
             || (self.mode.is_some() && self.mode != current.mode)

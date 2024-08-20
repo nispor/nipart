@@ -16,6 +16,7 @@ pub(crate) struct Task {
     pub(crate) kind: TaskKind,
     pub(crate) expected_reply_count: usize,
     pub(crate) replies: Vec<NipartEvent>,
+    /// timeout in seconds
     pub(crate) timeout: u32,
     pub(crate) deadline: SystemTime,
     pub(crate) retry_interval_mills: u32,
@@ -130,6 +131,7 @@ impl Task {
                 self.gen_request_query_commits(opt.clone())
             }
             TaskKind::Commit => self.gen_request_commit(share_data),
+            TaskKind::Lock => self.gen_request_lock(share_data),
         };
         if self.retry_count != 0 {
             for event in &mut events {
@@ -153,6 +155,7 @@ pub(crate) enum TaskKind {
     Quit,
     QueryCommits(NetworkCommitQueryOption),
     Commit,
+    Lock,
 }
 
 impl std::fmt::Display for TaskKind {
@@ -161,16 +164,18 @@ impl std::fmt::Display for TaskKind {
             f,
             "{}",
             match self {
-                Self::QueryPluginInfo => "query_plugin_info",
-                Self::QueryNetState(_) => "query_net_state",
-                Self::QueryRelatedNetState => "query_related_net_state",
-                Self::ApplyNetState(_) => "apply_state",
-                Self::QueryLogLevel => "query_log_level",
-                Self::ChangeLogLevel(_) => "change_log_level",
-                Self::ApplyDhcpLease(_) => "apply_dhcp_lease",
-                Self::Quit => "quit",
-                Self::QueryCommits(_) => "query_commits",
-                Self::Commit => "commit",
+                Self::QueryPluginInfo => "task_kind.query_plugin_info",
+                Self::QueryNetState(_) => "task_kind.query_net_state",
+                Self::QueryRelatedNetState =>
+                    "task_kind.query_related_net_state",
+                Self::ApplyNetState(_) => "task_kind.apply_state",
+                Self::QueryLogLevel => "task_kind.query_log_level",
+                Self::ChangeLogLevel(_) => "task_kind.change_log_level",
+                Self::ApplyDhcpLease(_) => "task_kind.apply_dhcp_lease",
+                Self::Quit => "task_kind.quit",
+                Self::QueryCommits(_) => "task_kind.query_commits",
+                Self::Commit => "task_kind.commit",
+                Self::Lock => "task_kind.lock",
             }
         )
     }

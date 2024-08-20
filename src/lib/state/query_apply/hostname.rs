@@ -14,7 +14,7 @@ impl HostNameState {
 }
 
 impl MergedHostNameState {
-    pub(crate) fn is_changed(&self) -> bool {
+    pub fn is_changed(&self) -> bool {
         self.desired != self.current
     }
 
