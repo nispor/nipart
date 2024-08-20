@@ -31,19 +31,22 @@ pub enum NipartEventAddress {
     Group(NipartRole),
     /// All plugins
     AllPlugins,
+    /// The chosen locker plugin
+    Locker,
 }
 
 impl std::fmt::Display for NipartEventAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::User => write!(f, "user"),
-            Self::Unicast(v) => write!(f, "{v}"),
-            Self::Daemon => write!(f, "daemon"),
-            Self::Commander => write!(f, "commander"),
-            Self::Dhcp => write!(f, "dhcp"),
-            Self::Track => write!(f, "track"),
-            Self::Group(v) => write!(f, "group:{v}"),
-            Self::AllPlugins => write!(f, "all_plugins"),
+            Self::User => write!(f, "event_address.user"),
+            Self::Unicast(v) => write!(f, "event_address.{v}"),
+            Self::Daemon => write!(f, "event_address.daemon"),
+            Self::Commander => write!(f, "event_address.commander"),
+            Self::Dhcp => write!(f, "event_address.dhcp"),
+            Self::Track => write!(f, "event_address.track"),
+            Self::Group(v) => write!(f, "event_address.group:{v}"),
+            Self::AllPlugins => write!(f, "event_address.all_plugins"),
+            Self::Locker => write!(f, "event_address.locker"),
         }
     }
 }
@@ -67,7 +70,8 @@ impl std::fmt::Display for NipartEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} user:{} plugin:{} src:{} dst:{} timeout:{}ms{}",
+            "event.uuid:{} event.user:{} event.plugin:{} \
+            event.src:{} event.dst:{} event.timeout:{}ms{}",
             self.uuid,
             self.user,
             self.plugin,
@@ -94,6 +98,25 @@ impl NipartEvent {
     ) -> Self {
         Self {
             uuid: uuid::Uuid::now_v7().as_u128(),
+            user,
+            plugin,
+            src,
+            dst,
+            timeout,
+            postpone_millis: 0,
+        }
+    }
+
+    pub fn new_with_uuid(
+        uuid: u128,
+        user: NipartUserEvent,
+        plugin: NipartPluginEvent,
+        src: NipartEventAddress,
+        dst: NipartEventAddress,
+        timeout: u32,
+    ) -> Self {
+        Self {
+            uuid,
             user,
             plugin,
             src,
@@ -159,20 +182,23 @@ impl std::fmt::Display for NipartUserEvent {
             f,
             "{}",
             match self {
-                Self::None => "none",
-                Self::Quit => "quit",
-                Self::Error(_) => "error",
-                Self::QueryPluginInfo => "query_plugin_info",
-                Self::QueryPluginInfoReply(_) => "query_plugin_info_reply",
-                Self::ChangeLogLevel(_) => "change_log_level",
-                Self::QueryLogLevel => "query_log_level",
-                Self::QueryLogLevelReply(_) => "query_log_level_reply",
-                Self::QueryNetState(_) => "query_netstate",
-                Self::QueryNetStateReply(_) => "query_netstate_reply",
-                Self::ApplyNetState(_, _) => "apply_netstate",
-                Self::ApplyNetStateReply => "apply_netstate_reply",
-                Self::QueryCommits(_) => "query_commits",
-                Self::QueryCommitsReply(_) => "query_commits_reply",
+                Self::None => "user_event.none",
+                Self::Quit => "user_event.quit",
+                Self::Error(_) => "user_event.error",
+                Self::QueryPluginInfo => "user_event.query_plugin_info",
+                Self::QueryPluginInfoReply(_) =>
+                    "user_event.query_plugin_info_reply",
+                Self::ChangeLogLevel(_) => "user_event.change_log_level",
+                Self::QueryLogLevel => "user_event.query_log_level",
+                Self::QueryLogLevelReply(_) =>
+                    "user_event.query_log_level_reply",
+                Self::QueryNetState(_) => "user_event.query_netstate",
+                Self::QueryNetStateReply(_) =>
+                    "user_event.query_netstate_reply",
+                Self::ApplyNetState(_, _) => "user_event.apply_netstate",
+                Self::ApplyNetStateReply => "user_event.apply_netstate_reply",
+                Self::QueryCommits(_) => "user_event.query_commits",
+                Self::QueryCommitsReply(_) => "user_event.query_commits_reply",
             }
         )
     }

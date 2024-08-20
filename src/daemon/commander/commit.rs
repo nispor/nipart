@@ -38,8 +38,9 @@ fn query_net_commits(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
 ) -> Result<Vec<NipartEvent>, NipartError> {
-    let mut event = if task.replies.is_empty() {
-        NipartEvent::new(
+    let event = if task.replies.is_empty() {
+        NipartEvent::new_with_uuid(
+            task.uuid,
             NipartUserEvent::Error(NipartError::new(
                 ErrorKind::Timeout,
                 "Not plugin replied the query network commits call".into(),
@@ -57,7 +58,8 @@ fn query_net_commits(
                 ret_commits.extend_from_slice(commits.as_slice());
             }
         }
-        NipartEvent::new(
+        NipartEvent::new_with_uuid(
+            task.uuid,
             NipartUserEvent::QueryCommitsReply(Box::new(ret_commits)),
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
@@ -65,7 +67,6 @@ fn query_net_commits(
             task.timeout,
         )
     };
-    event.uuid = task.uuid;
     Ok(vec![event])
 }
 
@@ -74,15 +75,14 @@ impl Task {
         &self,
         opt: NetworkCommitQueryOption,
     ) -> Vec<NipartEvent> {
-        let mut event = NipartEvent::new(
+        vec![NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::QueryCommits(opt),
             NipartEventAddress::Commander,
             NipartEventAddress::Track,
             self.timeout,
-        );
-        event.uuid = self.uuid;
-        vec![event]
+        )]
     }
 
     pub(crate) fn gen_request_commit(
@@ -99,14 +99,13 @@ impl Task {
             NetworkState::default()
         };
 
-        let mut event = NipartEvent::new(
+        vec![NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::Commit(Box::new(state)),
             NipartEventAddress::Commander,
             NipartEventAddress::Track,
             self.timeout,
-        );
-        event.uuid = self.uuid;
-        vec![event]
+        )]
     }
 }

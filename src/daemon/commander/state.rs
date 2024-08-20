@@ -2,8 +2,9 @@
 
 use nipart::{
     ErrorKind, MergedNetworkState, NetworkState, NipartApplyOption,
-    NipartError, NipartEvent, NipartEventAddress, NipartPluginEvent,
-    NipartQueryOption, NipartRole, NipartUserEvent,
+    NipartError, NipartEvent, NipartEventAddress, NipartLockEntry,
+    NipartLockOption, NipartPluginEvent, NipartQueryOption, NipartRole,
+    NipartUserEvent,
 };
 
 use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
@@ -56,6 +57,7 @@ impl WorkFlow {
                 plugin_count,
                 timeout,
             ),
+            Task::new(uuid, TaskKind::Lock, 1, timeout),
             Task::new(
                 uuid,
                 TaskKind::ApplyNetState(opt),
@@ -81,6 +83,7 @@ impl WorkFlow {
 
         let call_backs: Vec<Option<TaskCallBackFn>> = vec![
             Some(pre_apply_query_related_state),
+            None,
             Some(apply_net_state),
             Some(post_apply_query_related_state),
             Some(post_commit_net_state),
@@ -97,8 +100,9 @@ fn query_net_state(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
 ) -> Result<Vec<NipartEvent>, NipartError> {
-    let mut event = if task.replies.is_empty() {
-        NipartEvent::new(
+    let event = if task.replies.is_empty() {
+        NipartEvent::new_with_uuid(
+            task.uuid,
             NipartUserEvent::Error(NipartError::new(
                 ErrorKind::Timeout,
                 "Not plugin replied the query network state call".into(),
@@ -110,7 +114,8 @@ fn query_net_state(
         )
     } else {
         let state = get_state_from_replies(task.replies.as_slice());
-        NipartEvent::new(
+        NipartEvent::new_with_uuid(
+            task.uuid,
             NipartUserEvent::QueryNetStateReply(Box::new(state)),
             NipartPluginEvent::None,
             NipartEventAddress::Daemon,
@@ -118,7 +123,6 @@ fn query_net_state(
             task.timeout,
         )
     };
-    event.uuid = task.uuid;
     Ok(vec![event])
 }
 
@@ -184,15 +188,14 @@ fn post_commit_net_state(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
 ) -> Result<Vec<NipartEvent>, NipartError> {
-    let mut reply = NipartEvent::new(
+    Ok(vec![NipartEvent::new_with_uuid(
+        task.uuid,
         NipartUserEvent::ApplyNetStateReply,
         NipartPluginEvent::None,
         NipartEventAddress::Daemon,
         NipartEventAddress::User,
         task.timeout,
-    );
-    reply.uuid = task.uuid;
-    Ok(vec![reply])
+    )])
 }
 
 impl Task {
@@ -200,25 +203,24 @@ impl Task {
         &self,
         opt: NipartQueryOption,
     ) -> Vec<NipartEvent> {
-        let mut ret = Vec::new();
-        ret.push(NipartEvent::new(
-            NipartUserEvent::None,
-            NipartPluginEvent::QueryNetState(opt),
-            NipartEventAddress::Commander,
-            NipartEventAddress::Group(NipartRole::QueryAndApply),
-            self.timeout,
-        ));
-        ret.push(NipartEvent::new(
-            NipartUserEvent::None,
-            NipartPluginEvent::QueryDhcpConfig(Box::default()),
-            NipartEventAddress::Commander,
-            NipartEventAddress::Dhcp,
-            self.timeout,
-        ));
-        for request in &mut ret {
-            request.uuid = self.uuid;
-        }
-        ret
+        vec![
+            NipartEvent::new_with_uuid(
+                self.uuid,
+                NipartUserEvent::None,
+                NipartPluginEvent::QueryNetState(opt),
+                NipartEventAddress::Commander,
+                NipartEventAddress::Group(NipartRole::QueryAndApply),
+                self.timeout,
+            ),
+            NipartEvent::new_with_uuid(
+                self.uuid,
+                NipartUserEvent::None,
+                NipartPluginEvent::QueryDhcpConfig(Box::default()),
+                NipartEventAddress::Commander,
+                NipartEventAddress::Dhcp,
+                self.timeout,
+            ),
+        ]
     }
 
     pub(crate) fn gen_request_query_related(
@@ -237,7 +239,8 @@ impl Task {
             }
         };
 
-        ret.push(NipartEvent::new(
+        ret.push(NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::QueryRelatedNetState(Box::new(desired_state)),
             NipartEventAddress::Commander,
@@ -245,16 +248,14 @@ impl Task {
             self.timeout,
         ));
         // TODO: Only query DHCP config for related  interfaces
-        ret.push(NipartEvent::new(
+        ret.push(NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::QueryDhcpConfig(Box::default()),
             NipartEventAddress::Commander,
             NipartEventAddress::Dhcp,
             self.timeout,
         ));
-        for request in &mut ret {
-            request.uuid = self.uuid;
-        }
         ret
     }
 
@@ -275,24 +276,82 @@ impl Task {
             }
         };
         let dhcp_changes = merged_state.get_dhcp_changes();
-        ret.push(NipartEvent::new(
+        ret.push(NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::ApplyNetState(Box::new(merged_state), opt),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::QueryAndApply),
             self.timeout,
         ));
-        ret.push(NipartEvent::new(
+        ret.push(NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::ApplyDhcpConfig(Box::new(dhcp_changes)),
             NipartEventAddress::Commander,
             NipartEventAddress::Dhcp,
             self.timeout,
         ));
-        for request in &mut ret {
-            request.uuid = self.uuid;
-        }
         ret
+    }
+
+    pub(crate) fn gen_request_lock(
+        &self,
+        share_data: &WorkFlowShareData,
+    ) -> Vec<NipartEvent> {
+        let merged_state = match share_data.merged_state.as_ref() {
+            Some(s) => s.clone(),
+            None => {
+                log::error!(
+                    "BUG: gen_request_lock() got None for \
+                    merge_state in share data {share_data:?}"
+                );
+                MergedNetworkState::default()
+            }
+        };
+        let mut locks = Vec::new();
+        for iface in merged_state
+            .interfaces
+            .iter()
+            .filter_map(|i| i.for_apply.as_ref())
+        {
+            locks.push((
+                NipartLockEntry::new_iface(
+                    iface.name().to_string(),
+                    iface.iface_type(),
+                ),
+                NipartLockOption::new(self.timeout),
+            ));
+        }
+
+        if merged_state.dns.is_changed() {
+            locks.push((
+                NipartLockEntry::Dns,
+                NipartLockOption::new(self.timeout),
+            ));
+        }
+
+        if merged_state.routes.is_changed() {
+            locks.push((
+                NipartLockEntry::Route,
+                NipartLockOption::new(self.timeout),
+            ));
+        }
+
+        if merged_state.rules.is_changed() {
+            locks.push((
+                NipartLockEntry::RouteRule,
+                NipartLockOption::new(self.timeout),
+            ));
+        }
+        vec![NipartEvent::new_with_uuid(
+            self.uuid,
+            NipartUserEvent::None,
+            NipartPluginEvent::Lock(Box::new(locks)),
+            NipartEventAddress::Commander,
+            NipartEventAddress::Locker,
+            self.timeout,
+        )]
     }
 }
 

@@ -67,7 +67,7 @@ pub(crate) async fn nispor_retrieve(
                     np_iface,
                     port_np_ifaces,
                 );
-                Interface::LinuxBridge(br_iface)
+                Interface::LinuxBridge(Box::new(br_iface))
             }
             InterfaceType::Bond => {
                 let mut bond_iface = np_bond_to_nipart(np_iface, base_iface);
@@ -78,38 +78,38 @@ pub(crate) async fn nispor_retrieve(
                     }
                 }
                 append_bond_port_config(&mut bond_iface, port_np_ifaces);
-                Interface::Bond(bond_iface)
+                Interface::Bond(Box::new(bond_iface))
             }
-            InterfaceType::Ethernet => {
-                Interface::Ethernet(np_ethernet_to_nipart(np_iface, base_iface))
-            }
-            InterfaceType::Veth => {
-                Interface::Ethernet(np_veth_to_nipart(np_iface, base_iface))
-            }
-            InterfaceType::Vlan => {
-                Interface::Vlan(np_vlan_to_nipart(np_iface, base_iface))
-            }
-            InterfaceType::Vxlan => {
-                Interface::Vxlan(np_vxlan_to_nipart(np_iface, base_iface))
-            }
+            InterfaceType::Ethernet => Interface::Ethernet(Box::new(
+                np_ethernet_to_nipart(np_iface, base_iface),
+            )),
+            InterfaceType::Veth => Interface::Ethernet(Box::new(
+                np_veth_to_nipart(np_iface, base_iface),
+            )),
+            InterfaceType::Vlan => Interface::Vlan(Box::new(
+                np_vlan_to_nipart(np_iface, base_iface),
+            )),
+            InterfaceType::Vxlan => Interface::Vxlan(Box::new(
+                np_vxlan_to_nipart(np_iface, base_iface),
+            )),
             InterfaceType::Dummy => Interface::Dummy({
                 let mut iface = DummyInterface::new();
                 iface.base = base_iface;
-                iface
+                Box::new(iface)
             }),
             InterfaceType::OvsInterface => Interface::OvsInterface({
                 let mut iface = OvsInterface::new();
                 iface.base = base_iface;
-                iface
+                Box::new(iface)
             }),
-            InterfaceType::MacVlan => {
-                Interface::MacVlan(np_mac_vlan_to_nipart(np_iface, base_iface))
-            }
-            InterfaceType::MacVtap => {
-                Interface::MacVtap(np_mac_vtap_to_nipart(np_iface, base_iface))
-            }
+            InterfaceType::MacVlan => Interface::MacVlan(Box::new(
+                np_mac_vlan_to_nipart(np_iface, base_iface),
+            )),
+            InterfaceType::MacVtap => Interface::MacVtap(Box::new(
+                np_mac_vtap_to_nipart(np_iface, base_iface),
+            )),
             InterfaceType::Vrf => {
-                Interface::Vrf(np_vrf_to_nipart(np_iface, base_iface))
+                Interface::Vrf(Box::new(np_vrf_to_nipart(np_iface, base_iface)))
             }
             InterfaceType::InfiniBand => {
                 // We don't support HFI interface which contains PKEY but no
@@ -121,23 +121,25 @@ pub(crate) async fn nispor_retrieve(
                     );
                     continue;
                 }
-                Interface::InfiniBand(np_ib_to_nipart(np_iface, base_iface))
+                Interface::InfiniBand(Box::new(np_ib_to_nipart(
+                    np_iface, base_iface,
+                )))
             }
             InterfaceType::Loopback => Interface::Loopback({
                 let mut iface = LoopbackInterface::default();
                 iface.base = base_iface;
-                iface
+                Box::new(iface)
             }),
-            InterfaceType::MacSec => {
-                Interface::MacSec(np_macsec_to_nipart(np_iface, base_iface))
-            }
+            InterfaceType::MacSec => Interface::MacSec(Box::new(
+                np_macsec_to_nipart(np_iface, base_iface),
+            )),
             InterfaceType::Xfrm => {
                 let mut iface = XfrmInterface::new();
                 iface.base = base_iface;
-                Interface::Xfrm(iface)
+                Interface::Xfrm(Box::new(iface))
             }
             _ => {
-                log::info!(
+                log::debug!(
                     "Got unsupported interface {} type {:?}",
                     np_iface.name,
                     np_iface.iface_type
@@ -145,7 +147,7 @@ pub(crate) async fn nispor_retrieve(
                 Interface::Unknown({
                     let mut iface = UnknownInterface::new();
                     iface.base = base_iface;
-                    iface
+                    Box::new(iface)
                 })
             }
         };

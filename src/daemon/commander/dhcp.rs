@@ -38,14 +38,13 @@ impl Task {
         &self,
         lease: NipartDhcpLease,
     ) -> NipartEvent {
-        let mut request = NipartEvent::new(
+        NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::ApplyDhcpLease(Box::new(lease)),
             NipartEventAddress::Commander,
             NipartEventAddress::Group(NipartRole::ApplyDhcpLease),
             self.timeout,
-        );
-        request.uuid = self.uuid;
-        request
+        )
     }
 }

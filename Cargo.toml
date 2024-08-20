@@ -5,10 +5,11 @@ members = [
     "src/daemon",
     "src/lib",
     "src/plugin_baize",
+    "src/plugin_demo",
     "src/plugin_mozim",
     "src/plugin_nispor",
     "src/plugin_sima",
-    "src/plugin_demo",
+    "src/plugin_smith",
 ]
 
 [workspace.package]

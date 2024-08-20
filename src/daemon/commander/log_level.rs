@@ -70,42 +70,39 @@ fn query_log_level(
         }
     }
     log_levels.insert("daemon".to_string(), log::max_level().into());
-    let mut reply_event = NipartEvent::new(
+    Ok(vec![NipartEvent::new_with_uuid(
+        task.uuid,
         NipartUserEvent::QueryLogLevelReply(log_levels),
         NipartPluginEvent::None,
         NipartEventAddress::Daemon,
         NipartEventAddress::User,
         task.timeout,
-    );
-    reply_event.uuid = task.uuid;
-    Ok(vec![reply_event])
+    )])
 }
 
 impl Task {
     pub(crate) fn gen_request_query_log_level(&self) -> NipartEvent {
-        let mut request = NipartEvent::new(
+        NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::QueryLogLevel,
             NipartEventAddress::Commander,
             NipartEventAddress::AllPlugins,
             self.timeout,
-        );
-        request.uuid = self.uuid;
-        request
+        )
     }
 
     pub(crate) fn gen_request_change_log_level(
         &self,
         level: NipartLogLevel,
     ) -> NipartEvent {
-        let mut request = NipartEvent::new(
+        NipartEvent::new_with_uuid(
+            self.uuid,
             NipartUserEvent::None,
             NipartPluginEvent::ChangeLogLevel(level),
             NipartEventAddress::Commander,
             NipartEventAddress::AllPlugins,
             self.timeout,
-        );
-        request.uuid = self.uuid;
-        request
+        )
     }
 }

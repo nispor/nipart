@@ -288,7 +288,7 @@ impl MergedDnsState {
         })
     }
 
-    pub(crate) fn is_changed(&self) -> bool {
+    pub fn is_changed(&self) -> bool {
         let cur_servers = self
             .current
             .config

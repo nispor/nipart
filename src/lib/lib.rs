@@ -5,6 +5,7 @@ mod dhcp;
 mod error;
 mod event;
 mod ipc;
+mod lock;
 mod logging;
 mod monitor;
 mod plugin;
@@ -24,6 +25,7 @@ pub use self::dhcp::{
 pub use self::error::{ErrorKind, NipartError};
 pub use self::event::{NipartEvent, NipartEventAddress, NipartUserEvent};
 pub use self::ipc::{NipartConnection, DEFAULT_TIMEOUT};
+pub use self::lock::{NipartLockEntry, NipartLockOption};
 pub use self::logging::NipartLogLevel;
 pub use self::monitor::{
     NipartAddressMonitorKind, NipartAddressMonitorRule, NipartLinkMonitorKind,
