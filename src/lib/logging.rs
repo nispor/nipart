@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ErrorKind, NipartError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize,
+)]
 #[repr(usize)]
 #[serde(rename_all = "lowercase")]
 pub enum NipartLogLevel {
@@ -19,12 +21,12 @@ pub enum NipartLogLevel {
 impl NipartLogLevel {
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::Off => "off",
-            Self::Error => "error",
-            Self::Warn => "warn",
-            Self::Info => "info",
-            Self::Debug => "debug",
-            Self::Trace => "trace",
+            Self::Off => "OFF",
+            Self::Error => "ERROR",
+            Self::Warn => "WARN",
+            Self::Info => "INFO",
+            Self::Debug => "DEBUG",
+            Self::Trace => "TRACE",
         }
     }
 }
@@ -101,6 +103,40 @@ impl std::str::FromStr for NipartLogLevel {
                 ErrorKind::InvalidArgument,
                 format!("Invalid logging level {s}"),
             )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub struct NipartLogEntry {
+    pub level: NipartLogLevel,
+    pub message: String,
+}
+
+impl NipartLogEntry {
+    pub fn new(level: NipartLogLevel, message: String) -> Self {
+        Self { level, message }
+    }
+
+    pub fn emit_log(&self, source: &str) {
+        match self.level {
+            NipartLogLevel::Off => (),
+            NipartLogLevel::Error => {
+                log::error!(target: source, "{}", self.message)
+            }
+            NipartLogLevel::Warn => {
+                log::warn!(target: source, "{}", self.message)
+            }
+            NipartLogLevel::Info => {
+                log::info!(target: source, "{}", self.message)
+            }
+            NipartLogLevel::Debug => {
+                log::debug!(target: source, "{}", self.message)
+            }
+            NipartLogLevel::Trace => {
+                log::trace!(target: source, "{}", self.message)
+            }
         }
     }
 }

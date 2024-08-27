@@ -38,6 +38,7 @@ pub enum NipartRole {
     Monitor,
     Track,
     Locker,
+    Logger,
 }
 
 impl std::fmt::Display for NipartRole {
@@ -54,6 +55,7 @@ impl std::fmt::Display for NipartRole {
                 Self::Track => "track",
                 Self::ApplyDhcpLease => "apply_dhcp_lease",
                 Self::Locker => "locker",
+                Self::Logger => "logger",
             }
         )
     }

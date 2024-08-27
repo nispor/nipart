@@ -2,8 +2,8 @@
 
 use gix::ThreadSafeRepository;
 use nipart::{
-    NipartError, NipartEvent, NipartEventAddress, NipartNativePlugin,
-    NipartPluginEvent, NipartRole, NipartUserEvent,
+    NipartError, NipartEvent, NipartEventAddress, NipartLogLevel,
+    NipartNativePlugin, NipartPluginEvent, NipartRole, NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -11,6 +11,7 @@ use crate::repo::load_config_repo;
 
 #[derive(Debug)]
 pub struct NipartPluginSima {
+    log_level: NipartLogLevel,
     to_daemon: Sender<NipartEvent>,
     from_daemon: Receiver<NipartEvent>,
     pub(crate) config_repo: ThreadSafeRepository,
@@ -19,11 +20,21 @@ pub struct NipartPluginSima {
 impl NipartNativePlugin for NipartPluginSima {
     const PLUGIN_NAME: &'static str = "sima";
 
+    fn get_log_level(&self) -> NipartLogLevel {
+        self.log_level
+    }
+
+    fn set_log_level(&mut self, level: NipartLogLevel) {
+        self.log_level = level;
+    }
+
     async fn init(
+        log_level: NipartLogLevel,
         to_daemon: Sender<NipartEvent>,
         from_daemon: Receiver<NipartEvent>,
     ) -> Result<Self, NipartError> {
         Ok(Self {
+            log_level,
             to_daemon: to_daemon.clone(),
             from_daemon,
             config_repo: load_config_repo()?,

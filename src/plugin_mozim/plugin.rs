@@ -4,9 +4,9 @@ use std::collections::HashMap;
 
 use nipart::{
     NipartDhcpConfig, NipartError, NipartEvent, NipartEventAddress,
-    NipartLinkMonitorKind, NipartLinkMonitorRule, NipartMonitorEvent,
-    NipartMonitorRule, NipartNativePlugin, NipartPluginEvent, NipartRole,
-    NipartUserEvent,
+    NipartLinkMonitorKind, NipartLinkMonitorRule, NipartLogLevel,
+    NipartMonitorEvent, NipartMonitorRule, NipartNativePlugin,
+    NipartPluginEvent, NipartRole, NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -16,6 +16,7 @@ use crate::worker::MozimWorkerV4;
 
 #[derive(Debug)]
 pub struct NipartPluginMozim {
+    log_level: NipartLogLevel,
     to_daemon: Sender<NipartEvent>,
     from_daemon: Receiver<NipartEvent>,
     v4_workers: HashMap<String, MozimWorkerV4>,
@@ -24,11 +25,21 @@ pub struct NipartPluginMozim {
 impl NipartNativePlugin for NipartPluginMozim {
     const PLUGIN_NAME: &'static str = "mozim";
 
+    fn get_log_level(&self) -> NipartLogLevel {
+        self.log_level
+    }
+
+    fn set_log_level(&mut self, level: NipartLogLevel) {
+        self.log_level = level;
+    }
+
     async fn init(
+        log_level: NipartLogLevel,
         to_daemon: Sender<NipartEvent>,
         from_daemon: Receiver<NipartEvent>,
     ) -> Result<Self, NipartError> {
         Ok(Self {
+            log_level,
             to_daemon,
             from_daemon,
             v4_workers: HashMap::new(),

@@ -4,7 +4,7 @@ use std::future::Future;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Sender;
 
 use crate::{
     NipartConnection, NipartConnectionListener, NipartError, NipartEvent,
@@ -116,7 +116,7 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
         uuid: u128,
         src: &NipartEventAddress,
     ) -> NipartEvent {
-        _handle_query_plugin_info(
+        crate::plugin_common::handle_query_plugin_info(
             uuid,
             src,
             Self::plugin_info(),
@@ -128,11 +128,15 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
         log_level: NipartLogLevel,
         uuid: u128,
     ) -> NipartEvent {
-        _handle_change_log_level(log_level, uuid, Self::PLUGIN_NAME)
+        crate::plugin_common::handle_change_log_level(
+            log_level,
+            uuid,
+            Self::PLUGIN_NAME,
+        )
     }
 
     fn handle_query_log_level(uuid: u128) -> NipartEvent {
-        _handle_query_log_level(uuid, Self::PLUGIN_NAME)
+        crate::plugin_common::handle_query_log_level(uuid, Self::PLUGIN_NAME)
     }
 
     fn handle_plugin_event(
@@ -312,117 +316,6 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
                                 return;
                             }
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
-    const PLUGIN_NAME: &'static str;
-
-    fn sender_to_daemon(&self) -> &Sender<NipartEvent>;
-
-    fn recver_from_daemon(&mut self) -> &mut Receiver<NipartEvent>;
-
-    fn roles() -> Vec<NipartRole>;
-
-    fn plugin_info() -> NipartPluginInfo {
-        NipartPluginInfo {
-            name: Self::PLUGIN_NAME.to_string(),
-            roles: Self::roles(),
-        }
-    }
-
-    fn init(
-        to_daemon: Sender<NipartEvent>,
-        from_daemon: Receiver<NipartEvent>,
-    ) -> impl Future<Output = Result<Self, NipartError>> + Send;
-
-    fn handle_query_plugin_info(
-        uuid: u128,
-        src: &NipartEventAddress,
-    ) -> NipartEvent {
-        _handle_query_plugin_info(
-            uuid,
-            src,
-            Self::plugin_info(),
-            Self::PLUGIN_NAME,
-        )
-    }
-
-    fn handle_change_log_level(
-        log_level: NipartLogLevel,
-        uuid: u128,
-    ) -> NipartEvent {
-        _handle_change_log_level(log_level, uuid, Self::PLUGIN_NAME)
-    }
-
-    fn handle_query_log_level(uuid: u128) -> NipartEvent {
-        _handle_query_log_level(uuid, Self::PLUGIN_NAME)
-    }
-
-    fn handle_plugin_event(
-        &mut self,
-        event: NipartEvent,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        async {
-            log::debug!("Plugin {} got event {event}", Self::PLUGIN_NAME);
-            log::trace!("Plugin {} got event {event:?}", Self::PLUGIN_NAME);
-            let to_daemon = self.sender_to_daemon();
-
-            match event.plugin {
-                NipartPluginEvent::QueryPluginInfo => {
-                    let event =
-                        Self::handle_query_plugin_info(event.uuid, &event.src);
-                    log::debug!("Sending {event}");
-                    log::trace!("Sending {event:?}");
-                    if let Err(e) = to_daemon.send(event).await {
-                        log::error!("{e}");
-                    }
-                }
-                NipartPluginEvent::ChangeLogLevel(l) => {
-                    let event = Self::handle_change_log_level(l, event.uuid);
-                    log::debug!("Sending {event}");
-                    log::trace!("Sending {event:?}");
-                    if let Err(e) = to_daemon.send(event).await {
-                        log::error!("{e}");
-                    }
-                }
-                NipartPluginEvent::QueryLogLevel => {
-                    let event = Self::handle_query_log_level(event.uuid);
-                    log::debug!("Sending {event}");
-                    log::trace!("Sending {event:?}");
-                    if let Err(e) = to_daemon.send(event).await {
-                        log::error!("{e}");
-                    }
-                }
-                _ => {
-                    if let Err(e) = self.handle_event(event).await {
-                        log::error!("{e}");
-                    }
-                }
-            }
-        }
-    }
-
-    fn handle_event(
-        &mut self,
-        event: NipartEvent,
-    ) -> impl Future<Output = Result<(), NipartError>> + Send;
-
-    fn run(&mut self) -> impl std::future::Future<Output = ()> + Send {
-        async move {
-            loop {
-                match self.recver_from_daemon().recv().await {
-                    Some(event) if event.plugin == NipartPluginEvent::Quit => {
-                        break;
-                    }
-                    Some(event) => self.handle_plugin_event(event).await,
-                    None => {
-                        log::debug!("MPSC channel remote end closed");
-                        break;
                     }
                 }
             }

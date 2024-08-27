@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use nipart::{
     ErrorKind, NipartConnection, NipartConnectionListener, NipartError,
-    NipartEvent, NipartEventAddress, NipartPluginEvent,
+    NipartEvent, NipartEventAddress, NipartPluginEvent, NipartUserEvent,
 };
 
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -65,17 +65,7 @@ async fn api_thread(
                 if event.dst == NipartEventAddress::Daemon {
                     handle_daemon_event(event);
                 } else {
-                    let tx = if let Ok(mut queue) = tracking_queue.lock() {
-                        queue.remove(&event.uuid)
-                    } else {None};
-                    if let Some(tx) = tx {
-                        if let Err(e) = tx.send(event.clone()).await {
-                            log::warn!("Failed to reply event to user {e}") ;
-                        }
-                    } else {
-                        log::warn!(
-                            "Discarding event for disconnected user {event:?}");
-                    }
+                    send_reply_to_client(tracking_queue.clone(), event).await;
                 }
             }
         }
@@ -93,6 +83,28 @@ async fn handle_client(
         tokio::select! {
             Ok(mut event) = np_conn.recv::<NipartEvent>() => {
                 log::trace!("handle_client(): from user {event:?}");
+                if event.plugin != NipartPluginEvent::None {
+                    log::debug!(
+                        "handle_client(): discard invalid API request {event}");
+                    let reply = NipartEvent::new_with_uuid(
+                        event.uuid,
+                        NipartUserEvent::Error(
+                            NipartError::new(
+                                ErrorKind::InvalidArgument,
+                                format!("API request is not allowed to set \
+                                        plugin event, but got: {event}"))
+                            ),
+                        NipartPluginEvent::None,
+                        NipartEventAddress::Daemon,
+                        NipartEventAddress::User,
+                        event.timeout,
+                    );
+                    if let Err(e) = np_conn.send(&reply).await {
+                        log::error!("{e}");
+                    }
+                    continue;
+                }
+
                 // Redirect user request to Commander
                 event.dst = NipartEventAddress::Commander;
                 if let Ok(mut queue) =  tracking_queue.lock() {
@@ -157,5 +169,35 @@ fn handle_daemon_event(event: NipartEvent) {
         std::process::exit(0);
     } else {
         log::warn!("API thread go unexpected daemon event {event}");
+    }
+}
+
+async fn send_reply_to_client(
+    tracking_queue: Arc<Mutex<BTreeMap<u128, Sender<NipartEvent>>>>,
+    event: NipartEvent,
+) {
+    let tx = match tracking_queue.lock() {
+        Ok(mut queue) => {
+            // We cannot use `get_mut()` here because MutexGuard is not `Send`.
+            // hence cannot be used for await.
+            queue.remove(&event.uuid)
+        }
+        Err(e) => {
+            log::error!("BUG: api_thread() Failed to lock tracking_queue: {e}");
+            None
+        }
+    };
+
+    if let Some(tx) = tx {
+        if let Err(e) = tx.send(event.clone()).await {
+            log::warn!("Failed to reply event to user {e}");
+        }
+        if event.is_log() {
+            if let Ok(mut queue) = tracking_queue.lock() {
+                queue.insert(event.uuid, tx);
+            }
+        }
+    } else {
+        log::debug!("Discarding event for disconnected user {event:?}");
     }
 }

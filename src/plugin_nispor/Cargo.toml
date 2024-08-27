@@ -10,7 +10,6 @@ rust-version.workspace = true
 
 [dependencies]
 serde = { workspace = true }
-env_logger = { workspace = true }
 log = { workspace = true }
 tokio = { workspace = true }
 nispor = { workspace = true }
