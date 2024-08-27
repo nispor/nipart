@@ -20,11 +20,14 @@ facing network management including:
 ### Daemon
 
 ```sh
-cargo build; cargo run --bin nipartd
+cargo build;
+env CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER='sudo -E' \
+    cargo run --bin nipartd
 ```
 
 ### CLI
 
 ```sh
-cargo run --bin nipc
+env CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER='sudo -E' \
+    cargo run --bin nipc
 ```
