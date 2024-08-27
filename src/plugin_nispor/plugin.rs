@@ -2,8 +2,8 @@
 
 use nipart::{
     MergedNetworkState, NipartApplyOption, NipartDhcpLease, NipartError,
-    NipartEvent, NipartEventAddress, NipartNativePlugin, NipartPluginEvent,
-    NipartRole, NipartUserEvent, DEFAULT_TIMEOUT,
+    NipartEvent, NipartEventAddress, NipartLogLevel, NipartNativePlugin,
+    NipartPluginEvent, NipartRole, NipartUserEvent, DEFAULT_TIMEOUT,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -15,6 +15,7 @@ const STATE_PRIORITY: u32 = 50;
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct NipartPluginNispor {
+    log_level: NipartLogLevel,
     to_daemon: Sender<NipartEvent>,
     from_daemon: Receiver<NipartEvent>,
 }
@@ -34,11 +35,21 @@ impl NipartNativePlugin for NipartPluginNispor {
         &self.to_daemon
     }
 
+    fn get_log_level(&self) -> NipartLogLevel {
+        self.log_level
+    }
+
+    fn set_log_level(&mut self, level: NipartLogLevel) {
+        self.log_level = level;
+    }
+
     async fn init(
+        log_level: NipartLogLevel,
         to_daemon: Sender<NipartEvent>,
         from_daemon: Receiver<NipartEvent>,
     ) -> Result<Self, NipartError> {
         Ok(Self {
+            log_level,
             to_daemon,
             from_daemon,
         })

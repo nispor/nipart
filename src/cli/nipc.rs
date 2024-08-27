@@ -107,7 +107,7 @@ async fn main() -> Result<(), CliError> {
         .get_matches();
 
     let mut log_builder = env_logger::Builder::new();
-    log_builder.filter(Some("nipart"), log::LevelFilter::Info);
+    log_builder.filter(Some("nipart"), log::LevelFilter::Debug);
     log_builder.filter(None, log::LevelFilter::Debug);
     log_builder.init();
 

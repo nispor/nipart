@@ -287,9 +287,12 @@ impl NipartConnection {
         Ok(())
     }
 
-    /// Since daemon is working asynchronously, recv() might receive
-    /// message we are not interested, this function will only store
-    /// irrelevant reply to internal buffer.
+    /// Since daemon is working asynchronously and client might send multiple
+    /// requests via single connection, recv() might receive message we are not
+    /// interested, this function will only store irrelevant reply to internal
+    /// buffer.
+    /// When multiple requests invoked on single connection, the log will
+    /// be mixed.
     ///
     /// # Returns
     ///  * Function will return when a matching event received.
@@ -313,6 +316,10 @@ impl NipartConnection {
                 .await
                 {
                     Ok(Ok(event)) => {
+                        if event.is_log() {
+                            event.emit_log();
+                            continue;
+                        }
                         let elapsed = now.elapsed();
                         if elapsed >= remain_time {
                             remain_time = Duration::ZERO;

@@ -20,6 +20,7 @@ use crate::{DEFAULT_TIMEOUT, MPSC_CHANNLE_SIZE};
 const PLUGIN_PREFIX: &str = "nipart_plugin_";
 const QUERY_PLUGIN_RETRY: usize = 5;
 const QUERY_PLUGIN_RETRY_INTERAL: u64 = 500; // milliseconds
+const PLUGIN_DEFAULT_LOG_LEVEL: NipartLogLevel = NipartLogLevel::Debug;
 
 pub(crate) type PluginConnections = HashMap<String, PluginConnection>;
 
@@ -98,10 +99,9 @@ pub(crate) struct Plugins {
 impl Plugins {
     pub(crate) fn insert(
         &mut self,
-        name: &str,
-        roles: Vec<NipartRole>,
-        connection: PluginConnection,
+        plugin: (&str, Vec<NipartRole>, PluginConnection),
     ) {
+        let (name, roles, connection) = plugin;
         self.roles.insert(name, roles);
         self.connections.insert(name.to_string(), connection);
     }
@@ -137,7 +137,7 @@ impl Plugins {
                         .await
                     {
                         Ok((conn, roles)) => {
-                            self.insert(&plugin_name, roles, conn);
+                            self.insert((&plugin_name, roles, conn));
                         }
                         Err(e) => {
                             log::warn!(
@@ -159,31 +159,11 @@ impl Plugins {
     }
 
     async fn load_native_plugins(&mut self) -> Result<(), NipartError> {
-        self.insert(
-            "nispor",
-            NipartPluginNispor::roles(),
-            start_nispor_plugin().await?,
-        );
-        self.insert(
-            "mozim",
-            NipartPluginMozim::roles(),
-            start_mozim_plugin().await?,
-        );
-        self.insert(
-            "baize",
-            NipartPluginBaize::roles(),
-            start_baize_plugin().await?,
-        );
-        self.insert(
-            "sima",
-            NipartPluginSima::roles(),
-            start_sima_plugin().await?,
-        );
-        self.insert(
-            "smith",
-            NipartPluginSmith::roles(),
-            start_smith_plugin().await?,
-        );
+        self.insert(start_plugin::<NipartPluginNispor>().await?);
+        self.insert(start_plugin::<NipartPluginMozim>().await?);
+        self.insert(start_plugin::<NipartPluginBaize>().await?);
+        self.insert(start_plugin::<NipartPluginSima>().await?);
+        self.insert(start_plugin::<NipartPluginSmith>().await?);
         Ok(())
     }
 
@@ -384,88 +364,28 @@ async fn get_external_plugin_info(
     }
 }
 
-async fn start_nispor_plugin() -> Result<PluginConnection, NipartError> {
-    let (nispor_to_switch_tx, nispor_to_switch_rx) =
+async fn start_plugin<T>(
+) -> Result<(&'static str, Vec<NipartRole>, PluginConnection), NipartError>
+where
+    T: NipartNativePlugin,
+{
+    let (plugin_to_switch_tx, plugin_to_switch_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (switch_to_nispor_tx, switch_to_nispor_rx) =
+    let (switch_to_plugin_tx, switch_to_plugin_rx) =
         tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
 
-    let mut plugin =
-        NipartPluginNispor::init(nispor_to_switch_tx, switch_to_nispor_rx)
-            .await?;
+    let mut plugin = T::init(
+        PLUGIN_DEFAULT_LOG_LEVEL,
+        plugin_to_switch_tx,
+        switch_to_plugin_rx,
+    )
+    .await?;
 
     tokio::spawn(async move { plugin.run().await });
-    log::info!("Native plugin nispor started");
-    Ok(PluginConnection::Mpsc((
-        switch_to_nispor_tx,
-        nispor_to_switch_rx,
-    )))
-}
-
-async fn start_mozim_plugin() -> Result<PluginConnection, NipartError> {
-    let (mozim_to_switch_tx, mozim_to_switch_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (switch_to_mozim_tx, switch_to_mozim_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-
-    let mut mozim_plugin =
-        NipartPluginMozim::init(mozim_to_switch_tx, switch_to_mozim_rx).await?;
-
-    tokio::spawn(async move { mozim_plugin.run().await });
-    log::info!("Native plugin mozim started");
-    Ok(PluginConnection::Mpsc((
-        switch_to_mozim_tx,
-        mozim_to_switch_rx,
-    )))
-}
-
-async fn start_baize_plugin() -> Result<PluginConnection, NipartError> {
-    let (baize_to_switch_tx, baize_to_switch_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (switch_to_baize_tx, switch_to_baize_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-
-    let mut baize_plugin =
-        NipartPluginBaize::init(baize_to_switch_tx, switch_to_baize_rx).await?;
-
-    tokio::spawn(async move { baize_plugin.run().await });
-    log::info!("Native plugin baize started");
-    Ok(PluginConnection::Mpsc((
-        switch_to_baize_tx,
-        baize_to_switch_rx,
-    )))
-}
-
-async fn start_smith_plugin() -> Result<PluginConnection, NipartError> {
-    let (smith_to_switch_tx, smith_to_switch_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (switch_to_smith_tx, switch_to_smith_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-
-    let mut plugin =
-        NipartPluginSmith::init(smith_to_switch_tx, switch_to_smith_rx).await?;
-
-    tokio::spawn(async move { plugin.run().await });
-    log::info!("Native plugin smith started");
-    Ok(PluginConnection::Mpsc((
-        switch_to_smith_tx,
-        smith_to_switch_rx,
-    )))
-}
-
-async fn start_sima_plugin() -> Result<PluginConnection, NipartError> {
-    let (sima_to_switch_tx, sima_to_switch_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-    let (switch_to_sima_tx, switch_to_sima_rx) =
-        tokio::sync::mpsc::channel(MPSC_CHANNLE_SIZE);
-
-    let mut sima_plugin =
-        NipartPluginSima::init(sima_to_switch_tx, switch_to_sima_rx).await?;
-
-    tokio::spawn(async move { sima_plugin.run().await });
-    log::info!("Native plugin sima started");
-    Ok(PluginConnection::Mpsc((
-        switch_to_sima_tx,
-        sima_to_switch_rx,
-    )))
+    log::info!("Native plugin {} started", T::PLUGIN_NAME);
+    Ok((
+        T::PLUGIN_NAME,
+        T::roles(),
+        PluginConnection::Mpsc((switch_to_plugin_tx, plugin_to_switch_rx)),
+    ))
 }

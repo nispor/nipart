@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     NetworkCommit, NetworkCommitQueryOption, NetworkState, NipartApplyOption,
-    NipartError, NipartLogLevel, NipartPluginEvent, NipartPluginInfo,
-    NipartQueryOption, NipartRole,
+    NipartError, NipartLogEntry, NipartLogLevel, NipartPluginEvent,
+    NipartPluginInfo, NipartQueryOption, NipartRole,
 };
 
 #[derive(
@@ -38,15 +38,15 @@ pub enum NipartEventAddress {
 impl std::fmt::Display for NipartEventAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::User => write!(f, "event_address.user"),
-            Self::Unicast(v) => write!(f, "event_address.{v}"),
-            Self::Daemon => write!(f, "event_address.daemon"),
-            Self::Commander => write!(f, "event_address.commander"),
-            Self::Dhcp => write!(f, "event_address.dhcp"),
-            Self::Track => write!(f, "event_address.track"),
-            Self::Group(v) => write!(f, "event_address.group:{v}"),
-            Self::AllPlugins => write!(f, "event_address.all_plugins"),
-            Self::Locker => write!(f, "event_address.locker"),
+            Self::User => write!(f, "user"),
+            Self::Unicast(v) => write!(f, "{v}"),
+            Self::Daemon => write!(f, "daemon"),
+            Self::Commander => write!(f, "commander"),
+            Self::Dhcp => write!(f, "dhcp"),
+            Self::Track => write!(f, "track"),
+            Self::Group(v) => write!(f, "group/{v}"),
+            Self::AllPlugins => write!(f, "all_plugins"),
+            Self::Locker => write!(f, "locker"),
         }
     }
 }
@@ -137,6 +137,17 @@ impl NipartEvent {
             Ok(self)
         }
     }
+
+    pub fn is_log(&self) -> bool {
+        matches!(self.user, NipartUserEvent::Log(_))
+    }
+
+    pub fn emit_log(&self) {
+        if let NipartUserEvent::Log(log_entry) = &self.user {
+            let log_source = format!("nipart.{}", self.src);
+            log_entry.emit_log(log_source.as_str())
+        }
+    }
 }
 
 impl From<NipartError> for NipartEvent {
@@ -174,6 +185,9 @@ pub enum NipartUserEvent {
 
     QueryCommits(NetworkCommitQueryOption),
     QueryCommitsReply(Box<Vec<NetworkCommit>>),
+
+    /// Plugin or daemon logs to user
+    Log(NipartLogEntry),
 }
 
 impl std::fmt::Display for NipartUserEvent {
@@ -199,6 +213,7 @@ impl std::fmt::Display for NipartUserEvent {
                 Self::ApplyNetStateReply => "user_event.apply_netstate_reply",
                 Self::QueryCommits(_) => "user_event.query_commits",
                 Self::QueryCommitsReply(_) => "user_event.query_commits_reply",
+                Self::Log(_) => "user_event.log",
             }
         )
     }

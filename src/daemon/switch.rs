@@ -44,7 +44,7 @@ async fn run_event_switch(
             plugin_futures.push(plugin_conn.recv());
         }
 
-        let event = tokio::select! {
+        let mut event = tokio::select! {
             Some(Ok(event)) = plugin_futures.next() => {
                 log::trace!("run_event_switch(): from plugin {event:?}");
                 log::debug!("run_event_switch(): from plugin {event}");
@@ -69,6 +69,12 @@ async fn run_event_switch(
             }
         };
         drop(plugin_futures);
+
+        // For log event, we redirect to user
+        if event.is_log() {
+            event.emit_log();
+            event.dst = NipartEventAddress::User;
+        }
 
         if event.postpone_millis > 0 {
             let t = event.postpone_millis;

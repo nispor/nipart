@@ -5,8 +5,8 @@ use std::time::{Duration, SystemTime};
 
 use nipart::{
     ErrorKind, NipartError, NipartEvent, NipartEventAddress, NipartLockEntry,
-    NipartLockOption, NipartNativePlugin, NipartPluginEvent, NipartRole,
-    NipartUserEvent,
+    NipartLockOption, NipartLogLevel, NipartNativePlugin, NipartPluginEvent,
+    NipartRole, NipartUserEvent,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -36,6 +36,7 @@ impl SmithLockOwner {
 
 #[derive(Debug)]
 pub struct NipartPluginSmith {
+    log_level: NipartLogLevel,
     to_daemon: Sender<NipartEvent>,
     from_daemon: Receiver<NipartEvent>,
     vault: HashMap<NipartLockEntry, SmithLockOwner>,
@@ -44,11 +45,21 @@ pub struct NipartPluginSmith {
 impl NipartNativePlugin for NipartPluginSmith {
     const PLUGIN_NAME: &'static str = "smith";
 
+    fn get_log_level(&self) -> NipartLogLevel {
+        self.log_level
+    }
+
+    fn set_log_level(&mut self, level: NipartLogLevel) {
+        self.log_level = level;
+    }
+
     async fn init(
+        log_level: NipartLogLevel,
         to_daemon: Sender<NipartEvent>,
         from_daemon: Receiver<NipartEvent>,
     ) -> Result<Self, NipartError> {
         Ok(Self {
+            log_level,
             to_daemon: to_daemon.clone(),
             from_daemon,
             vault: HashMap::new(),
