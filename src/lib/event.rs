@@ -70,8 +70,8 @@ impl std::fmt::Display for NipartEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "event.uuid:{} event.user:{} event.plugin:{} \
-            event.src:{} event.dst:{} event.timeout:{}ms{}",
+            "uuid:{} user:{} plugin:{} \
+            src:{} dst:{} timeout:{}ms{}",
             self.uuid,
             self.user,
             self.plugin,
@@ -196,24 +196,21 @@ impl std::fmt::Display for NipartUserEvent {
             f,
             "{}",
             match self {
-                Self::None => "user_event.none",
-                Self::Quit => "user_event.quit",
-                Self::Error(_) => "user_event.error",
-                Self::QueryPluginInfo => "user_event.query_plugin_info",
-                Self::QueryPluginInfoReply(_) =>
-                    "user_event.query_plugin_info_reply",
-                Self::ChangeLogLevel(_) => "user_event.change_log_level",
-                Self::QueryLogLevel => "user_event.query_log_level",
-                Self::QueryLogLevelReply(_) =>
-                    "user_event.query_log_level_reply",
-                Self::QueryNetState(_) => "user_event.query_netstate",
-                Self::QueryNetStateReply(_) =>
-                    "user_event.query_netstate_reply",
-                Self::ApplyNetState(_, _) => "user_event.apply_netstate",
-                Self::ApplyNetStateReply => "user_event.apply_netstate_reply",
-                Self::QueryCommits(_) => "user_event.query_commits",
-                Self::QueryCommitsReply(_) => "user_event.query_commits_reply",
-                Self::Log(_) => "user_event.log",
+                Self::None => "none",
+                Self::Quit => "quit",
+                Self::Error(_) => "error",
+                Self::QueryPluginInfo => "query_plugin_info",
+                Self::QueryPluginInfoReply(_) => "query_plugin_info_reply",
+                Self::ChangeLogLevel(_) => "change_log_level",
+                Self::QueryLogLevel => "query_log_level",
+                Self::QueryLogLevelReply(_) => "query_log_level_reply",
+                Self::QueryNetState(_) => "query_netstate",
+                Self::QueryNetStateReply(_) => "query_netstate_reply",
+                Self::ApplyNetState(_, _) => "apply_netstate",
+                Self::ApplyNetStateReply => "apply_netstate_reply",
+                Self::QueryCommits(_) => "query_commits",
+                Self::QueryCommitsReply(_) => "query_commits_reply",
+                Self::Log(_) => "log",
             }
         )
     }

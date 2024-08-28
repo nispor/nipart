@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use nipart::{NipartError, NipartEvent, NipartPluginEvent, NipartUserEvent};
+use nipart::{
+    NipartError, NipartEvent, NipartEventAddress, NipartLogEntry,
+    NipartLogLevel, NipartPluginEvent, NipartUserEvent,
+};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use super::{WorkFlow, WorkFlowQueue};
@@ -47,8 +50,14 @@ async fn commander_thread(
                     &mut workflow_queue, &mut commander_to_switch).await
             }
             Some(event) = switch_to_commander.recv() => {
-                log::debug!("switch_to_commander {event}");
-                log::trace!("switch_to_commander {event:?}");
+                log_to_user(event.uuid,
+                    NipartLogLevel::Debug,
+                    format!("Received event {event}"),
+                    &commander_to_switch).await;
+                log_to_user(event.uuid,
+                    NipartLogLevel::Trace,
+                    format!("Received event {event:?}"),
+                    &commander_to_switch).await;
                 process_event(
                     event,
                     &mut workflow_queue,
@@ -66,8 +75,20 @@ async fn process_workflow_queue(
     commander_to_switch: &mut Sender<NipartEvent>,
 ) -> Result<(), NipartError> {
     for event in workflow_queue.process()? {
-        log::debug!("Sent to switch {event}");
-        log::trace!("Sent to switch {event:?}");
+        log_to_user(
+            event.uuid,
+            NipartLogLevel::Debug,
+            format!("Send event {event}"),
+            commander_to_switch,
+        )
+        .await;
+        log_to_user(
+            event.uuid,
+            NipartLogLevel::Trace,
+            format!("Sent event {event:?}"),
+            commander_to_switch,
+        )
+        .await;
         if let Err(e) = commander_to_switch.send(event).await {
             log::error!("{e}");
         }
@@ -113,7 +134,14 @@ async fn process_plugin_event(
     } else {
         match event.plugin {
             NipartPluginEvent::GotDhcpLease(lease) => {
-                log::debug!("Got DHCP {lease:?}");
+                log_to_user(
+                    event.uuid,
+                    NipartLogLevel::Debug,
+                    format!("Got DHCP {lease:?}"),
+                    commander_to_switch,
+                )
+                .await;
+
                 let (workflow, share_data) = WorkFlow::new_apply_dhcp_lease(
                     event.uuid,
                     *lease,
@@ -184,4 +212,17 @@ async fn process_user_event(
     };
     workflow_queue.add_workflow(workflow, share_data);
     process_workflow_queue(workflow_queue, commander_to_switch).await
+}
+
+async fn log_to_user(
+    uuid: u128,
+    level: NipartLogLevel,
+    message: String,
+    sender: &Sender<NipartEvent>,
+) {
+    let event = NipartLogEntry::new(level, message)
+        .to_event(uuid, NipartEventAddress::Commander);
+    if let Err(e) = sender.send(event).await {
+        log::warn!("Failed to send log {e}");
+    }
 }

@@ -2,7 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ErrorKind, NipartError};
+use crate::{
+    ErrorKind, NipartError, NipartEvent, NipartEventAddress, NipartPluginEvent,
+    NipartUserEvent,
+};
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize,
@@ -138,5 +141,16 @@ impl NipartLogEntry {
                 log::trace!(target: source, "{}", self.message)
             }
         }
+    }
+
+    pub fn to_event(self, uuid: u128, src: NipartEventAddress) -> NipartEvent {
+        NipartEvent::new_with_uuid(
+            uuid,
+            NipartUserEvent::Log(self),
+            NipartPluginEvent::None,
+            src,
+            NipartEventAddress::User,
+            crate::DEFAULT_TIMEOUT,
+        )
     }
 }

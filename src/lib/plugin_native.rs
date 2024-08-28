@@ -35,23 +35,12 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
                 return;
             }
 
-            if uuid > 0 {
-                let event = NipartEvent::new_with_uuid(
-                    uuid,
-                    NipartUserEvent::Log(NipartLogEntry::new(level, msg)),
-                    NipartPluginEvent::None,
-                    NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
-                    NipartEventAddress::User,
-                    crate::DEFAULT_TIMEOUT,
-                );
-                event.emit_log();
-                if let Err(e) = self.sender_to_daemon().send(event).await {
-                    log::error!(
-                        "{level} plugin::{} {uuid}: \
-                        Failed to send log to daemon, {e}",
-                        Self::PLUGIN_NAME,
-                    );
-                }
+            let event = NipartLogEntry::new(level, msg).to_event(
+                uuid,
+                NipartEventAddress::Unicast(Self::PLUGIN_NAME.to_string()),
+            );
+            if let Err(e) = self.sender_to_daemon().send(event).await {
+                log::warn!("Failed to send log: {e}");
             }
         }
     }
