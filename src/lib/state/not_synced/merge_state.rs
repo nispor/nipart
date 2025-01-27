@@ -6,15 +6,13 @@ use crate::{
 };
 
 impl NetworkState {
-    pub fn merge_states(mut states: Vec<(NetworkState, u32)>) -> Self {
-        states.sort_unstable_by_key(|s| s.1);
+    /// Merged NetworkState using specified order(the first applied state
+    /// should be placed at the beginning of the Vec<NetworkState>
+    pub fn merge_states(states: Vec<NetworkState>) -> Self {
         let mut ret = Self::default();
         for state in states {
-            log::trace!(
-                "Merging {state:?} into {ret:?} with priority {}",
-                state.1
-            );
-            ret.update_state(&state.0)
+            log::trace!("Merging {state:?} into {ret:?}",);
+            ret.update_state(&state)
         }
         ret
     }
@@ -24,7 +22,7 @@ impl NetworkState {
 // query_apply/net_state.rs which is removed by copy_nmstate_code.py
 
 impl NetworkState {
-    pub(crate) fn update_state(&mut self, other: &Self) {
+    pub fn update_state(&mut self, other: &Self) {
         if let Some(other_hostname) = other.hostname.as_ref() {
             if let Some(h) = self.hostname.as_mut() {
                 h.update(other_hostname);
@@ -42,6 +40,41 @@ impl NetworkState {
         if !other.ovn.is_none() {
             self.ovn = other.ovn.clone();
         }
+    }
+
+    /// Generate new NetworkState contains only changed properties
+    pub fn gen_diff(&self, current: &Self) -> Result<Self, NipartError> {
+        let mut ret = Self::default();
+        let merged_state = MergedNetworkState::new(
+            self.clone(),
+            current.clone(),
+            false,
+            false,
+        )?;
+
+        ret.interfaces = merged_state.interfaces.gen_diff()?;
+        if merged_state.dns.is_changed() {
+            ret.dns.clone_from(&self.dns);
+        }
+
+        if merged_state.hostname.is_changed() {
+            ret.hostname.clone_from(&self.hostname);
+        }
+
+        ret.routes = merged_state.routes.gen_diff();
+        ret.rules = merged_state.rules.gen_diff();
+        if self.description != current.description {
+            ret.description.clone_from(&self.description);
+        }
+
+        if merged_state.ovsdb.is_changed() {
+            ret.ovsdb.clone_from(&self.ovsdb);
+        }
+
+        if merged_state.ovn.is_changed() {
+            ret.ovn = self.ovn.clone();
+        }
+        Ok(ret)
     }
 }
 

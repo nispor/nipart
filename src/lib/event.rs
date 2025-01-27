@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     NetworkCommit, NetworkCommitQueryOption, NetworkState, NipartApplyOption,
     NipartError, NipartLogEntry, NipartLogLevel, NipartPluginEvent,
-    NipartPluginInfo, NipartQueryOption, NipartRole,
+    NipartPluginInfo, NipartQueryOption, NipartRole, NipartUuid,
 };
 
 #[derive(
@@ -25,8 +25,6 @@ pub enum NipartEventAddress {
     Commander,
     /// The chosen dhcp plugin
     Dhcp,
-    /// The chosen track plugin
-    Track,
     /// Group of plugins holding specified [NipartRole]
     Group(NipartRole),
     /// All plugins
@@ -43,8 +41,7 @@ impl std::fmt::Display for NipartEventAddress {
             Self::Daemon => write!(f, "daemon"),
             Self::Commander => write!(f, "commander"),
             Self::Dhcp => write!(f, "dhcp"),
-            Self::Track => write!(f, "track"),
-            Self::Group(v) => write!(f, "group/{v}"),
+            Self::Group(v) => write!(f, "group({v})"),
             Self::AllPlugins => write!(f, "all_plugins"),
             Self::Locker => write!(f, "locker"),
         }
@@ -54,7 +51,7 @@ impl std::fmt::Display for NipartEventAddress {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct NipartEvent {
-    pub uuid: u128,
+    pub uuid: NipartUuid,
     pub user: NipartUserEvent,
     pub plugin: NipartPluginEvent,
     pub src: NipartEventAddress,
@@ -70,14 +67,15 @@ impl std::fmt::Display for NipartEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "uuid:{} user:{} plugin:{} \
-            src:{} dst:{} timeout:{}ms{}",
+            "{} {}->{}: {}{}",
             self.uuid,
-            self.user,
-            self.plugin,
             self.src,
             self.dst,
-            self.timeout,
+            if self.plugin != NipartPluginEvent::None {
+                format!("{}", self.plugin)
+            } else {
+                format!("{}", self.user)
+            },
             if self.postpone_millis > 0 {
                 format!(" postpone {}ms", self.postpone_millis)
             } else {
@@ -97,7 +95,7 @@ impl NipartEvent {
         timeout: u32,
     ) -> Self {
         Self {
-            uuid: uuid::Uuid::now_v7().as_u128(),
+            uuid: NipartUuid::new(),
             user,
             plugin,
             src,
@@ -108,7 +106,7 @@ impl NipartEvent {
     }
 
     pub fn new_with_uuid(
-        uuid: u128,
+        uuid: NipartUuid,
         user: NipartUserEvent,
         plugin: NipartPluginEvent,
         src: NipartEventAddress,
@@ -177,14 +175,25 @@ pub enum NipartUserEvent {
     QueryLogLevel,
     QueryLogLevelReply(HashMap<String, NipartLogLevel>),
 
+    /// Query network state.
     QueryNetState(NipartQueryOption),
+    /// Reply with network state.
     QueryNetStateReply(Box<NetworkState>),
-
+    /// Applied the specified net state and create a commit with it.
     ApplyNetState(Box<NetworkState>, NipartApplyOption),
-    ApplyNetStateReply,
+    /// Reply with stored network commit.
+    ApplyNetStateReply(Box<Option<NetworkCommit>>),
 
+    /// Query network commits.
     QueryCommits(NetworkCommitQueryOption),
+    /// Reply with network commits.
+    /// The latest commit is placed at the end of the Vec.
     QueryCommitsReply(Box<Vec<NetworkCommit>>),
+    /// Remove specified commits and revert the network state stored in these
+    /// commits.
+    RemoveCommits(Box<Vec<NipartUuid>>),
+    /// Reply with new applied and saved network state after commits removal.
+    RemoveCommitsReply(Box<NetworkState>),
 
     /// Plugin or daemon logs to user
     Log(NipartLogEntry),
@@ -207,9 +216,11 @@ impl std::fmt::Display for NipartUserEvent {
                 Self::QueryNetState(_) => "query_netstate",
                 Self::QueryNetStateReply(_) => "query_netstate_reply",
                 Self::ApplyNetState(_, _) => "apply_netstate",
-                Self::ApplyNetStateReply => "apply_netstate_reply",
+                Self::ApplyNetStateReply(_) => "apply_netstate_reply",
                 Self::QueryCommits(_) => "query_commits",
                 Self::QueryCommitsReply(_) => "query_commits_reply",
+                Self::RemoveCommits(_) => "remove_commits",
+                Self::RemoveCommitsReply(_) => "remove_commits_reply",
                 Self::Log(_) => "log",
             }
         )

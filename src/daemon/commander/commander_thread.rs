@@ -2,15 +2,16 @@
 
 use nipart::{
     NipartError, NipartEvent, NipartEventAddress, NipartLogEntry,
-    NipartLogLevel, NipartPluginEvent, NipartUserEvent,
+    NipartLogLevel, NipartPluginEvent, NipartRole, NipartUserEvent, NipartUuid,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use super::{WorkFlow, WorkFlowQueue};
 use crate::PluginRoles;
 
-// Check the session queue every 5 seconds
-const WORKFLOW_QUEUE_CHECK_INTERVAL: u64 = 5000;
+// Check the session queue every 1 second to check whether any workflow expired
+// or not
+const WORKFLOW_QUEUE_CHECK_INTERVAL: u64 = 1000;
 
 pub(crate) async fn start_commander_thread(
     commander_to_switch: Sender<NipartEvent>,
@@ -26,6 +27,7 @@ pub(crate) async fn start_commander_thread(
         .await;
     });
     log::debug!("Commander started");
+
     Ok(())
 }
 
@@ -36,12 +38,15 @@ async fn commander_thread(
 ) {
     let mut workflow_queue = WorkFlowQueue::new();
 
+    // The first tick just completes instantly, so this workflow will be
+    // processed before other events
+    let (workflow, share_data) =
+        WorkFlow::new_daemon_post_start(&plugin_roles, nipart::DEFAULT_TIMEOUT);
+    workflow_queue.add_workflow(workflow, share_data);
+
     let mut workflow_queue_check_interval = tokio::time::interval(
         std::time::Duration::from_millis(WORKFLOW_QUEUE_CHECK_INTERVAL),
     );
-
-    // The first tick just completes instantly
-    workflow_queue_check_interval.tick().await;
 
     loop {
         if let Err(e) = tokio::select! {
@@ -52,11 +57,11 @@ async fn commander_thread(
             Some(event) = switch_to_commander.recv() => {
                 log_to_user(event.uuid,
                     NipartLogLevel::Debug,
-                    format!("Received event {event}"),
+                    format!("Recv event {event}"),
                     &commander_to_switch).await;
                 log_to_user(event.uuid,
                     NipartLogLevel::Trace,
-                    format!("Received event {event:?}"),
+                    format!("Recv event {event:?}"),
                     &commander_to_switch).await;
                 process_event(
                     event,
@@ -192,7 +197,7 @@ async fn process_user_event(
             event.uuid,
             plugin_roles,
             event.timeout,
-        ),
+        )?,
         NipartUserEvent::ApplyNetState(des, opt) => {
             WorkFlow::new_apply_net_state(
                 *des,
@@ -203,8 +208,21 @@ async fn process_user_event(
             )
         }
         NipartUserEvent::QueryCommits(opt) => {
-            WorkFlow::new_query_commits(opt, event.uuid, event.timeout)
+            let plugin_count =
+                plugin_roles.get_plugin_count(NipartRole::Commit);
+            WorkFlow::new_query_commits(
+                opt,
+                plugin_count,
+                event.uuid,
+                event.timeout,
+            )
         }
+        NipartUserEvent::RemoveCommits(uuids) => WorkFlow::new_remove_commits(
+            *uuids,
+            plugin_roles,
+            event.uuid,
+            event.timeout,
+        ),
         _ => {
             log::error!("Unknown user event {event:?}");
             return Ok(());
@@ -215,7 +233,7 @@ async fn process_user_event(
 }
 
 async fn log_to_user(
-    uuid: u128,
+    uuid: NipartUuid,
     level: NipartLogLevel,
     message: String,
     sender: &Sender<NipartEvent>,

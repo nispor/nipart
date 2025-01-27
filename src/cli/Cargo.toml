@@ -16,6 +16,7 @@ serde_yaml = { workspace = true }
 tokio = { workspace = true }
 nipart = { path = "../lib", version = "0.1" }
 clap = { workspace = true }
+chrono = { workspace = true }
 
 [[bin]]
 name = "nipc"

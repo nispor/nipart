@@ -1,22 +1,33 @@
 // SPDX-License-Identifier: Apache-2.0
 
+mod apply;
+mod commit;
 mod error;
+mod gen;
+mod show;
 mod state;
 
 use std::str::FromStr;
 
-use nipart::{
-    NetworkCommitQueryOption, NipartApplyOption, NipartConnection, NipartEvent,
-    NipartLogLevel, NipartQueryOption,
-};
+use nipart::{NipartConnection, NipartEvent, NipartLogLevel};
 
-use crate::{error::CliError, state::state_from_file};
+use crate::{
+    apply::ApplyCommand, commit::CommitCommand, error::CliError,
+    gen::GenCommand, show::ShowCommand,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), CliError> {
-    let matches = clap::Command::new("nipc")
+    let mut cli_cmd = clap::Command::new("nipc")
         .about("CLI to Nipart daemon")
         .arg_required_else_help(true)
+        .arg(
+            clap::Arg::new("verbose")
+                .short('v')
+                .action(clap::ArgAction::Count)
+                .help("Increase verbose level")
+                .global(true),
+        )
         .subcommand(
             clap::Command::new("plugin")
                 .alias("p")
@@ -26,23 +37,9 @@ async fn main() -> Result<(), CliError> {
                     clap::Command::new("show").alias("s").about("Show plugins"),
                 ),
         )
-        .subcommand(
-            clap::Command::new("show")
-                .alias("s")
-                .about("Query network state"),
-        )
-        .subcommand(
-            clap::Command::new("apply")
-                .alias("set")
-                .alias("a")
-                .about("Apply network config")
-                .arg(
-                    clap::Arg::new("STATE_FILE")
-                        .required(true)
-                        .index(1)
-                        .help("Network state file"),
-                ),
-        )
+        .subcommand(ShowCommand::gen_command())
+        .subcommand(ApplyCommand::gen_command())
+        .subcommand(GenCommand::gen_command())
         .subcommand(
             clap::Command::new("log")
                 .alias("l")
@@ -81,17 +78,7 @@ async fn main() -> Result<(), CliError> {
                         .about("Instruct nipartd daemon to stop"),
                 ),
         )
-        .subcommand(
-            clap::Command::new("track")
-                .alias("t")
-                .arg_required_else_help(true)
-                .about("Nipartd tracking control")
-                .subcommand(
-                    clap::Command::new("show")
-                        .alias("s")
-                        .about("Show all network commits"),
-                ),
-        )
+        .subcommand(CommitCommand::gen_command())
         .subcommand(
             clap::Command::new("debug")
                 .about(
@@ -103,28 +90,44 @@ async fn main() -> Result<(), CliError> {
                         .index(1)
                         .help("YAML file path for event to sent"),
                 ),
-        )
-        .get_matches();
+        );
+
+    let matches = cli_cmd.get_matches_mut();
 
     let mut log_builder = env_logger::Builder::new();
-    log_builder.filter(Some("nipart"), log::LevelFilter::Debug);
-    log_builder.filter(None, log::LevelFilter::Debug);
+    let log_level = match matches.get_count("verbose") {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
+    log_builder.filter(Some("nipart"), log_level);
+    log_builder.filter(None, log_level);
     log_builder.init();
 
     if let Some(m) = matches.subcommand_matches("plugin") {
         handle_plugin(m).await?;
-    } else if matches.subcommand_matches("show").is_some() {
-        handle_show().await?;
+    } else if let Some(matches) = matches.subcommand_matches(ShowCommand::NAME)
+    {
+        ShowCommand::handle(matches).await?;
     } else if let Some(m) = matches.subcommand_matches("log") {
         handle_log(m).await?;
     } else if let Some(matches) = matches.subcommand_matches("debug") {
         handle_debug(matches).await?;
     } else if let Some(matches) = matches.subcommand_matches("daemon") {
         handle_daemon_cmd(matches).await?;
-    } else if let Some(matches) = matches.subcommand_matches("apply") {
-        handle_apply(matches).await?;
-    } else if let Some(matches) = matches.subcommand_matches("track") {
-        handle_track_cmd(matches).await?;
+    } else if let Some(matches) = matches.subcommand_matches(ApplyCommand::NAME)
+    {
+        ApplyCommand::handle(matches).await?;
+    } else if let Some(matches) =
+        matches.subcommand_matches(CommitCommand::NAME)
+    {
+        CommitCommand::handle(matches).await?;
+    } else if let Some(matches) = matches.subcommand_matches(GenCommand::NAME) {
+        GenCommand::handle(matches).await?;
+    } else {
+        eprintln!("Error: Invalid argument\n");
+        cli_cmd.print_help()?;
+        std::process::exit(1);
     }
 
     Ok(())
@@ -139,23 +142,6 @@ async fn handle_plugin(matches: &clap::ArgMatches) -> Result<(), CliError> {
     } else {
         Err(format!("Invalid sub-command for `plugin` {matches:?}").into())
     }
-}
-
-async fn handle_show() -> Result<(), CliError> {
-    let mut conn = NipartConnection::new().await?;
-    let replies = conn.query_net_state(NipartQueryOption::default()).await?;
-    println!("{}", serde_yaml::to_string(&replies)?);
-    Ok(())
-}
-
-async fn handle_apply(matches: &clap::ArgMatches) -> Result<(), CliError> {
-    let mut conn = NipartConnection::new().await?;
-    let file_path = matches.get_one::<String>("STATE_FILE").unwrap();
-    let state = state_from_file(file_path)?;
-    conn.apply_net_state(state.clone(), NipartApplyOption::default())
-        .await?;
-    println!("{}", serde_yaml::to_string(&state)?);
-    Ok(())
 }
 
 async fn handle_debug(matches: &clap::ArgMatches) -> Result<(), CliError> {
@@ -188,17 +174,6 @@ async fn handle_daemon_cmd(matches: &clap::ArgMatches) -> Result<(), CliError> {
     let mut conn = NipartConnection::new().await?;
     if matches.subcommand_matches("stop").is_some() {
         conn.stop_daemon().await?;
-    }
-    Ok(())
-}
-
-async fn handle_track_cmd(matches: &clap::ArgMatches) -> Result<(), CliError> {
-    let mut conn = NipartConnection::new().await?;
-    if matches.subcommand_matches("show").is_some() {
-        let replies = conn
-            .query_commits(NetworkCommitQueryOption::default())
-            .await?;
-        println!("{}", serde_yaml::to_string(&replies)?);
     }
     Ok(())
 }

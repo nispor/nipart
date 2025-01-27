@@ -9,10 +9,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 use crate::{
-    ErrorKind, NetworkCommit, NetworkCommitQueryOption, NetworkState,
-    NipartApplyOption, NipartError, NipartEvent, NipartEventAddress,
-    NipartLogLevel, NipartPluginEvent, NipartPluginInfo, NipartQueryOption,
-    NipartUserEvent,
+    ErrorKind, NetworkCommit, NetworkState, NipartApplyOption, NipartError,
+    NipartEvent, NipartEventAddress, NipartPluginEvent, NipartPluginInfo,
+    NipartQueryOption, NipartUserEvent, NipartUuid,
 };
 
 pub const DEFAULT_TIMEOUT: u32 = 30000;
@@ -23,7 +22,7 @@ pub struct NipartConnection {
     pub timeout: u32,
     pub path: String,
     pub(crate) socket: UnixStream,
-    pub buffer: HashMap<u128, NipartEvent>,
+    pub buffer: HashMap<NipartUuid, NipartEvent>,
 }
 
 impl NipartConnection {
@@ -125,51 +124,6 @@ impl NipartConnection {
         }
     }
 
-    pub async fn query_log_level(
-        &mut self,
-    ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
-        let request = NipartEvent::new(
-            NipartUserEvent::QueryLogLevel,
-            NipartPluginEvent::None,
-            NipartEventAddress::User,
-            NipartEventAddress::Daemon,
-            self.timeout,
-        );
-        self.send(&request).await?;
-        let event = self.recv_reply(request.uuid, self.timeout).await?;
-        if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
-            Ok(i)
-        } else {
-            Err(NipartError::new(
-                ErrorKind::Bug,
-                format!("Invalid reply {event:?} for QueryLogLevel"),
-            ))
-        }
-    }
-
-    pub async fn set_log_level(
-        &mut self,
-        level: NipartLogLevel,
-    ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
-        let request = NipartEvent::new(
-            NipartUserEvent::ChangeLogLevel(level),
-            NipartPluginEvent::None,
-            NipartEventAddress::User,
-            NipartEventAddress::Daemon,
-            self.timeout,
-        );
-        self.send(&request).await?;
-        let event = self.recv_reply(request.uuid, self.timeout).await?;
-        if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
-            Ok(i)
-        } else {
-            Err(NipartError::new(
-                ErrorKind::Bug,
-                format!("Invalid reply {event:?} for ChangeLogLevel"),
-            ))
-        }
-    }
-
     pub async fn query_net_state(
         &mut self,
         option: NipartQueryOption,
@@ -197,7 +151,7 @@ impl NipartConnection {
         &mut self,
         state: NetworkState,
         option: NipartApplyOption,
-    ) -> Result<(), NipartError> {
+    ) -> Result<Option<NetworkCommit>, NipartError> {
         let request = NipartEvent::new(
             NipartUserEvent::ApplyNetState(Box::new(state), option),
             NipartPluginEvent::None,
@@ -207,8 +161,8 @@ impl NipartConnection {
         );
         self.send(&request).await?;
         let event = self.recv_reply(request.uuid, self.timeout).await?;
-        if let NipartUserEvent::ApplyNetStateReply = event.user {
-            Ok(())
+        if let NipartUserEvent::ApplyNetStateReply(commit) = event.user {
+            Ok(*commit)
         } else {
             Err(NipartError::new(
                 ErrorKind::Bug,
@@ -227,29 +181,6 @@ impl NipartConnection {
         );
         self.send(&request).await?;
         Ok(())
-    }
-
-    pub async fn query_commits(
-        &mut self,
-        option: NetworkCommitQueryOption,
-    ) -> Result<Vec<NetworkCommit>, NipartError> {
-        let request = NipartEvent::new(
-            NipartUserEvent::QueryCommits(option),
-            NipartPluginEvent::None,
-            NipartEventAddress::User,
-            NipartEventAddress::Daemon,
-            self.timeout,
-        );
-        self.send(&request).await?;
-        let event = self.recv_reply(request.uuid, self.timeout).await?;
-        if let NipartUserEvent::QueryCommitsReply(s) = event.user {
-            Ok(*s)
-        } else {
-            Err(NipartError::new(
-                ErrorKind::Bug,
-                format!("Invalid reply {event:?} for QueryCommits"),
-            ))
-        }
     }
 
     pub async fn send<T>(&mut self, data: &T) -> Result<(), NipartError>
@@ -300,7 +231,7 @@ impl NipartConnection {
     ///    `ErrorKind::Timeout`.
     pub async fn recv_reply(
         &mut self,
-        uuid: u128,
+        uuid: NipartUuid,
         timeout_ms: u32,
     ) -> Result<NipartEvent, NipartError> {
         if let Some(event) = self.buffer.remove(&uuid) {

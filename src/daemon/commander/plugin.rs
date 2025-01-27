@@ -2,14 +2,14 @@
 
 use nipart::{
     NipartError, NipartEvent, NipartEventAddress, NipartPluginEvent,
-    NipartUserEvent,
+    NipartUserEvent, NipartUuid,
 };
 
-use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
+use super::{Task, TaskKind, WorkFlow, WorkFlowShareData};
 
 impl WorkFlow {
     pub(crate) fn new_query_plugin_info(
-        uuid: u128,
+        uuid: NipartUuid,
         plugin_count: usize,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
@@ -18,31 +18,28 @@ impl WorkFlow {
             TaskKind::QueryPluginInfo,
             plugin_count,
             timeout,
+            Some(query_plugin_info),
         )];
         let share_data = WorkFlowShareData::default();
 
-        let call_backs: Vec<Option<TaskCallBackFn>> =
-            vec![Some(query_plugin_info)];
-
-        (
-            WorkFlow::new("query_plugin_info", uuid, tasks, call_backs),
-            share_data,
-        )
+        (WorkFlow::new("query_plugin_info", uuid, tasks), share_data)
     }
 
     pub(crate) fn new_quit(
-        uuid: u128,
+        uuid: NipartUuid,
         plugin_count: usize,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
-        let tasks =
-            vec![Task::new(uuid, TaskKind::Quit, plugin_count, timeout)];
+        let tasks = vec![Task::new(
+            uuid,
+            TaskKind::Quit,
+            plugin_count,
+            timeout,
+            Some(ask_daemon_to_quit),
+        )];
         let share_data = WorkFlowShareData::default();
 
-        let call_backs: Vec<Option<TaskCallBackFn>> =
-            vec![Some(ask_daemon_to_quit)];
-
-        (WorkFlow::new("quit", uuid, tasks, call_backs), share_data)
+        (WorkFlow::new("quit", uuid, tasks), share_data)
     }
 }
 

@@ -6,19 +6,19 @@ use std::time::{Duration, SystemTime};
 use nipart::{
     ErrorKind, NipartError, NipartEvent, NipartEventAddress, NipartLockEntry,
     NipartLockOption, NipartLogLevel, NipartNativePlugin, NipartPluginEvent,
-    NipartRole, NipartUserEvent,
+    NipartRole, NipartUserEvent, NipartUuid,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SmithLockOwner {
-    pub(crate) uuid: u128,
+    pub(crate) uuid: NipartUuid,
     pub(crate) timeout: SystemTime,
 }
 
 impl SmithLockOwner {
     pub(crate) fn new(
-        uuid: u128,
+        uuid: NipartUuid,
         timeout_seconds: u32,
     ) -> Result<Self, NipartError> {
         if let Some(timeout) = SystemTime::now()
@@ -99,6 +99,15 @@ impl NipartNativePlugin for NipartPluginSmith {
             NipartPluginEvent::Unlock(lock_entries) => {
                 log::trace!("Unlocking {lock_entries:?}");
                 self.unlock(lock_entries.as_slice(), event.uuid);
+                let mut reply = NipartEvent::new(
+                    NipartUserEvent::None,
+                    NipartPluginEvent::UnlockReply,
+                    NipartEventAddress::Locker,
+                    NipartEventAddress::Commander,
+                    event.timeout,
+                );
+                reply.uuid = event.uuid;
+                self.sender_to_daemon().send(reply).await?;
             }
             _ => log::warn!("Plugin smith got unknown event {event}"),
         }
@@ -110,7 +119,7 @@ impl NipartPluginSmith {
     fn lock(
         &mut self,
         lock_entries: Vec<(NipartLockEntry, NipartLockOption)>,
-        uuid: u128,
+        uuid: NipartUuid,
     ) -> Result<(), NipartError> {
         for (lock_entry, lock_opt) in lock_entries {
             let lock_owner =
@@ -142,13 +151,14 @@ impl NipartPluginSmith {
         Ok(())
     }
 
-    fn unlock(&mut self, lock_entries: &[NipartLockEntry], uuid: u128) {
+    fn unlock(&mut self, lock_entries: &[NipartLockEntry], uuid: NipartUuid) {
         for lock_entry in lock_entries {
             if let Some(cur_owner) = self.vault.get(lock_entry) {
                 if cur_owner.uuid == uuid {
                     log::debug!(
                         "Unlocking {lock_entry} owned by session {uuid}"
                     );
+                    self.vault.remove(lock_entry);
                 } else {
                     // Some entry might be owned by other session after
                     // timeout, which is legal action, hence this is not a

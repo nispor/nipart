@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use nipart::{
     ErrorKind, NipartConnection, NipartConnectionListener, NipartError,
     NipartEvent, NipartEventAddress, NipartPluginEvent, NipartUserEvent,
+    NipartUuid,
 };
 
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -39,7 +40,7 @@ async fn api_thread(
         }
     };
 
-    let tracking_queue: Arc<Mutex<BTreeMap<u128, Sender<NipartEvent>>>> =
+    let tracking_queue: Arc<Mutex<BTreeMap<NipartUuid, Sender<NipartEvent>>>> =
         Arc::new(Mutex::new(BTreeMap::new()));
 
     loop {
@@ -73,7 +74,7 @@ async fn api_thread(
 }
 
 async fn handle_client(
-    tracking_queue: Arc<Mutex<BTreeMap<u128, Sender<NipartEvent>>>>,
+    tracking_queue: Arc<Mutex<BTreeMap<NipartUuid, Sender<NipartEvent>>>>,
     use_to_switch: Sender<NipartEvent>,
     mut np_conn: NipartConnection,
 ) {
@@ -139,9 +140,9 @@ async fn handle_client(
 }
 
 fn clean_up_tracking_queue(
-    tracking_queue: Arc<Mutex<BTreeMap<u128, Sender<NipartEvent>>>>,
+    tracking_queue: Arc<Mutex<BTreeMap<NipartUuid, Sender<NipartEvent>>>>,
 ) {
-    let mut pending_changes: Vec<u128> = Vec::new();
+    let mut pending_changes: Vec<NipartUuid> = Vec::new();
     match tracking_queue.lock() {
         Ok(queue) => {
             for (uuid, tx) in queue.iter() {
@@ -173,7 +174,7 @@ fn handle_daemon_event(event: NipartEvent) {
 }
 
 async fn send_reply_to_client(
-    tracking_queue: Arc<Mutex<BTreeMap<u128, Sender<NipartEvent>>>>,
+    tracking_queue: Arc<Mutex<BTreeMap<NipartUuid, Sender<NipartEvent>>>>,
     event: NipartEvent,
 ) {
     let tx = match tracking_queue.lock() {

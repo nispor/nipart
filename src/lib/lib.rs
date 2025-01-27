@@ -8,6 +8,7 @@ mod ipc;
 mod lock;
 mod logging;
 mod monitor;
+mod nipart_uuid;
 mod plugin;
 pub(crate) mod plugin_common;
 mod plugin_external;
@@ -33,11 +34,16 @@ pub use self::monitor::{
     NipartAddressMonitorKind, NipartAddressMonitorRule, NipartLinkMonitorKind,
     NipartLinkMonitorRule, NipartMonitorEvent, NipartMonitorRule,
 };
-pub use self::plugin::{NipartPluginEvent, NipartPluginInfo, NipartRole};
+pub use self::nipart_uuid::NipartUuid;
+pub use self::plugin::{
+    NipartPluginEvent, NipartPluginInfo, NipartPostStartData, NipartRole,
+};
 pub use self::plugin_external::{NipartExternalPlugin, NipartPluginRunner};
 pub use self::plugin_ipc::NipartConnectionListener;
 pub use self::plugin_native::NipartNativePlugin;
-pub use self::state_options::{NipartApplyOption, NipartQueryOption};
+pub use self::state_options::{
+    NipartApplyOption, NipartQueryOption, NipartStateKind,
+};
 
 // TODO Please remove this * once we detached from nmstate code base
 pub use self::state::*;

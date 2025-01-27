@@ -3,7 +3,8 @@
 use nipart::{
     MergedNetworkState, NipartApplyOption, NipartDhcpLease, NipartError,
     NipartEvent, NipartEventAddress, NipartLogLevel, NipartNativePlugin,
-    NipartPluginEvent, NipartRole, NipartUserEvent, DEFAULT_TIMEOUT,
+    NipartPluginEvent, NipartRole, NipartUserEvent, NipartUuid,
+    DEFAULT_TIMEOUT,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -131,7 +132,7 @@ async fn handle_apply(
     merged_state: MergedNetworkState,
     opt: NipartApplyOption,
     to_daemon: Sender<NipartEvent>,
-    uuid: u128,
+    uuid: NipartUuid,
 ) {
     let mut reply = match nispor_apply(merged_state, opt).await {
         Ok(()) => NipartEvent::new(
@@ -163,7 +164,7 @@ async fn handle_apply(
 async fn handle_apply_dhcp_lease(
     lease: NipartDhcpLease,
     to_daemon: Sender<NipartEvent>,
-    uuid: u128,
+    uuid: NipartUuid,
 ) {
     let mut reply = match nispor_apply_dhcp_lease(lease).await {
         Ok(()) => NipartEvent::new(

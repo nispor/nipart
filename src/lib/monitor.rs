@@ -4,7 +4,7 @@ use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::NipartEventAddress;
+use crate::{NipartEventAddress, NipartUuid};
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -85,7 +85,7 @@ pub struct NipartLinkMonitorRule {
     /// Who requested this monitor rule
     pub requester: NipartEventAddress,
     /// Event ID for tracing the source of this request
-    pub uuid: u128,
+    pub uuid: NipartUuid,
     /// Interface to monitor
     pub iface: String,
 }
@@ -104,7 +104,7 @@ impl NipartLinkMonitorRule {
     pub fn new(
         kind: NipartLinkMonitorKind,
         requester: NipartEventAddress,
-        uuid: u128,
+        uuid: NipartUuid,
         iface: String,
     ) -> Self {
         Self {
@@ -127,7 +127,7 @@ pub struct NipartAddressMonitorRule {
     /// Who requested this monitor rule
     pub requester: NipartEventAddress,
     /// Event ID for tracing the source of this request
-    pub uuid: u128,
+    pub uuid: NipartUuid,
     /// Interface to monitor
     pub ip: IpAddr,
     // TODO: this is for DHCPv6 notification for link local address change,

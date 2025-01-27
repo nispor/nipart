@@ -6,7 +6,7 @@ use nipart::{
     NipartDhcpConfig, NipartError, NipartEvent, NipartEventAddress,
     NipartLinkMonitorKind, NipartLinkMonitorRule, NipartLogLevel,
     NipartMonitorEvent, NipartMonitorRule, NipartNativePlugin,
-    NipartPluginEvent, NipartRole, NipartUserEvent,
+    NipartPluginEvent, NipartRole, NipartUserEvent, NipartUuid,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -112,7 +112,7 @@ impl NipartPluginMozim {
     async fn apply_dhcp_conf(
         &mut self,
         dhcp_conf: &NipartDhcpConfig,
-        event_uuid: u128,
+        event_uuid: NipartUuid,
     ) -> Result<(), NipartError> {
         match dhcp_conf {
             NipartDhcpConfig::V4(conf) => {
@@ -146,7 +146,7 @@ impl NipartPluginMozim {
     async fn register_link_up_event(
         &self,
         iface: &str,
-        event_uuid: u128,
+        event_uuid: NipartUuid,
     ) -> Result<(), NipartError> {
         let mut reply = NipartEvent::new(
             NipartUserEvent::None,

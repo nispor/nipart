@@ -1,98 +1,149 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, MergedNetworkState, NetworkState, NipartApplyOption,
-    NipartError, NipartEvent, NipartEventAddress, NipartLockEntry,
-    NipartLockOption, NipartPluginEvent, NipartQueryOption, NipartRole,
-    NipartUserEvent,
+    ErrorKind, MergedNetworkState, NetworkCommit, NetworkState,
+    NipartApplyOption, NipartError, NipartEvent, NipartEventAddress,
+    NipartLockEntry, NipartLockOption, NipartPluginEvent, NipartQueryOption,
+    NipartRole, NipartStateKind, NipartUserEvent, NipartUuid,
 };
 
-use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
+use super::{Task, TaskKind, WorkFlow, WorkFlowShareData};
 use crate::PluginRoles;
 
 const VERIFY_RETRY_COUNT: u32 = 5;
 const VERIFY_RETRY_INTERVAL: u32 = 1000;
 
+/// Generate tasks for apply netstate, tasks not will send reply to user upon
+/// finish.
+pub(crate) fn gen_apply_net_state_tasks(
+    opt: &NipartApplyOption,
+    uuid: NipartUuid,
+    plugins: &PluginRoles,
+    timeout: u32,
+) -> Vec<Task> {
+    let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply)
+        + plugins.get_plugin_count(NipartRole::Dhcp);
+
+    let mut tasks = vec![
+        Task::new(
+            uuid,
+            TaskKind::QueryRelatedNetState,
+            plugin_count,
+            timeout,
+            Some(pre_apply_query_related_state),
+        ),
+        Task::new(uuid, TaskKind::Lock, 1, timeout, None),
+        Task::new(
+            uuid,
+            TaskKind::ApplyNetState(opt.clone()),
+            plugin_count,
+            timeout,
+            Some(apply_net_state),
+        ),
+        Task::new(uuid, TaskKind::Unlock, 1, timeout, None),
+    ];
+    // Query post apply full network state instead of related network
+    // state, so we can store this full network state as
+    // commit after verification.
+    let task = if opt.no_verify {
+        Task::new(
+            uuid,
+            TaskKind::QueryNetState(Default::default()),
+            plugin_count,
+            timeout,
+            Some(store_post_apply_state),
+        )
+    } else {
+        new_verify_task(uuid, plugin_count, timeout)
+    };
+
+    tasks.push(task);
+
+    if !opt.memory_only {
+        tasks.push(Task::new(
+            uuid,
+            TaskKind::CreateCommit,
+            plugins.get_plugin_count(NipartRole::Commit),
+            timeout,
+            Some(log_reply_error),
+        ));
+    }
+
+    tasks
+}
+
 impl WorkFlow {
     pub(crate) fn new_query_net_state(
         opt: NipartQueryOption,
-        uuid: u128,
+        uuid: NipartUuid,
         plugins: &PluginRoles,
         timeout: u32,
-    ) -> (Self, WorkFlowShareData) {
+    ) -> Result<(Self, WorkFlowShareData), NipartError> {
         // Also include DHCP plugin
         let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply)
             + plugins.get_plugin_count(NipartRole::Dhcp);
-        let tasks = vec![Task::new(
-            uuid,
-            TaskKind::QueryNetState(opt),
-            plugin_count,
-            timeout,
-        )];
-        let share_data = WorkFlowShareData::default();
 
-        let call_backs: Vec<Option<TaskCallBackFn>> =
-            vec![Some(query_net_state)];
+        match opt.kind {
+            NipartStateKind::RunningNetworkState => {
+                let tasks = vec![Task::new(
+                    uuid,
+                    TaskKind::QueryNetState(opt),
+                    plugin_count,
+                    timeout,
+                    Some(query_net_state),
+                )];
+                let share_data = WorkFlowShareData::default();
 
-        (
-            WorkFlow::new("query_net_state", uuid, tasks, call_backs),
-            share_data,
-        )
+                Ok((WorkFlow::new("query_net_state", uuid, tasks), share_data))
+            }
+            NipartStateKind::SavedNetworkState => {
+                Ok(WorkFlow::new_query_net_state_in_commits(
+                    plugins.get_plugin_count(NipartRole::Commit),
+                    uuid,
+                    timeout,
+                ))
+            }
+            NipartStateKind::PostLastCommitNetworkState => {
+                Ok(WorkFlow::new_query_post_commit_net_state(
+                    plugins.get_plugin_count(NipartRole::Commit),
+                    uuid,
+                    timeout,
+                ))
+            }
+            _ => Err(NipartError::new(
+                ErrorKind::Bug,
+                format!(
+                    "BUG: Commander new_query_net_state got \
+                        unexpected NipartStateKind {}",
+                    opt.kind
+                ),
+            )),
+        }
     }
 
     pub(crate) fn new_apply_net_state(
         des_state: NetworkState,
         opt: NipartApplyOption,
-        uuid: u128,
+        uuid: NipartUuid,
         plugins: &PluginRoles,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
-        let plugin_count = plugins.get_plugin_count(NipartRole::QueryAndApply)
-            + plugins.get_plugin_count(NipartRole::Dhcp);
+        let mut tasks = gen_apply_net_state_tasks(&opt, uuid, plugins, timeout);
 
-        let mut tasks = vec![
-            Task::new(
-                uuid,
-                TaskKind::QueryRelatedNetState,
-                plugin_count,
-                timeout,
-            ),
-            Task::new(uuid, TaskKind::Lock, 1, timeout),
-            Task::new(
-                uuid,
-                TaskKind::ApplyNetState(opt),
-                plugin_count,
-                timeout,
-            ),
-        ];
-        let mut verify_task = Task::new(
+        tasks.push(Task::new(
             uuid,
-            TaskKind::QueryRelatedNetState,
-            plugin_count,
+            TaskKind::Callback,
+            0,
             timeout,
-        );
-        verify_task.set_retry(VERIFY_RETRY_COUNT, VERIFY_RETRY_INTERVAL);
-
-        tasks.push(verify_task);
-        tasks.push(Task::new(uuid, TaskKind::Commit, 1, timeout));
+            Some(reply_net_state_apply),
+        ));
 
         let share_data = WorkFlowShareData {
             desired_state: Some(des_state),
+            apply_option: Some(opt),
             ..Default::default()
         };
-
-        let call_backs: Vec<Option<TaskCallBackFn>> = vec![
-            Some(pre_apply_query_related_state),
-            None,
-            Some(apply_net_state),
-            Some(post_apply_query_related_state),
-            Some(post_commit_net_state),
-        ];
-
-        (
-            WorkFlow::new("apply_net_state", uuid, tasks, call_backs),
-            share_data,
-        )
+        (WorkFlow::new("apply_net_state", uuid, tasks), share_data)
     }
 }
 
@@ -164,8 +215,43 @@ fn apply_net_state(
     Ok(Vec::new())
 }
 
-// Verify
-fn post_apply_query_related_state(
+fn store_post_apply_state(
+    task: &Task,
+    share_data: &mut WorkFlowShareData,
+) -> Result<Vec<NipartEvent>, NipartError> {
+    let post_apply_state = get_state_from_replies(task.replies.as_slice());
+
+    let desired_state = if let Some(d) = share_data.desired_state.as_ref() {
+        d.clone()
+    } else {
+        return Err(NipartError::new(
+            ErrorKind::Bug,
+            format!(
+                "store_post_apply_state(): Got None for desired_state in \
+                share data {share_data:?}",
+            ),
+        ));
+    };
+    let pre_apply_state = if let Some(s) = share_data.pre_apply_state.as_ref() {
+        s
+    } else {
+        return Err(NipartError::new(
+            ErrorKind::Bug,
+            format!(
+                "store_post_apply_state(): Got None for pre_apply_state in \
+                share data {share_data:?}",
+            ),
+        ));
+    };
+
+    share_data.post_apply_state = Some(post_apply_state);
+    share_data.commit =
+        Some(NetworkCommit::new(desired_state, pre_apply_state));
+
+    Ok(Vec::new())
+}
+
+fn verify_state(
     task: &Task,
     share_data: &mut WorkFlowShareData,
 ) -> Result<Vec<NipartEvent>, NipartError> {
@@ -176,26 +262,82 @@ fn post_apply_query_related_state(
     } else {
         return Err(NipartError::new(
             ErrorKind::Bug,
-            format!("Got None for merge_state in share data {share_data:?}",),
+            format!(
+                "verify_state(): Got None for merged_state in \
+                share data {share_data:?}",
+            ),
+        ));
+    };
+    let desired_state = if let Some(d) = share_data.desired_state.as_ref() {
+        d.clone()
+    } else {
+        return Err(NipartError::new(
+            ErrorKind::Bug,
+            format!(
+                "verify_state(): Got None for desired_state in \
+                share data {share_data:?}",
+            ),
+        ));
+    };
+
+    let pre_apply_state = if let Some(s) = share_data.pre_apply_state.as_ref() {
+        s
+    } else {
+        return Err(NipartError::new(
+            ErrorKind::Bug,
+            format!(
+                "verify_state(): Got None for pre_apply_state in \
+                share data {share_data:?}",
+            ),
         ));
     };
 
     merged_state.verify(&post_apply_state)?;
+
+    share_data.post_apply_state = Some(post_apply_state);
+    share_data.commit =
+        Some(NetworkCommit::new(desired_state, pre_apply_state));
     Ok(Vec::new())
 }
 
-fn post_commit_net_state(
+fn log_reply_error(
     task: &Task,
     _share_data: &mut WorkFlowShareData,
 ) -> Result<Vec<NipartEvent>, NipartError> {
-    Ok(vec![NipartEvent::new_with_uuid(
-        task.uuid,
-        NipartUserEvent::ApplyNetStateReply,
-        NipartPluginEvent::None,
-        NipartEventAddress::Daemon,
-        NipartEventAddress::User,
-        task.timeout,
-    )])
+    for reply in task.replies.as_slice() {
+        if let NipartUserEvent::Error(e) = &reply.user {
+            log::warn!("{e}");
+        }
+    }
+    Ok(Vec::new())
+}
+
+fn reply_net_state_apply(
+    task: &Task,
+    share_data: &mut WorkFlowShareData,
+) -> Result<Vec<NipartEvent>, NipartError> {
+    if Some(true) == share_data.apply_option.as_ref().map(|opt| opt.memory_only)
+    {
+        Ok(vec![NipartEvent::new_with_uuid(
+            task.uuid,
+            NipartUserEvent::ApplyNetStateReply(Box::new(None)),
+            NipartPluginEvent::None,
+            NipartEventAddress::Daemon,
+            NipartEventAddress::User,
+            task.timeout,
+        )])
+    } else {
+        Ok(vec![NipartEvent::new_with_uuid(
+            task.uuid,
+            NipartUserEvent::ApplyNetStateReply(Box::new(
+                share_data.commit.clone(),
+            )),
+            NipartPluginEvent::None,
+            NipartEventAddress::Daemon,
+            NipartEventAddress::User,
+            task.timeout,
+        )])
+    }
 }
 
 impl Task {
@@ -270,7 +412,7 @@ impl Task {
             None => {
                 log::error!(
                     "BUG: gen_request_apply() got None for \
-                    merge_state in share data {share_data:?}"
+                    merged_state in share data {share_data:?}"
                 );
                 MergedNetworkState::default()
             }
@@ -300,50 +442,16 @@ impl Task {
         share_data: &WorkFlowShareData,
     ) -> Vec<NipartEvent> {
         let merged_state = match share_data.merged_state.as_ref() {
-            Some(s) => s.clone(),
+            Some(s) => s,
             None => {
                 log::error!(
                     "BUG: gen_request_lock() got None for \
-                    merge_state in share data {share_data:?}"
+                    merged_state in share data {share_data:?}"
                 );
-                MergedNetworkState::default()
+                return Vec::new();
             }
         };
-        let mut locks = Vec::new();
-        for iface in merged_state
-            .interfaces
-            .iter()
-            .filter_map(|i| i.for_apply.as_ref())
-        {
-            locks.push((
-                NipartLockEntry::new_iface(
-                    iface.name().to_string(),
-                    iface.iface_type(),
-                ),
-                NipartLockOption::new(self.timeout),
-            ));
-        }
-
-        if merged_state.dns.is_changed() {
-            locks.push((
-                NipartLockEntry::Dns,
-                NipartLockOption::new(self.timeout),
-            ));
-        }
-
-        if merged_state.routes.is_changed() {
-            locks.push((
-                NipartLockEntry::Route,
-                NipartLockOption::new(self.timeout),
-            ));
-        }
-
-        if merged_state.rules.is_changed() {
-            locks.push((
-                NipartLockEntry::RouteRule,
-                NipartLockOption::new(self.timeout),
-            ));
-        }
+        let locks = gen_locks(merged_state, self.timeout);
         vec![NipartEvent::new_with_uuid(
             self.uuid,
             NipartUserEvent::None,
@@ -353,10 +461,38 @@ impl Task {
             self.timeout,
         )]
     }
+
+    pub(crate) fn gen_request_unlock(
+        &self,
+        share_data: &WorkFlowShareData,
+    ) -> Vec<NipartEvent> {
+        let merged_state = match share_data.merged_state.as_ref() {
+            Some(s) => s,
+            None => {
+                log::error!(
+                    "BUG: gen_request_lock() got None for \
+                    merged_state in share data {share_data:?}"
+                );
+                return Vec::new();
+            }
+        };
+        let locks: Vec<NipartLockEntry> = gen_locks(merged_state, self.timeout)
+            .into_iter()
+            .map(|(lock, _)| lock)
+            .collect();
+        vec![NipartEvent::new_with_uuid(
+            self.uuid,
+            NipartUserEvent::None,
+            NipartPluginEvent::Unlock(Box::new(locks)),
+            NipartEventAddress::Commander,
+            NipartEventAddress::Locker,
+            self.timeout,
+        )]
+    }
 }
 
-fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
-    let mut states = Vec::new();
+pub(crate) fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
+    let mut states: Vec<(NetworkState, u32)> = Vec::new();
     for reply in replies {
         if let NipartPluginEvent::QueryNetStateReply(state, priority) =
             &reply.plugin
@@ -373,6 +509,11 @@ fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
             );
         }
     }
+
+    states.sort_unstable_by(|a, b| a.1.cmp(&b.1));
+    let states: Vec<NetworkState> =
+        states.into_iter().map(|(state, _)| state).collect();
+
     let mut state = NetworkState::merge_states(states);
 
     for reply in replies {
@@ -383,4 +524,54 @@ fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
         }
     }
     state
+}
+
+fn gen_locks(
+    merged_state: &MergedNetworkState,
+    timeout: u32,
+) -> Vec<(NipartLockEntry, NipartLockOption)> {
+    let mut locks = Vec::new();
+    for iface in merged_state
+        .interfaces
+        .iter()
+        .filter_map(|i| i.for_apply.as_ref())
+    {
+        locks.push((
+            NipartLockEntry::new_iface(
+                iface.name().to_string(),
+                iface.iface_type(),
+            ),
+            NipartLockOption::new(timeout),
+        ));
+    }
+
+    if merged_state.dns.is_changed() {
+        locks.push((NipartLockEntry::Dns, NipartLockOption::new(timeout)));
+    }
+
+    if merged_state.routes.is_changed() {
+        locks.push((NipartLockEntry::Route, NipartLockOption::new(timeout)));
+    }
+
+    if merged_state.rules.is_changed() {
+        locks
+            .push((NipartLockEntry::RouteRule, NipartLockOption::new(timeout)));
+    }
+    locks
+}
+
+pub(crate) fn new_verify_task(
+    uuid: NipartUuid,
+    plugin_count: usize,
+    timeout: u32,
+) -> Task {
+    let mut verify_task = Task::new(
+        uuid,
+        TaskKind::QueryNetState(Default::default()),
+        plugin_count,
+        timeout,
+        Some(verify_state),
+    );
+    verify_task.set_retry(VERIFY_RETRY_COUNT, VERIFY_RETRY_INTERVAL);
+    verify_task
 }

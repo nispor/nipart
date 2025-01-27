@@ -9,7 +9,7 @@ use tokio::sync::mpsc::Sender;
 use crate::{
     NipartConnection, NipartConnectionListener, NipartError, NipartEvent,
     NipartEventAddress, NipartLogLevel, NipartPluginEvent, NipartPluginInfo,
-    NipartRole, NipartUserEvent,
+    NipartRole, NipartUserEvent, NipartUuid,
 };
 
 const DEFAULT_PLUGIN_SOCKET_PREFIX: &str = "nipart_plugin_";
@@ -46,7 +46,7 @@ fn get_conf_from_argv(name: &str) -> (String, String, log::LevelFilter) {
 }
 
 fn _handle_query_plugin_info(
-    uuid: u128,
+    uuid: NipartUuid,
     src: &NipartEventAddress,
     plugin_info: NipartPluginInfo,
     plugin_name: &str,
@@ -64,7 +64,7 @@ fn _handle_query_plugin_info(
 
 fn _handle_change_log_level(
     log_level: NipartLogLevel,
-    uuid: u128,
+    uuid: NipartUuid,
     plugin_name: &str,
 ) -> NipartEvent {
     log::debug!("Setting log level of {} to {log_level}", plugin_name);
@@ -79,7 +79,7 @@ fn _handle_change_log_level(
     )
 }
 
-fn _handle_query_log_level(uuid: u128, plugin_name: &str) -> NipartEvent {
+fn _handle_query_log_level(uuid: NipartUuid, plugin_name: &str) -> NipartEvent {
     log::debug!("Querying log level of {}", plugin_name);
     NipartEvent::new_with_uuid(
         uuid,
@@ -113,7 +113,7 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
     }
 
     fn handle_query_plugin_info(
-        uuid: u128,
+        uuid: NipartUuid,
         src: &NipartEventAddress,
     ) -> NipartEvent {
         crate::plugin_common::handle_query_plugin_info(
@@ -126,7 +126,7 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
 
     fn handle_change_log_level(
         log_level: NipartLogLevel,
-        uuid: u128,
+        uuid: NipartUuid,
     ) -> NipartEvent {
         crate::plugin_common::handle_change_log_level(
             log_level,
@@ -135,7 +135,7 @@ pub trait NipartExternalPlugin: Sized + Send + Sync + 'static {
         )
     }
 
-    fn handle_query_log_level(uuid: u128) -> NipartEvent {
+    fn handle_query_log_level(uuid: NipartUuid) -> NipartEvent {
         crate::plugin_common::handle_query_log_level(uuid, Self::PLUGIN_NAME)
     }
 

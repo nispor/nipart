@@ -6,8 +6,15 @@ use crate::{
     MergedNetworkState, NetworkCommit, NetworkCommitQueryOption, NetworkState,
     NipartApplyOption, NipartDhcpConfig, NipartDhcpLease, NipartLockEntry,
     NipartLockOption, NipartLogLevel, NipartMonitorEvent, NipartMonitorRule,
-    NipartQueryOption,
+    NipartQueryOption, NipartUuid,
 };
+
+/// Data for plugin to do initialize task after daemon fully started
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[non_exhaustive]
+pub struct NipartPostStartData {
+    pub current_state: NetworkState,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -36,7 +43,7 @@ pub enum NipartRole {
     Ovs,
     Lldp,
     Monitor,
-    Track,
+    Commit,
     Locker,
     Logger,
 }
@@ -52,7 +59,7 @@ impl std::fmt::Display for NipartRole {
                 Self::Ovs => "ovs",
                 Self::Lldp => "lldp",
                 Self::Monitor => "monitor",
-                Self::Track => "track",
+                Self::Commit => "commit",
                 Self::ApplyDhcpLease => "apply_dhcp_lease",
                 Self::Locker => "locker",
                 Self::Logger => "logger",
@@ -75,23 +82,26 @@ pub enum NipartPluginEvent {
     QueryLogLevel,
     QueryLogLevelReply(NipartLogLevel),
 
+    /// Query running network state.
     QueryNetState(NipartQueryOption),
+    /// Query running network state related to specified network state.
     QueryRelatedNetState(Box<NetworkState>),
+    /// Reply with running network state related to specified network state.
     QueryNetStateReply(Box<NetworkState>, u32),
 
     ApplyNetState(Box<MergedNetworkState>, NipartApplyOption),
     ApplyNetStateReply,
 
-    /// Empty `Vec<String>` means query all interfaces
+    /// Empty `Vec<String>` means query all interfaces.
     QueryDhcpConfig(Box<Vec<String>>),
     QueryDhcpConfigReply(Box<Vec<NipartDhcpConfig>>),
 
     ApplyDhcpConfig(Box<Vec<NipartDhcpConfig>>),
     ApplyDhcpConfigReply,
 
-    /// DHCP plugin notify commander on new lease been acquired
+    /// DHCP plugin notify commander on new lease been acquired.
     GotDhcpLease(Box<NipartDhcpLease>),
-    /// Commander request responsible plugins to apply DHCP lease
+    /// Commander request responsible plugins to apply DHCP lease.
     ApplyDhcpLease(Box<NipartDhcpLease>),
     ApplyDhcpLeaseReply,
 
@@ -104,24 +114,31 @@ pub enum NipartPluginEvent {
     /// Monitor plugin notify. No reply required.
     GotMonitorEvent(Box<NipartMonitorEvent>),
 
+    /// Indicate daemon and all plugins are started. Plugin could
+    /// use this event to do initialization required for other plugins' help.
+    /// No reply required.
+    PostStart(Box<NipartPostStartData>),
+    /// Store commit.
+    /// Because we might have multiple plugins with [NipartRole::Commit],
+    /// when creating commit, event sender should prepare all required
+    /// properties in [NetworkCommit] and expecting commit plugins reply
+    /// identical data on follow query requests.
+    /// The NetworkState here is the post commit running network state.
+    /// Plugin should reply with [NipartPluginEvent::CreateCommitReply]
+    CreateCommit(Box<(NetworkCommit, NetworkState)>),
+    /// Ack on commit finished.
+    CreateCommitReply,
+    /// Remove specified commits. Should only be requested after state in these
+    /// commits are reverted. The second argument is the running network state
+    /// after specified commits been reverted.
+    RemoveCommits(Box<(Vec<NipartUuid>, NetworkState)>),
+    /// Reply with new merged saved network state from remaining commits
+    RemoveCommitsReply(Box<NetworkState>),
     QueryCommits(NetworkCommitQueryOption),
     QueryCommitsReply(Box<Vec<NetworkCommit>>),
-
-    /// Store specified NetworkState as persistent commit
-    /// No reply required.
-    Commit(Box<NetworkState>),
-    /// Ack on commit finished.
-    CommitReply,
-
-    /// Instruct tracking and monitoring plugins to suspend their effort
-    /// as tracking network changes for specified time in seconds.
-    /// No reply required.
-    SuspendTracking(u32),
-
-    /// Restore tracking and monitor plugins as self-initialized changes
-    /// have finished.
-    /// No reply required.
-    ResumeTracking,
+    QueryLastCommitState,
+    /// Query the running network state when last commit applied
+    QueryLastCommitStateReply(Box<NetworkState>),
 
     /// Request lock on specified entries, reply required.
     Lock(Box<Vec<(NipartLockEntry, NipartLockOption)>>),
@@ -132,6 +149,7 @@ pub enum NipartPluginEvent {
     // TBD: do we need to indicate who is currently taking lock when fails
     /// Indicate all requested lock entries has been locked as requested.
     LockReply,
+    UnlockReply,
 }
 
 impl std::fmt::Display for NipartPluginEvent {
@@ -190,17 +208,20 @@ impl std::fmt::Display for NipartPluginEvent {
             }
             Self::QueryCommits(_) => write!(f, "query_commits"),
             Self::QueryCommitsReply(_) => write!(f, "query_commits_reply"),
-            Self::Commit(_) => write!(f, "commit"),
-            Self::CommitReply => write!(f, "commit_reply"),
-            Self::SuspendTracking(t) => {
-                write!(f, "suspend_tracking:{t}seconds")
-            }
-            Self::ResumeTracking => {
-                write!(f, "resume_tracking")
-            }
+            Self::PostStart(_) => write!(f, "post_start"),
+            Self::CreateCommit(_) => write!(f, "create_commit"),
+            Self::CreateCommitReply => write!(f, "create_commit_reply"),
+            Self::RemoveCommits(_) => write!(f, "remove_commits"),
+            Self::RemoveCommitsReply(_) => write!(f, "remove_commits_reply"),
+
             Self::Lock(_) => write!(f, "lock"),
             Self::Unlock(_) => write!(f, "unlock"),
             Self::LockReply => write!(f, "lock_reply"),
+            Self::UnlockReply => write!(f, "unlock_reply"),
+            Self::QueryLastCommitState => write!(f, "query_last_commit_state"),
+            Self::QueryLastCommitStateReply(_) => {
+                write!(f, "query_last_commit_state_reply")
+            }
         }
     }
 }
@@ -218,8 +239,11 @@ impl NipartPluginEvent {
                 | Self::ApplyDhcpLeaseReply
                 | Self::GotMonitorEvent(_)
                 | Self::QueryCommitsReply(_)
-                | Self::CommitReply
+                | Self::CreateCommitReply
                 | Self::LockReply
+                | Self::UnlockReply
+                | Self::QueryLastCommitStateReply(_)
+                | Self::RemoveCommitsReply(_)
         )
     }
 }
