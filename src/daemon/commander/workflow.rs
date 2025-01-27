@@ -3,53 +3,50 @@
 use std::collections::HashMap;
 
 use nipart::{
-    ErrorKind, MergedNetworkState, NetworkState, NipartError, NipartEvent,
-    NipartEventAddress, NipartPluginEvent, NipartUserEvent, DEFAULT_TIMEOUT,
+    ErrorKind, MergedNetworkState, NetworkCommit, NetworkState,
+    NipartApplyOption, NipartError, NipartEvent, NipartEventAddress,
+    NipartPluginEvent, NipartUserEvent, NipartUuid, DEFAULT_TIMEOUT,
 };
 
 use super::Task;
-use crate::u128_to_uuid_string;
-
-pub(crate) type TaskCallBackFn =
-    fn(&Task, &mut WorkFlowShareData) -> Result<Vec<NipartEvent>, NipartError>;
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct WorkFlowShareData {
+    pub(crate) apply_option: Option<NipartApplyOption>,
     pub(crate) desired_state: Option<NetworkState>,
     pub(crate) pre_apply_state: Option<NetworkState>,
     pub(crate) merged_state: Option<MergedNetworkState>,
+    pub(crate) post_apply_state: Option<NetworkState>,
+    pub(crate) commit: Option<NetworkCommit>,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct WorkFlow {
     pub(crate) kind: String,
-    pub(crate) uuid: u128,
+    pub(crate) uuid: NipartUuid,
     pub(crate) tasks: Vec<Task>,
-    pub(crate) task_callbacks: Vec<Option<TaskCallBackFn>>,
     pub(crate) cur_task_idx: usize,
     init_request_sent: bool,
     is_fail: bool,
+    // TODO: store a function pointer will be invoke if workflow fails")
 }
 
 impl std::fmt::Display for WorkFlow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}({})", self.kind, u128_to_uuid_string(self.uuid))
+        write!(f, "{}({})", self.kind, self.uuid)
     }
 }
 
 impl WorkFlow {
-    pub(crate) fn new(
-        kind: &str,
-        uuid: u128,
-        tasks: Vec<Task>,
-        task_callbacks: Vec<Option<TaskCallBackFn>>,
-    ) -> Self {
-        log::debug!("New workflow {uuid}, {kind}");
+    pub(crate) fn new(kind: &str, uuid: NipartUuid, tasks: Vec<Task>) -> Self {
+        log::debug!("New workflow {uuid}, {kind} with tasks:");
+        for task in &tasks {
+            log::debug!("task: {}", task.kind);
+        }
         Self {
             kind: kind.to_string(),
             uuid,
             tasks,
-            task_callbacks,
             cur_task_idx: 0,
             init_request_sent: false,
             is_fail: false,
@@ -61,7 +58,7 @@ impl WorkFlow {
         share_data: &mut WorkFlowShareData,
     ) -> Result<Vec<NipartEvent>, NipartError> {
         if let Some(task) = self.cur_task() {
-            Ok(task.gen_request(share_data))
+            task.gen_request(share_data)
         } else {
             Err(NipartError::new(
                 ErrorKind::Bug,
@@ -85,14 +82,8 @@ impl WorkFlow {
         &mut self,
         share_data: &mut WorkFlowShareData,
     ) -> Result<Vec<NipartEvent>, NipartError> {
-        let callback_fn = match self.task_callbacks.get(self.cur_task_idx) {
-            Some(Some(f)) => *f,
-            _ => {
-                return Ok(Vec::new());
-            }
-        };
         let result = match self.cur_task_mut() {
-            Some(t) => callback_fn(t, share_data),
+            Some(t) => t.callback(share_data),
             None => {
                 return Ok(Vec::new());
             }
@@ -105,7 +96,7 @@ impl WorkFlow {
                     if cur_task.can_retry() {
                         log::debug!("Retry on error {e}");
                         cur_task.retry();
-                        return Ok(cur_task.gen_request(share_data));
+                        return cur_task.gen_request(share_data);
                     }
                 }
                 Err(e)
@@ -127,8 +118,19 @@ impl WorkFlow {
         })
     }
 
+    pub(crate) fn cur_task_callback_invoked(&self) -> bool {
+        self.cur_task()
+            .map(|t| t.is_callback_invoked())
+            .unwrap_or_else(|| {
+                log::error!("BUG: Current task is None {self:?}");
+                false
+            })
+    }
+
     pub(crate) fn is_done(&self) -> bool {
-        self.tasks.len() == self.cur_task_idx + 1 && self.cur_task_is_done()
+        self.tasks.len() == self.cur_task_idx + 1
+            && self.cur_task_is_done()
+            && self.cur_task_callback_invoked()
     }
 
     pub(crate) fn is_fail(&self) -> bool {
@@ -143,6 +145,16 @@ impl WorkFlow {
         }
     }
 
+    pub(crate) fn need_process(&self) -> bool {
+        !self.is_fail()
+            && !self.is_done()
+            && (!self.init_request_sent
+                || self.is_expired()
+                || self.cur_task_is_done())
+    }
+
+    /// Do nothing if no task is done or expired
+    /// Invoke callback of finished task and move on to next task.
     pub(crate) fn process(
         &mut self,
         share_data: &mut WorkFlowShareData,
@@ -171,12 +183,17 @@ impl WorkFlow {
             match self.cur_task_callback(share_data) {
                 Ok(events) => ret.extend(events),
                 Err(e) => {
+                    log::error!(
+                        "Task {} callback fails: {e}",
+                        self.cur_task().unwrap().kind
+                    );
                     self.is_fail = true;
                     let mut error_event: NipartEvent = e.into();
                     error_event.uuid = self.uuid;
                     return Ok(vec![error_event]);
                 }
             }
+            log::debug!("Task {} callback done", self.cur_task().unwrap().kind);
             if self.cur_task_idx + 1 < self.tasks.len() {
                 self.cur_task_idx += 1;
                 ret.extend(self.gen_cur_task_request_event(share_data)?);
@@ -189,8 +206,8 @@ impl WorkFlow {
 
 #[derive(Debug, Clone)]
 pub(crate) struct WorkFlowQueue {
-    pub(crate) workflows: HashMap<u128, WorkFlow>,
-    pub(crate) share_data: HashMap<u128, WorkFlowShareData>,
+    pub(crate) workflows: HashMap<NipartUuid, WorkFlow>,
+    pub(crate) share_data: HashMap<NipartUuid, WorkFlowShareData>,
 }
 
 impl WorkFlowQueue {
@@ -224,7 +241,11 @@ impl WorkFlowQueue {
 
         for workflow in self.workflows.values_mut() {
             if let Some(share_data) = self.share_data.get_mut(&workflow.uuid) {
-                ret.extend(workflow.process(share_data)?);
+                // Some task does not need reply, so we keep processing till
+                // end of any task need reply.
+                while workflow.need_process() {
+                    ret.extend(workflow.process(share_data)?);
+                }
             } else {
                 return Err(NipartError::new(
                     ErrorKind::Bug,
@@ -236,7 +257,7 @@ impl WorkFlowQueue {
             }
         }
 
-        let pending_removal_workflow_uuids: Vec<u128> = self
+        let pending_removal_workflow_uuids: Vec<NipartUuid> = self
             .workflows
             .values()
             .filter_map(|w| {

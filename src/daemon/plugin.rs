@@ -184,23 +184,6 @@ impl Plugins {
         ))
     }
 
-    pub(crate) fn get_track_connection_mut(
-        &mut self,
-    ) -> Result<&mut PluginConnection, NipartError> {
-        if let Some(plugin_name) =
-            self.roles.get(NipartRole::Track).and_then(|p| p.first())
-        {
-            if let Some(connection) = self.connections.get_mut(plugin_name) {
-                return Ok(connection);
-            }
-        }
-
-        Err(NipartError::new(
-            ErrorKind::Bug,
-            "No track plugin found".to_string(),
-        ))
-    }
-
     pub(crate) fn get_locker_connection_mut(
         &mut self,
     ) -> Result<&mut PluginConnection, NipartError> {

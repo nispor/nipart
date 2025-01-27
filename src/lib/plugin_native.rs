@@ -6,8 +6,8 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     NipartError, NipartEvent, NipartEventAddress, NipartLogEntry,
-    NipartLogLevel, NipartPluginEvent, NipartPluginInfo, NipartRole,
-    NipartUserEvent,
+    NipartLogLevel, NipartPluginEvent, NipartPluginInfo, NipartPostStartData,
+    NipartRole, NipartUserEvent, NipartUuid,
 };
 
 pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
@@ -23,11 +23,51 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
 
     fn set_log_level(&mut self, level: NipartLogLevel);
 
+    fn log_trace(
+        &self,
+        uuid: NipartUuid,
+        msg: String,
+    ) -> impl Future<Output = ()> + Send {
+        self.log(NipartLogLevel::Trace, uuid, msg)
+    }
+
+    fn log_debug(
+        &self,
+        uuid: NipartUuid,
+        msg: String,
+    ) -> impl Future<Output = ()> + Send {
+        self.log(NipartLogLevel::Debug, uuid, msg)
+    }
+
+    fn log_info(
+        &self,
+        uuid: NipartUuid,
+        msg: String,
+    ) -> impl Future<Output = ()> + Send {
+        self.log(NipartLogLevel::Info, uuid, msg)
+    }
+
+    fn log_warn(
+        &self,
+        uuid: NipartUuid,
+        msg: String,
+    ) -> impl Future<Output = ()> + Send {
+        self.log(NipartLogLevel::Warn, uuid, msg)
+    }
+
+    fn log_error(
+        &self,
+        uuid: NipartUuid,
+        msg: String,
+    ) -> impl Future<Output = ()> + Send {
+        self.log(NipartLogLevel::Error, uuid, msg)
+    }
+
     // TODO: Use macro to create a wrapper like log_debug!()
     fn log(
         &self,
         level: NipartLogLevel,
-        uuid: u128,
+        uuid: NipartUuid,
         msg: String,
     ) -> impl Future<Output = ()> + Send {
         async move {
@@ -59,7 +99,7 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
     ) -> impl Future<Output = Result<Self, NipartError>> + Send;
 
     fn handle_query_plugin_info(
-        uuid: u128,
+        uuid: NipartUuid,
         src: &NipartEventAddress,
     ) -> NipartEvent {
         crate::plugin_common::handle_query_plugin_info(
@@ -73,7 +113,7 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
     fn handle_change_log_level(
         &mut self,
         log_level: NipartLogLevel,
-        uuid: u128,
+        uuid: NipartUuid,
     ) -> NipartEvent {
         self.set_log_level(log_level);
 
@@ -87,8 +127,16 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
         )
     }
 
-    fn handle_query_log_level(uuid: u128) -> NipartEvent {
+    fn handle_query_log_level(uuid: NipartUuid) -> NipartEvent {
         crate::plugin_common::handle_query_log_level(uuid, Self::PLUGIN_NAME)
+    }
+
+    fn handle_plugin_event_post_start(
+        &mut self,
+        _uuid: NipartUuid,
+        _post_start_data: NipartPostStartData,
+    ) -> impl std::future::Future<Output = Result<(), NipartError>> + Send {
+        async { Ok(()) }
     }
 
     fn handle_plugin_event(
@@ -180,6 +228,19 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
                         .await;
                     }
                 }
+                NipartPluginEvent::PostStart(data) => {
+                    if let Err(e) = self
+                        .handle_plugin_event_post_start(event.uuid, *data)
+                        .await
+                    {
+                        self.log(
+                            NipartLogLevel::Error,
+                            event.uuid,
+                            format!("{e}",),
+                        )
+                        .await;
+                    }
+                }
                 _ => {
                     let uuid = event.uuid;
                     if let Err(e) = self.handle_event(event).await {
@@ -207,7 +268,7 @@ pub trait NipartNativePlugin: Sized + Send + Sync + 'static {
                     None => {
                         self.log(
                             NipartLogLevel::Debug,
-                            0,
+                            0.into(),
                             "MPSC channel remote end closed".to_string(),
                         )
                         .await;

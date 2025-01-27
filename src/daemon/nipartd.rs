@@ -4,10 +4,8 @@ mod api_listener;
 mod commander;
 mod plugin;
 mod switch;
-mod uuid;
 
 pub(crate) use self::plugin::{PluginRoles, Plugins};
-pub(crate) use self::uuid::u128_to_uuid_string;
 
 use nipart::{NipartError, DEFAULT_TIMEOUT};
 

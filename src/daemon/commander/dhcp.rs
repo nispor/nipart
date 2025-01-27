@@ -2,15 +2,15 @@
 
 use nipart::{
     NipartDhcpLease, NipartEvent, NipartEventAddress, NipartPluginEvent,
-    NipartRole, NipartUserEvent,
+    NipartRole, NipartUserEvent, NipartUuid,
 };
 
-use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
+use super::{Task, TaskKind, WorkFlow, WorkFlowShareData};
 use crate::PluginRoles;
 
 impl WorkFlow {
     pub(crate) fn new_apply_dhcp_lease(
-        uuid: u128,
+        uuid: NipartUuid,
         lease: NipartDhcpLease,
         plugins: &PluginRoles,
         timeout: u32,
@@ -21,15 +21,11 @@ impl WorkFlow {
             TaskKind::ApplyDhcpLease(lease),
             plugin_count,
             timeout,
+            None,
         )];
         let share_data = WorkFlowShareData::default();
 
-        let call_backs: Vec<Option<TaskCallBackFn>> = vec![None];
-
-        (
-            WorkFlow::new("apply_dhcp_lease", uuid, tasks, call_backs),
-            share_data,
-        )
+        (WorkFlow::new("apply_dhcp_lease", uuid, tasks), share_data)
     }
 }
 

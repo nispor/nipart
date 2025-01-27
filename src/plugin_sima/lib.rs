@@ -2,6 +2,5 @@
 
 mod plugin;
 mod repo;
-mod state;
 
 pub use self::plugin::NipartPluginSima;

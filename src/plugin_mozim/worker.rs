@@ -7,7 +7,7 @@ use nipart::{
     ErrorKind, NipartDhcpConfigV4, NipartDhcpLease, NipartDhcpLeaseV4,
     NipartError, NipartEvent, NipartEventAddress, NipartLinkMonitorKind,
     NipartLinkMonitorRule, NipartMonitorRule, NipartPluginEvent, NipartRole,
-    NipartUserEvent, DEFAULT_TIMEOUT,
+    NipartUserEvent, NipartUuid, DEFAULT_TIMEOUT,
 };
 use tokio::{io::unix::AsyncFd, sync::mpsc::Sender, task::JoinHandle};
 
@@ -45,7 +45,7 @@ impl MozimWorkerV4Thread {
         iface_name: String,
         mut mozim_client: DhcpV4Client,
         to_daemon: Sender<NipartEvent>,
-        event_uuid: u128,
+        event_uuid: NipartUuid,
     ) -> Self {
         let fd = match AsyncFd::new(mozim_client.as_raw_fd()) {
             Ok(fd) => fd,
@@ -134,7 +134,7 @@ pub(crate) struct MozimWorkerV4 {
     pub(crate) state: MozimWorkerState,
     pub(crate) config: NipartDhcpConfigV4,
     pub(crate) thread_handler: Option<JoinHandle<MozimWorkerV4Thread>>,
-    pub(crate) event_uuid: u128,
+    pub(crate) event_uuid: NipartUuid,
     pub(crate) to_daemon: Sender<NipartEvent>,
 }
 
@@ -149,7 +149,7 @@ impl Drop for MozimWorkerV4 {
 impl MozimWorkerV4 {
     pub(crate) async fn new(
         conf: &NipartDhcpConfigV4,
-        event_uuid: u128,
+        event_uuid: NipartUuid,
         to_daemon: Sender<NipartEvent>,
     ) -> Result<Self, NipartError> {
         if conf.enabled {
@@ -283,7 +283,7 @@ fn gen_mozim_config(conf: &NipartDhcpConfigV4) -> DhcpV4Config {
 async fn register_monitor_on_link_down(
     to_daemon: &Sender<NipartEvent>,
     iface: &str,
-    event_uuid: u128,
+    event_uuid: NipartUuid,
 ) -> Result<(), NipartError> {
     let mut reply = NipartEvent::new(
         NipartUserEvent::None,
@@ -307,7 +307,7 @@ async fn register_monitor_on_link_down(
 async fn register_monitor_on_link_up(
     to_daemon: &Sender<NipartEvent>,
     iface: &str,
-    event_uuid: u128,
+    event_uuid: NipartUuid,
 ) -> Result<(), NipartError> {
     let mut reply = NipartEvent::new(
         NipartUserEvent::None,

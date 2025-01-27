@@ -4,14 +4,14 @@ use std::collections::HashMap;
 
 use nipart::{
     NipartError, NipartEvent, NipartEventAddress, NipartLogLevel,
-    NipartPluginEvent, NipartUserEvent,
+    NipartPluginEvent, NipartUserEvent, NipartUuid,
 };
 
-use super::{Task, TaskCallBackFn, TaskKind, WorkFlow, WorkFlowShareData};
+use super::{Task, TaskKind, WorkFlow, WorkFlowShareData};
 
 impl WorkFlow {
     pub(crate) fn new_query_log_level(
-        uuid: u128,
+        uuid: NipartUuid,
         plugin_count: usize,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
@@ -20,21 +20,16 @@ impl WorkFlow {
             TaskKind::QueryLogLevel,
             plugin_count,
             timeout,
+            Some(query_log_level),
         )];
         let share_data = WorkFlowShareData::default();
 
-        let call_backs: Vec<Option<TaskCallBackFn>> =
-            vec![Some(query_log_level)];
-
-        (
-            WorkFlow::new("query_log_level", uuid, tasks, call_backs),
-            share_data,
-        )
+        (WorkFlow::new("query_log_level", uuid, tasks), share_data)
     }
 
     pub(crate) fn new_change_log_level(
         log_level: NipartLogLevel,
-        uuid: u128,
+        uuid: NipartUuid,
         plugin_count: usize,
         timeout: u32,
     ) -> (Self, WorkFlowShareData) {
@@ -44,16 +39,11 @@ impl WorkFlow {
             TaskKind::ChangeLogLevel(log_level),
             plugin_count,
             timeout,
+            Some(query_log_level),
         )];
         let share_data = WorkFlowShareData::default();
 
-        let call_backs: Vec<Option<TaskCallBackFn>> =
-            vec![Some(query_log_level)];
-
-        (
-            WorkFlow::new("change_log_level", uuid, tasks, call_backs),
-            share_data,
-        )
+        (WorkFlow::new("change_log_level", uuid, tasks), share_data)
     }
 }
 

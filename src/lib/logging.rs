@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ErrorKind, NipartError, NipartEvent, NipartEventAddress, NipartPluginEvent,
-    NipartUserEvent,
+    ErrorKind, NipartConnection, NipartError, NipartEvent, NipartEventAddress,
+    NipartPluginEvent, NipartUserEvent, NipartUuid,
 };
 
 #[derive(
@@ -143,7 +145,11 @@ impl NipartLogEntry {
         }
     }
 
-    pub fn to_event(self, uuid: u128, src: NipartEventAddress) -> NipartEvent {
+    pub fn to_event(
+        self,
+        uuid: NipartUuid,
+        src: NipartEventAddress,
+    ) -> NipartEvent {
         NipartEvent::new_with_uuid(
             uuid,
             NipartUserEvent::Log(self),
@@ -152,5 +158,52 @@ impl NipartLogEntry {
             NipartEventAddress::User,
             crate::DEFAULT_TIMEOUT,
         )
+    }
+}
+
+impl NipartConnection {
+    pub async fn query_log_level(
+        &mut self,
+    ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
+        let request = NipartEvent::new(
+            NipartUserEvent::QueryLogLevel,
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+            self.timeout,
+        );
+        self.send(&request).await?;
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+        if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
+            Ok(i)
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for QueryLogLevel"),
+            ))
+        }
+    }
+
+    pub async fn set_log_level(
+        &mut self,
+        level: NipartLogLevel,
+    ) -> Result<HashMap<String, NipartLogLevel>, NipartError> {
+        let request = NipartEvent::new(
+            NipartUserEvent::ChangeLogLevel(level),
+            NipartPluginEvent::None,
+            NipartEventAddress::User,
+            NipartEventAddress::Daemon,
+            self.timeout,
+        );
+        self.send(&request).await?;
+        let event = self.recv_reply(request.uuid, self.timeout).await?;
+        if let NipartUserEvent::QueryLogLevelReply(i) = event.user {
+            Ok(i)
+        } else {
+            Err(NipartError::new(
+                ErrorKind::Bug,
+                format!("Invalid reply {event:?} for ChangeLogLevel"),
+            ))
+        }
     }
 }

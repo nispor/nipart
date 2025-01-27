@@ -2,11 +2,11 @@
 
 use crate::{
     NipartEvent, NipartEventAddress, NipartLogLevel, NipartPluginEvent,
-    NipartPluginInfo, NipartUserEvent,
+    NipartPluginInfo, NipartUserEvent, NipartUuid,
 };
 
 pub(crate) fn handle_query_plugin_info(
-    uuid: u128,
+    uuid: NipartUuid,
     src: &NipartEventAddress,
     plugin_info: NipartPluginInfo,
     plugin_name: &str,
@@ -24,7 +24,7 @@ pub(crate) fn handle_query_plugin_info(
 
 pub(crate) fn handle_change_log_level(
     log_level: NipartLogLevel,
-    uuid: u128,
+    uuid: NipartUuid,
     plugin_name: &str,
 ) -> NipartEvent {
     log::debug!("Setting log level of {} to {log_level}", plugin_name);
@@ -40,7 +40,7 @@ pub(crate) fn handle_change_log_level(
 }
 
 pub(crate) fn handle_query_log_level(
-    uuid: u128,
+    uuid: NipartUuid,
     plugin_name: &str,
 ) -> NipartEvent {
     log::debug!("Querying log level of {}", plugin_name);

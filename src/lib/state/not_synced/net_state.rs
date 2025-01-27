@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{NetworkState, NipartDhcpConfig};
+use crate::{NetworkCommit, NetworkState, NipartDhcpConfig};
 
 impl NetworkState {
     pub fn fill_dhcp_config(&mut self, dhcp_configs: &[NipartDhcpConfig]) {
@@ -22,5 +22,28 @@ impl NetworkState {
                 }
             }
         }
+    }
+}
+
+impl std::fmt::Display for NetworkState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match serde_yaml::to_string(self) {
+                Ok(s) => s,
+                Err(e) => e.to_string(),
+            }
+        )
+    }
+}
+
+impl From<Vec<NetworkCommit>> for NetworkState {
+    fn from(commits: Vec<NetworkCommit>) -> Self {
+        let mut ret = NetworkState::default();
+        for commit in commits {
+            ret.update_state(&commit.desired_state);
+        }
+        ret
     }
 }
