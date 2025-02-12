@@ -30,9 +30,7 @@ impl NipartQueryOption {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum NipartStateKind {
     /// The current running network state
