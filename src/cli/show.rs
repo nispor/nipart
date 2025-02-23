@@ -27,24 +27,33 @@ impl ShowCommand {
                     .action(clap::ArgAction::SetTrue)
                     .help("Show stored state"),
             )
+            .arg(
+                clap::Arg::new("POST")
+                    .long("post")
+                    .short('p')
+                    .action(clap::ArgAction::SetTrue)
+                    .help("Show full state after last commit"),
+            )
+            .group(
+                clap::ArgGroup::new("FLAGS")
+                    .args(["DIFF", "SAVED", "POST"])
+                    .required(true),
+            )
     }
 
     pub(crate) async fn handle(
         matches: &clap::ArgMatches,
     ) -> Result<(), CliError> {
         let mut conn = NipartConnection::new().await?;
-        if matches.get_flag("DIFF") && matches.get_flag("SAVED") {
-            return Err("--diff and --saved option cannot be defined \
-                        at the same time"
-                .into());
-        }
-
         let net_state = if matches.get_flag("SAVED") {
             conn.query_net_state(NipartQueryOption::saved()).await?
         } else if matches.get_flag("DIFF") {
             Self::get_diff_state(&mut conn).await?
+        } else if matches.get_flag("POST") {
+            conn.query_net_state(NipartQueryOption::post_last_commit())
+                .await?
         } else {
-            conn.query_net_state(NipartQueryOption::saved()).await?
+            conn.query_net_state(NipartQueryOption::running()).await?
         };
 
         println!("{}", serde_yaml::to_string(&net_state)?);

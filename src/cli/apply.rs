@@ -40,17 +40,18 @@ impl ApplyCommand {
         matches: &clap::ArgMatches,
     ) -> Result<(), CliError> {
         let mut conn = NipartConnection::new().await?;
+        let mut opt = NipartApplyOption::default();
         let state =
             if let Some(file_path) = matches.get_one::<String>("STATE_FILE") {
                 state_from_file(file_path)?
             } else if matches.get_flag("DIFF") {
                 let mut state = ShowCommand::get_diff_state(&mut conn).await?;
                 state.description = "nipc apply --diff".to_string();
+                opt.is_diff = true;
                 state
             } else {
                 state_from_file("-")?
             };
-        let mut opt = NipartApplyOption::default();
         if matches.get_flag("MEMORY_ONLY") {
             opt.memory_only = true;
         }

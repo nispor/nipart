@@ -62,7 +62,6 @@ impl CommitCommand {
     pub(crate) fn gen_command() -> clap::Command {
         clap::Command::new("commit")
             .alias("c")
-            .arg_required_else_help(true)
             .about("Nipartd commit control")
             .subcommand(
                 clap::Command::new("show")
@@ -104,7 +103,10 @@ impl CommitCommand {
                                 clap::builder::NonEmptyStringValueParser::new(),
                             )
                             .index(1)
-                            .help("UUID of commit to revert"),
+                            .help(
+                                "Create new commit to revert the state \
+                                in specified commit",
+                            ),
                     )
                     .arg(
                         clap::Arg::new("MEMORY_ONLY")
@@ -123,7 +125,10 @@ impl CommitCommand {
                             .required(true)
                             .action(clap::ArgAction::Set)
                             .num_args(0..)
-                            .help("UUIDs of commit to remove"),
+                            .help(
+                                "UUIDs of commit to remove, \
+                                state in these commit will be reverted",
+                            ),
                     ),
             )
             .subcommand(
@@ -136,14 +141,17 @@ impl CommitCommand {
                                 clap::builder::NonEmptyStringValueParser::new(),
                             )
                             .index(1)
-                            .help("Rollback network state to specified UUID"),
+                            .help(
+                                "Apply new network state to \
+                                revert all states since specified UUID",
+                            ),
                     )
                     .arg(
                         clap::Arg::new("MEMORY_ONLY")
                             .long("memory-only")
                             .action(clap::ArgAction::SetTrue)
                             .required(false)
-                            .help("Do not make the revert state persistent"),
+                            .help("Do not make the rollback state persistent"),
                     ),
             )
     }
@@ -152,7 +160,40 @@ impl CommitCommand {
         matches: &clap::ArgMatches,
     ) -> Result<(), CliError> {
         let mut conn = NipartConnection::new().await?;
-        if let Some(show_matches) = matches.subcommand_matches("show") {
+        if let Some(revert_matches) = matches.subcommand_matches("revert") {
+            let mut opt = NipartApplyOption::default();
+            if revert_matches.get_flag("MEMORY_ONLY") {
+                opt.memory_only = true;
+            }
+
+            if let Some(uuid) = revert_matches.get_one::<String>("UUID") {
+                revert_commit(&mut conn, uuid, opt).await?;
+            } else {
+                return Err("UUID of commit to revert undefined".into());
+            }
+        } else if let Some(remove_matches) =
+            matches.subcommand_matches("remove")
+        {
+            if let Some(uuids_iter) = remove_matches.get_many::<String>("UUIDs")
+            {
+                let uuids: Vec<String> = uuids_iter.cloned().collect();
+                remove_commit(&mut conn, uuids).await?;
+            } else {
+                return Err("UUIDs of commit to remove undefined".into());
+            }
+        } else if let Some(rollback_matches) =
+            matches.subcommand_matches("rollback")
+        {
+            let mut opt = NipartApplyOption::default();
+            if rollback_matches.get_flag("MEMORY_ONLY") {
+                opt.memory_only = true;
+            }
+            if let Some(uuid) = rollback_matches.get_one::<String>("UUID") {
+                rollback_commit(&mut conn, &uuid, opt).await?;
+            } else {
+                return Err("UUID of commit to revert undefined".into());
+            }
+        } else if let Some(show_matches) = matches.subcommand_matches("show") {
             let mut opt = NetworkCommitQueryOption::default();
             if let Some(count) = show_matches.get_one::<u32>("COUNT") {
                 opt.count = *count;
@@ -181,49 +222,22 @@ impl CommitCommand {
                     },
                 )?;
             }
-        } else if let Some(revert_matches) =
-            matches.subcommand_matches("revert")
-        {
-            let mut opt = NipartApplyOption::default();
-            if revert_matches.get_flag("MEMORY_ONLY") {
-                opt.memory_only = true;
-            }
-
-            if let Some(uuid) = revert_matches.get_one::<String>("UUID") {
-                revert_commit(uuid, opt).await?;
-            } else {
-                return Err("UUID of commit to revert undefined".into());
-            }
-        } else if let Some(remove_matches) =
-            matches.subcommand_matches("remove")
-        {
-            if let Some(uuids_iter) = remove_matches.get_many::<String>("UUIDs")
-            {
-                let uuids: Vec<String> = uuids_iter.cloned().collect();
-                remove_commit(uuids).await?;
-            } else {
-                return Err("UUIDs of commit to remove undefined".into());
-            }
-        } else if let Some(rollback_matches) =
-            matches.subcommand_matches("rollback")
-        {
-            let mut opt = NipartApplyOption::default();
-            if rollback_matches.get_flag("MEMORY_ONLY") {
-                opt.memory_only = true;
-            }
-            todo!()
+        } else {
+            // show brief by default
+            let commits = conn.query_commits(Default::default()).await?;
+            show_commits(commits.as_slice().iter(), CommitShowType::Brief)?;
         }
         Ok(())
     }
 }
 
 async fn revert_commit(
+    conn: &mut NipartConnection,
     uuid: &str,
     apply_opt: NipartApplyOption,
 ) -> Result<(), CliError> {
     let uuid = NipartUuid::from_str(uuid)?;
     let opt = NetworkCommitQueryOption::default();
-    let mut conn = NipartConnection::new().await?;
     let commits = conn.query_commits(opt).await?;
     if let Some(commit) = commits.as_slice().iter().find(|c| c.uuid == uuid) {
         if let Some(c) = conn
@@ -263,13 +277,44 @@ fn show_commits<'a>(
     Ok(())
 }
 
-async fn remove_commit(uuids_str: Vec<String>) -> Result<(), CliError> {
+async fn remove_commit(
+    conn: &mut NipartConnection,
+    uuids_str: Vec<String>,
+) -> Result<(), CliError> {
     let mut uuids: Vec<NipartUuid> = Vec::new();
     for uuid_str in uuids_str {
         uuids.push(NipartUuid::from_str(&uuid_str)?);
     }
 
-    let mut conn = NipartConnection::new().await?;
     conn.remove_commits(uuids.as_slice()).await?;
+    Ok(())
+}
+
+async fn rollback_commit(
+    conn: &mut NipartConnection,
+    uuid_str: &str,
+    opt: NipartApplyOption,
+) -> Result<(), CliError> {
+    let uuid = NipartUuid::from_str(uuid_str)?;
+    let commits = conn.query_commits(Default::default()).await?;
+    let mut commits_to_revert = Vec::new();
+    let mut found = false;
+    for commit in commits {
+        if found {
+            commits_to_revert.push(commit);
+        } else if commit.uuid == uuid {
+            found = true;
+        }
+    }
+
+    let mut revert_state = NetworkState::default();
+    for commit in commits_to_revert.as_slice() {
+        revert_state.update_state(&commit.revert_state);
+    }
+
+    revert_state.description = format!("Rollback to commit {uuid}");
+    if let Some(c) = conn.apply_net_state(revert_state, opt).await? {
+        show_commits(vec![c].as_slice().iter(), CommitShowType::Brief)?;
+    }
     Ok(())
 }

@@ -195,6 +195,7 @@ fn pre_apply_query_related_state(
     let merged_state =
         MergedNetworkState::new(des_state, cur_state.clone(), false, false)?;
 
+    log::error!("pre_apply_state {:?}", cur_state);
     share_data.merged_state = Some(merged_state);
     share_data.pre_apply_state = Some(cur_state);
 
@@ -245,6 +246,9 @@ fn store_post_apply_state(
     };
 
     share_data.post_apply_state = Some(post_apply_state);
+    // TODO: When apply option has `is_diff()`, we should not use
+    // `pre_apply_state` to create commit, but using
+    // `NipartQueryOption::post_last_commit()`
     share_data.commit =
         Some(NetworkCommit::new(desired_state, pre_apply_state));
 

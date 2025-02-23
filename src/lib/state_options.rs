@@ -68,4 +68,8 @@ pub struct NipartApplyOption {
     pub memory_only: bool,
     /// Do not verify whether post applied state matches with desired state.
     pub no_verify: bool,
+    /// Indicate desire state is generate by diff between running state and
+    /// saved state, when creating commit, the `pre_apply_state` should
+    /// be post state after last commit
+    pub is_diff: bool,
 }
