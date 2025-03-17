@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use futures::stream::StreamExt;
 use netlink_packet_core::{NetlinkMessage, NetlinkPayload};
-use netlink_packet_route::{link::LinkAttribute, RouteNetlinkMessage};
+use netlink_packet_route::{RouteNetlinkMessage, link::LinkAttribute};
 use netlink_sys::AsyncSocket;
 use nipart::{
     ErrorKind, NipartError, NipartEvent, NipartEventAddress,
@@ -81,7 +81,7 @@ impl BaizeLinkMonitor {
                 return Err(NipartError::new(
                     ErrorKind::Bug,
                     format!("Bug: Unknown NipartLinkMonitorKind {kind}"),
-                ))
+                ));
             }
         }
 

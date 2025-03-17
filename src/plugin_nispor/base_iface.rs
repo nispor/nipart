@@ -2,12 +2,6 @@
 
 use nipart::{BaseInterface, InterfaceState, InterfaceType};
 
-use crate::{
-    ethtool::np_ethtool_to_nipart,
-    ip::{np_ipv4_to_nipart, np_ipv6_to_nipart},
-    mptcp::get_iface_mptcp_conf,
-};
-
 fn np_iface_type_to_nipart(np_iface_type: &nispor::IfaceType) -> InterfaceType {
     match np_iface_type {
         nispor::IfaceType::Bond => InterfaceType::Bond,
@@ -26,8 +20,10 @@ fn np_iface_type_to_nipart(np_iface_type: &nispor::IfaceType) -> InterfaceType {
         nispor::IfaceType::Ipoib => InterfaceType::InfiniBand,
         nispor::IfaceType::Tun => InterfaceType::Tun,
         nispor::IfaceType::Xfrm => InterfaceType::Xfrm,
-        nispor::IfaceType::Other(v) => InterfaceType::Other(v.to_lowercase()),
-        _ => InterfaceType::Other(format!("{np_iface_type:?}").to_lowercase()),
+        nispor::IfaceType::Other(v) => InterfaceType::Unknown(v.to_lowercase()),
+        _ => {
+            InterfaceType::Unknown(format!("{np_iface_type:?}").to_lowercase())
+        }
     }
 }
 
@@ -57,8 +53,6 @@ pub(crate) fn np_iface_to_base_iface(
     base_iface.state =
         np_ifaec_state_to_nipart(&np_iface.state, np_iface.flags.as_slice());
     base_iface.iface_type = np_iface_type_to_nipart(&np_iface.iface_type);
-    base_iface.ipv4 = np_ipv4_to_nipart(np_iface, running_config_only);
-    base_iface.ipv6 = np_ipv6_to_nipart(np_iface, running_config_only);
     base_iface.mac_address = Some(np_iface.mac_address.to_uppercase());
     base_iface.permanent_mac_address = get_permanent_mac_address(np_iface);
     base_iface.controller = np_iface.controller.as_ref().map(|c| c.to_string());
@@ -69,11 +63,7 @@ pub(crate) fn np_iface_to_base_iface(
     };
     base_iface.min_mtu = if !running_config_only {
         if let Some(mtu) = np_iface.min_mtu {
-            if mtu >= 0 {
-                Some(mtu as u64)
-            } else {
-                None
-            }
+            if mtu >= 0 { Some(mtu as u64) } else { None }
         } else {
             None
         }
@@ -82,35 +72,13 @@ pub(crate) fn np_iface_to_base_iface(
     };
     base_iface.max_mtu = if !running_config_only {
         if let Some(mtu) = np_iface.max_mtu {
-            if mtu >= 0 {
-                Some(mtu as u64)
-            } else {
-                None
-            }
+            if mtu >= 0 { Some(mtu as u64) } else { None }
         } else {
             None
         }
     } else {
         None
     };
-    base_iface.accept_all_mac_addresses =
-        if np_iface.flags.contains(&nispor::IfaceFlag::Promisc) {
-            Some(true)
-        } else {
-            Some(false)
-        };
-    base_iface.ethtool = np_ethtool_to_nipart(np_iface);
-    if !InterfaceType::SUPPORTED_LIST.contains(&base_iface.iface_type) {
-        log::info!(
-            "Got unsupported interface type {}: {}, ignoring",
-            &base_iface.iface_type,
-            &base_iface.name
-        );
-        base_iface.state = InterfaceState::Ignore;
-    }
-
-    base_iface.mptcp = get_iface_mptcp_conf(&base_iface);
-
     base_iface
 }
 

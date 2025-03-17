@@ -3,8 +3,9 @@
 use nipart::{
     ErrorKind, MergedNetworkState, NetworkCommit, NetworkState,
     NipartApplyOption, NipartError, NipartEvent, NipartEventAddress,
-    NipartLockEntry, NipartLockOption, NipartPluginEvent, NipartQueryOption,
-    NipartRole, NipartStateKind, NipartUserEvent, NipartUuid,
+    NipartInterface, NipartLockEntry, NipartLockOption, NipartPluginEvent,
+    NipartQueryOption, NipartRole, NipartStateKind, NipartUserEvent,
+    NipartUuid,
 };
 
 use super::{Task, TaskKind, WorkFlow, WorkFlowShareData};
@@ -192,8 +193,10 @@ fn pre_apply_query_related_state(
         ));
     };
 
+    let apply_opt = share_data.apply_option.clone().unwrap_or_default();
+
     let merged_state =
-        MergedNetworkState::new(des_state, cur_state.clone(), false, false)?;
+        MergedNetworkState::new(des_state, cur_state.clone(), apply_opt)?;
 
     log::error!("pre_apply_state {:?}", cur_state);
     share_data.merged_state = Some(merged_state);
@@ -518,7 +521,15 @@ pub(crate) fn get_state_from_replies(replies: &[NipartEvent]) -> NetworkState {
     let states: Vec<NetworkState> =
         states.into_iter().map(|(state, _)| state).collect();
 
-    let mut state = NetworkState::merge_states(states);
+    let mut state = NetworkState::default();
+    for tmp_state in states {
+        if let Err(e) = state.merge(&tmp_state) {
+            log::error!(
+                "BUG: Got error when merging {tmp_state:?} \
+                into {state:?}: {e}"
+            );
+        }
+    }
 
     for reply in replies {
         if let NipartPluginEvent::QueryDhcpConfigReply(dhcp_confs) =
@@ -536,19 +547,20 @@ fn gen_locks(
 ) -> Vec<(NipartLockEntry, NipartLockOption)> {
     let mut locks = Vec::new();
     for iface in merged_state
-        .interfaces
+        .ifaces
         .iter()
         .filter_map(|i| i.for_apply.as_ref())
     {
         locks.push((
             NipartLockEntry::new_iface(
                 iface.name().to_string(),
-                iface.iface_type(),
+                iface.iface_type().clone(),
             ),
             NipartLockOption::new(timeout),
         ));
     }
 
+    /*
     if merged_state.dns.is_changed() {
         locks.push((NipartLockEntry::Dns, NipartLockOption::new(timeout)));
     }
@@ -561,6 +573,7 @@ fn gen_locks(
         locks
             .push((NipartLockEntry::RouteRule, NipartLockOption::new(timeout)));
     }
+    */
     locks
 }
 

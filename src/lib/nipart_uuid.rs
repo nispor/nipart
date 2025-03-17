@@ -42,11 +42,7 @@ impl NipartUuid {
 
     pub fn new() -> Self {
         let uuid = uuid::Uuid::now_v7().as_u128();
-        if uuid == 0 {
-            Self::new()
-        } else {
-            Self(uuid)
-        }
+        if uuid == 0 { Self::new() } else { Self(uuid) }
     }
 }
 

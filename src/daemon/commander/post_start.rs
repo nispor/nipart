@@ -7,7 +7,7 @@ use nipart::{
 };
 
 use super::{
-    state::get_state_from_replies, Task, TaskKind, WorkFlow, WorkFlowShareData,
+    Task, TaskKind, WorkFlow, WorkFlowShareData, state::get_state_from_replies,
 };
 use crate::PluginRoles;
 

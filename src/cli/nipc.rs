@@ -3,7 +3,7 @@
 mod apply;
 mod commit;
 mod error;
-mod gen;
+mod gen_cmd;
 mod show;
 mod state;
 
@@ -13,7 +13,7 @@ use nipart::{NipartConnection, NipartEvent, NipartLogLevel};
 
 use crate::{
     apply::ApplyCommand, commit::CommitCommand, error::CliError,
-    gen::GenCommand, show::ShowCommand,
+    gen_cmd::GenCommand, show::ShowCommand,
 };
 
 #[tokio::main]

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    MergedNetworkState, NipartApplyOption, NipartDhcpLease, NipartError,
+    DEFAULT_TIMEOUT, MergedNetworkState, NipartDhcpLease, NipartError,
     NipartEvent, NipartEventAddress, NipartLogLevel, NipartNativePlugin,
     NipartPluginEvent, NipartRole, NipartUserEvent, NipartUuid,
-    DEFAULT_TIMEOUT,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -78,7 +77,7 @@ impl NipartNativePlugin for NipartPluginNispor {
                 Ok(())
             }
             // TODO: Currently, we are returning full state, but we should
-            // return       only related network state back
+            // return only related network state back
             NipartPluginEvent::QueryRelatedNetState(_) => {
                 let state = nispor_retrieve(false).await?;
                 let mut reply = NipartEvent::new(
@@ -95,18 +94,13 @@ impl NipartNativePlugin for NipartPluginNispor {
                 self.sender_to_daemon().send(reply).await?;
                 Ok(())
             }
-            NipartPluginEvent::ApplyNetState(merged_state, opt) => {
+            NipartPluginEvent::ApplyNetState(merged_state, _) => {
                 // We spawn new thread for apply instead of blocking
                 // here
                 let to_daemon_clone = self.sender_to_daemon().clone();
                 tokio::spawn(async move {
-                    handle_apply(
-                        *merged_state,
-                        opt,
-                        to_daemon_clone,
-                        event.uuid,
-                    )
-                    .await
+                    handle_apply(*merged_state, to_daemon_clone, event.uuid)
+                        .await
                 });
                 Ok(())
             }
@@ -130,11 +124,10 @@ impl NipartNativePlugin for NipartPluginNispor {
 
 async fn handle_apply(
     merged_state: MergedNetworkState,
-    opt: NipartApplyOption,
     to_daemon: Sender<NipartEvent>,
     uuid: NipartUuid,
 ) {
-    let mut reply = match nispor_apply(merged_state, opt).await {
+    let mut reply = match nispor_apply(merged_state).await {
         Ok(()) => NipartEvent::new(
             NipartUserEvent::None,
             NipartPluginEvent::ApplyNetStateReply,

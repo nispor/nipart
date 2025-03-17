@@ -7,7 +7,7 @@ mod switch;
 
 pub(crate) use self::plugin::{PluginRoles, Plugins};
 
-use nipart::{NipartError, DEFAULT_TIMEOUT};
+use nipart::{DEFAULT_TIMEOUT, NipartError};
 
 use self::api_listener::start_api_listener_thread;
 use self::commander::start_commander_thread;

@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use serde::{de, de::Visitor, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de, de::Visitor};
 
 use crate::{ErrorKind, NipartError};
 

@@ -4,6 +4,8 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Serialize};
 
+use crate::{MergedNetworkState, NetworkState};
+
 const DEFAULT_DHCP_TIMEOUT: u32 = 30;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq)]
@@ -143,4 +145,17 @@ pub struct NipartDhcpLeaseV6 {
     pub prefix_length: u8,
     pub server_ip: Ipv4Addr,
     pub lease_time: u32,
+}
+
+impl NetworkState {
+    pub fn fill_dhcp_config(&mut self, _dhcp_configs: &[NipartDhcpConfig]) {
+        // TODO
+    }
+}
+
+impl MergedNetworkState {
+    // TODO
+    pub fn get_dhcp_changes(&self) -> Vec<NipartDhcpConfig> {
+        Vec::new()
+    }
 }

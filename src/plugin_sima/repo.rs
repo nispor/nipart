@@ -6,7 +6,7 @@ use std::path::Path;
 
 use nipart::{
     ErrorKind, InterfaceType, NetworkCommit, NetworkCommitQueryOption,
-    NetworkState, NipartError, NipartUuid,
+    NetworkState, NipartError, NipartInterface, NipartUuid,
 };
 use serde::{Deserialize, Serialize};
 
@@ -124,7 +124,7 @@ impl SimaCommitRepo {
         cur_state: NetworkState,
     ) -> Result<(), NipartError> {
         if self.stored_commits.is_empty() {
-            let mut init_state = NetworkState::new();
+            let mut init_state = NetworkState::default();
             init_state.description = "Init".to_string();
             let init_commit = NetworkCommit::new(init_state, &cur_state);
             self.store_commit(init_commit, cur_state)?;
@@ -142,7 +142,7 @@ impl SimaCommitRepo {
         let mut net_state = NetworkState::default();
         for uuid in self.commit_order.as_slice() {
             if let Some(commit_store) = self.stored_commits.get(uuid) {
-                net_state.update_state(&commit_store.commit.desired_state);
+                net_state.merge(&commit_store.commit.desired_state)?;
             }
         }
 
@@ -240,13 +240,17 @@ impl SimaCommitRepo {
 
         write_commit_to_file(&store)?;
 
-        for iface in store.commit.desired_state.interfaces.iter() {
+        for iface in store.commit.desired_state.ifaces.iter() {
             if iface.is_absent() {
-                self.managed_ifaces
-                    .remove(&(iface.name().to_string(), iface.iface_type()));
+                self.managed_ifaces.remove(&(
+                    iface.name().to_string(),
+                    iface.iface_type().clone(),
+                ));
             } else {
-                self.managed_ifaces
-                    .insert((iface.name().to_string(), iface.iface_type()));
+                self.managed_ifaces.insert((
+                    iface.name().to_string(),
+                    iface.iface_type().clone(),
+                ));
             }
         }
 

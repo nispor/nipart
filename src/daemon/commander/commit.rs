@@ -7,8 +7,8 @@ use nipart::{
 };
 
 use super::{
-    state::gen_apply_net_state_tasks, Task, TaskKind, WorkFlow,
-    WorkFlowShareData,
+    Task, TaskKind, WorkFlow, WorkFlowShareData,
+    state::gen_apply_net_state_tasks,
 };
 use crate::PluginRoles;
 
@@ -169,7 +169,7 @@ fn query_net_state_from_commits(
             if let NipartPluginEvent::QueryCommitsReply(commits) = &reply.plugin
             {
                 for commit in commits.as_slice() {
-                    net_state.update_state(&commit.desired_state);
+                    net_state.merge(&commit.desired_state)?;
                 }
             }
         }
@@ -194,7 +194,7 @@ fn handle_query_last_commit_state_reply(
         if let NipartPluginEvent::QueryLastCommitStateReply(sub_state) =
             &reply.plugin
         {
-            net_state.update_state(sub_state);
+            net_state.merge(sub_state)?;
         }
     }
     Ok(vec![NipartEvent::new_with_uuid(
@@ -299,7 +299,7 @@ fn process_remove_commits_reply(
     let mut net_state = NetworkState::new();
     for reply in task.replies.as_slice() {
         if let NipartPluginEvent::RemoveCommitsReply(state) = &reply.plugin {
-            net_state.update_state(state);
+            net_state.merge(state)?;
         }
     }
     Ok(vec![NipartEvent::new_with_uuid(
@@ -320,7 +320,7 @@ fn gen_net_state_for_removed_commits(
     for reply in task.replies.as_slice() {
         if let NipartPluginEvent::QueryCommitsReply(commits) = &reply.plugin {
             for commit in commits.iter().rev() {
-                net_state.update_state(&commit.revert_state);
+                net_state.merge(&commit.revert_state)?;
             }
         }
     }

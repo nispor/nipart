@@ -2,7 +2,7 @@
 
 use nipart::{NipartApplyOption, NipartConnection};
 
-use crate::{show::ShowCommand, state::state_from_file, CliError};
+use crate::{CliError, show::ShowCommand, state::state_from_file};
 
 pub(crate) struct ApplyCommand;
 

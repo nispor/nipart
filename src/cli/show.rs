@@ -14,6 +14,13 @@ impl ShowCommand {
             .alias("s")
             .about("Query network state")
             .arg(
+                clap::Arg::new("RUNNING")
+                    .long("running")
+                    .short('r')
+                    .action(clap::ArgAction::SetTrue)
+                    .help("Show running state(default)"),
+            )
+            .arg(
                 clap::Arg::new("DIFF")
                     .long("diff")
                     .short('d')
@@ -36,8 +43,7 @@ impl ShowCommand {
             )
             .group(
                 clap::ArgGroup::new("FLAGS")
-                    .args(["DIFF", "SAVED", "POST"])
-                    .required(true),
+                    .args(["RUNNING", "DIFF", "SAVED", "POST"]),
             )
     }
 

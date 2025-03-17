@@ -141,9 +141,9 @@ impl Plugins {
                         }
                         Err(e) => {
                             log::warn!(
-                            "Failed to check plugin role {plugin_name}: {e}. \
+                                "Failed to check plugin role {plugin_name}: {e}. \
                             Ignoring this plugin"
-                        );
+                            );
                         }
                     }
                 }
@@ -347,8 +347,8 @@ async fn get_external_plugin_info(
     }
 }
 
-async fn start_plugin<T>(
-) -> Result<(&'static str, Vec<NipartRole>, PluginConnection), NipartError>
+async fn start_plugin<T>()
+-> Result<(&'static str, Vec<NipartRole>, PluginConnection), NipartError>
 where
     T: NipartNativePlugin,
 {

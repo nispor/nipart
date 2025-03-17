@@ -4,10 +4,10 @@ use std::os::fd::AsRawFd;
 
 use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease};
 use nipart::{
-    ErrorKind, NipartDhcpConfigV4, NipartDhcpLease, NipartDhcpLeaseV4,
-    NipartError, NipartEvent, NipartEventAddress, NipartLinkMonitorKind,
-    NipartLinkMonitorRule, NipartMonitorRule, NipartPluginEvent, NipartRole,
-    NipartUserEvent, NipartUuid, DEFAULT_TIMEOUT,
+    DEFAULT_TIMEOUT, ErrorKind, NipartDhcpConfigV4, NipartDhcpLease,
+    NipartDhcpLeaseV4, NipartError, NipartEvent, NipartEventAddress,
+    NipartLinkMonitorKind, NipartLinkMonitorRule, NipartMonitorRule,
+    NipartPluginEvent, NipartRole, NipartUserEvent, NipartUuid,
 };
 use tokio::{io::unix::AsyncFd, sync::mpsc::Sender, task::JoinHandle};
 
@@ -92,9 +92,9 @@ impl MozimWorkerV4Thread {
                     Ok(None) => (),
                     Err(e) => {
                         log::error!(
-                        "Mozim worker for {iface_name} event {event_uuid}: \
+                            "Mozim worker for {iface_name} event {event_uuid}: \
                         mozim_client.process() failed with {e}"
-                    );
+                        );
                         return Self {};
                     }
                 }

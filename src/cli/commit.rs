@@ -189,7 +189,7 @@ impl CommitCommand {
                 opt.memory_only = true;
             }
             if let Some(uuid) = rollback_matches.get_one::<String>("UUID") {
-                rollback_commit(&mut conn, &uuid, opt).await?;
+                rollback_commit(&mut conn, uuid, opt).await?;
             } else {
                 return Err("UUID of commit to revert undefined".into());
             }
@@ -309,7 +309,7 @@ async fn rollback_commit(
 
     let mut revert_state = NetworkState::default();
     for commit in commits_to_revert.as_slice() {
-        revert_state.update_state(&commit.revert_state);
+        revert_state.merge(&commit.revert_state)?;
     }
 
     revert_state.description = format!("Rollback to commit {uuid}");

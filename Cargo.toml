@@ -17,11 +17,13 @@ version = "0.1.0"
 authors = ["Gris Ge"]
 description = "Linux Network Management Tool"
 documentation = "https://github.com/nispor/nipart"
-edition = "2021"
+# We use 2024 to simply our code for
+# https://doc.rust-lang.org/std/keyword.use.html#precise-capturing
+# and also adopt to new rust code trend.
+edition = "2024"
 license = "Apache-2.0"
-# Abstract Unix socket need 1.70.0
-# Async trait need 1.75.0
-rust-version = "1.75"
+# Minimim rust version for 2024 edition is 1.85
+rust-version = "1.85"
 
 [workspace.dependencies]
 serde = { version = "1.0.144", features = ["derive"] }

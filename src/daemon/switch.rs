@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, stream::FuturesUnordered};
 
 use nipart::{NipartError, NipartEvent, NipartEventAddress};
 use tokio::sync::mpsc::{Receiver, Sender};

@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 
 use nipart::{
-    ErrorKind, MergedNetworkState, NetworkCommit, NetworkState,
-    NipartApplyOption, NipartError, NipartEvent, NipartEventAddress,
-    NipartPluginEvent, NipartUserEvent, NipartUuid, DEFAULT_TIMEOUT,
+    DEFAULT_TIMEOUT, ErrorKind, MergedNetworkState, NetworkCommit,
+    NetworkState, NipartApplyOption, NipartError, NipartEvent,
+    NipartEventAddress, NipartPluginEvent, NipartUserEvent, NipartUuid,
 };
 
 use super::Task;
