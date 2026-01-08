@@ -12,9 +12,8 @@ facing network management including:
 
  * `cli`: CLI tool for communicating with daemon -- `npt`
  * `daemon`: The daemon -- `nipartd`
- * `nm`: Rust crate for daemon communication and daemon free actions
- * `python-libnm`: Python APi for daemon communication
- * `libnm-plugin`: Rust crate for plugin interface
+ * `nipart`: Rust crate for daemon communication and daemon free actions
+ * `python-nipart`: Python API for daemon communication
  * `plugin-demo`: Demonstration on how to create plugin for nipart
 
 ## Features
