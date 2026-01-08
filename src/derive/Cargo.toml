@@ -1,0 +1,18 @@
+[package]
+name = "nipart_derive"
+version.workspace = true
+authors.workspace = true
+description = "derives of nipart"
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+syn = { workspace = true }
+quote = { workspace = true }
+
+[lib]
+name = "nipart_derive"
+path = "lib.rs"
+proc-macro = true

@@ -1,0 +1,15 @@
+ * OVS bridge
+ * VxLAN
+ * VRF
+ * MacSec
+ * HSR
+ * Loopback
+ * MacVlan
+ * Infiniband
+ * SRIOV
+ * IPSec
+ * IpVlan
+
+ * Plugin cannot send back logs to user
+ * WIFI should connect to AP with best signal
+ * `nmc wifi connect` should wait connect and retry for wrong-password

@@ -1,0 +1,21 @@
+[package]
+name = "nipart-plugin-demo"
+version.workspace = true
+authors.workspace = true
+description = "Demo plugin of nipart"
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+env_logger = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+nipart = { path = "../lib" }
+
+[[bin]]
+name = "nipart-plugin-demo"
+path = "main.rs"

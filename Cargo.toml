@@ -1,0 +1,59 @@
+[workspace]
+resolver = "2"
+members = [
+    "src/cli",
+    "src/daemon",
+    "src/lib",
+    "src/derive",
+    "src/plugin-demo",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Gris Ge"]
+description = "Linux Network Management Tool"
+documentation = "https://gitlab.freedesktop.org/NetworkManager/NetworkManager/"
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.87"
+
+[workspace.dependencies]
+serde = { version = "1.0.144", features = ["derive"] }
+env_logger = "0.11.0"
+log = "0.4.17"
+serde_json = "1.0.87"
+serde_yaml = "0.9.27"
+uuid = { version = "1.6.1", default-features = false, features = ["std", "v7"] }
+futures-util = "0.3.11"
+futures-channel = "0.3.11"
+clap = { version = "4.5", features = [ "cargo"] }
+wl-nl80211 = { git = "https://github.com/rust-netlink/wl-nl80211" }
+chrono = { version = "0.4" , features = ["serde"] }
+rand = { version = "0.9" }
+syn = { version = "2.0", default-features = false, features = [ "derive" ] }
+quote = "1.0"
+zbus = { version = "5.1.0", default-features = false, features = ["tokio"] }
+zvariant = {version = "5.8.0", default-features = false}
+
+[workspace.dependencies.tokio]
+version ="1.35.0"
+features = ["net", "io-util", "rt", "rt-multi-thread", "macros", "sync", "time", "fs"]
+
+[workspace.dependencies.nix]
+version = "0.30.0"
+default-features = false
+features = ["feature", "hostname"]
+
+
+[workspace.dependencies.nispor]
+git = "https://github.com/nispor/nispor"
+
+[workspace.dependencies.mozim]
+git = "https://github.com/nispor/mozim"
+default-features = false
+
+[workspace.dependencies.rtnetlink]
+git = "https://github.com/rust-netlink/rtnetlink"
+
+[workspace.dependencies.futures_channel]
+version = "0.3.30"

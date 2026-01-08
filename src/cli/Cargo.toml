@@ -1,0 +1,26 @@
+[package]
+name = "npt"
+version.workspace = true
+authors.workspace = true
+description = "Command line tool for communicating with Nipart daemon"
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+nipart = { path = "../lib" }
+futures-util = { workspace = true }
+futures-channel = { workspace = true }
+uuid = { workspace = true }
+clap = { workspace = true }
+nix = { workspace = true, features = ["term"] }
+
+[[bin]]
+name = "npt"
+path = "main.rs"

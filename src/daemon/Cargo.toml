@@ -1,0 +1,28 @@
+[package]
+name = "nipartd"
+version.workspace = true
+authors.workspace = true
+description = "The daemon of Nipart"
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+nipart = { path = "../lib" }
+serde = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+futures-util = { workspace = true }
+futures-channel = { workspace = true }
+uuid = { workspace = true }
+mozim = { workspace = true }
+rtnetlink = { workspace = true }
+nix = { workspace = true }
+
+[[bin]]
+name = "nipartd"
+path = "main.rs"

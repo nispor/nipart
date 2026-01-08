@@ -1,0 +1,13 @@
+[Unit]
+Description=Nipart Daemon for Network Management
+Documentation=man:nipart(8)
+Wants=network.target
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/nipart
+
+[Install]
+WantedBy=multi-user.target
