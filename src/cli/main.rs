@@ -18,7 +18,7 @@ use self::{
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), CliError> {
-    let mut cli_cmd = clap::Command::new("nipc")
+    let mut cli_cmd = clap::Command::new("npt")
         .about("nipart CLI")
         .arg_required_else_help(true)
         .subcommand_required(true)
@@ -65,7 +65,7 @@ async fn main() -> Result<(), CliError> {
         log_builder.init();
     }
 
-    log::info!("nmcli version: {}", clap::crate_version!());
+    log::info!("npt version: {}", clap::crate_version!());
 
     if let Err(e) = call_subcommand(&matches).await {
         eprintln!("{e}");
