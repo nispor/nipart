@@ -4,14 +4,14 @@ use std::collections::HashSet;
 
 use futures_channel::mpsc::UnboundedSender;
 use nipart::{
-    InterfaceType, NetworkState, NipartError, NipartNoDaemon, NipartstateInterface,
-    NipartstateQueryOption,
+    InterfaceType, NetworkState, NipartError, NipartNoDaemon,
+    NipartstateInterface, NipartstateQueryOption,
 };
 
 use super::{
-    conf::NipartConfManager, daemon::NipartManagerCmd, dhcp::NipartDhcpV4Manager,
-    monitor::NipartMonitorManager, plugin::NipartPluginManager,
-    udev::udev_net_device_is_initialized,
+    conf::NipartConfManager, daemon::NipartManagerCmd,
+    dhcp::NipartDhcpV4Manager, monitor::NipartMonitorManager,
+    plugin::NipartPluginManager, udev::udev_net_device_is_initialized,
 };
 
 const BOOTUP_NIC_CHECK_MAX_COUNT: u64 = 30;
@@ -49,6 +49,7 @@ impl NipartCommander {
     //     it initialized, apply its config.
     //  3. Keep retry with timeout and interval for missing interfaces.
     pub(crate) async fn load_saved_state(&mut self) -> Result<(), NipartError> {
+        self.monitor_manager.pause().await?;
         let mut saved_state = self.conf_manager.query_state().await?;
         if saved_state.is_empty() {
             log::info!("Saved state is empty");
@@ -95,6 +96,7 @@ impl NipartCommander {
                 }
             }
         }
+        self.monitor_manager.resume().await?;
         Ok(())
     }
 }
@@ -103,7 +105,8 @@ async fn get_initialized_nics(
     saved_state: &NetworkState,
 ) -> Result<Vec<String>, NipartError> {
     let cur_state =
-        NipartNoDaemon::query_network_state(NipartstateQueryOption::running()).await?;
+        NipartNoDaemon::query_network_state(NipartstateQueryOption::running())
+            .await?;
 
     let mut ret = Vec::new();
 
