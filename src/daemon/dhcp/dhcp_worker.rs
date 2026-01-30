@@ -13,8 +13,8 @@ use futures_util::StreamExt;
 use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease, DhcpV4State};
 use nipart::{
     BaseInterface, DhcpState, ErrorKind, Interface, InterfaceIpAddr,
-    InterfaceIpv4, NetworkState, NipartError, NipartNoDaemon, NipartstateApplyOption,
-    RouteEntry, Routes,
+    InterfaceIpv4, NetworkState, NipartError, NipartNoDaemon,
+    NipartstateApplyOption, RouteEntry, Routes,
 };
 
 use crate::TaskWorker;
@@ -50,7 +50,8 @@ pub(crate) enum NipartDhcpReply {
     QueryReply(HashMap<String, DhcpState>),
 }
 
-type FromManager = (NipartDhcpCmd, Sender<Result<NipartDhcpReply, NipartError>>);
+type FromManager =
+    (NipartDhcpCmd, Sender<Result<NipartDhcpReply, NipartError>>);
 
 #[derive(Debug)]
 pub(crate) struct NipartDhcpV4Worker {

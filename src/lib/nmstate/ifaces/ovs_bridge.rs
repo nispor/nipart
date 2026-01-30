@@ -10,7 +10,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    BaseInterface, InterfaceType, JsonDisplay, NipartError, NipartstateInterface,
+    BaseInterface, InterfaceType, JsonDisplay, NipartError,
+    NipartstateInterface,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonDisplay)]
@@ -81,15 +82,14 @@ impl NipartstateInterface for OvsBridgeInterface {
     }
 
     fn ports(&self) -> Option<Vec<&str>> {
-        if let Some(br_conf) = &self.bridge {
-            if let Some(port_confs) = &br_conf.ports {
+        if let Some(br_conf) = &self.bridge
+            && let Some(port_confs) = &br_conf.ports {
                 let mut port_names = Vec::new();
                 for port_conf in port_confs {
                     port_names.push(port_conf.name.as_str());
                 }
                 return Some(port_names);
             }
-        }
         None
     }
 }

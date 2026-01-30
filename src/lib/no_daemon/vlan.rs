@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    BaseInterface, ErrorKind, NipartError, VlanConfig, VlanInterface, VlanProtocol,
-    VlanQosMapping, VlanRegistrationProtocol,
+    BaseInterface, ErrorKind, NipartError, VlanConfig, VlanInterface,
+    VlanProtocol, VlanQosMapping, VlanRegistrationProtocol,
 };
 
 impl From<nispor::VlanProtocol> for VlanProtocol {

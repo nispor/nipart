@@ -582,8 +582,8 @@ impl BondOptions {
     }
 
     fn validate_ad_actor_system_mac_address(&self) -> Result<(), NipartError> {
-        if let Some(ad_actor_system) = &self.ad_actor_system {
-            if ad_actor_system.to_uppercase().starts_with("01:00:5E") {
+        if let Some(ad_actor_system) = &self.ad_actor_system
+            && ad_actor_system.to_uppercase().starts_with("01:00:5E") {
                 let e = NipartError::new(
                     ErrorKind::InvalidArgument,
                     "The ad_actor_system bond option cannot be an IANA \
@@ -593,15 +593,13 @@ impl BondOptions {
                 log::error!("{e}");
                 return Err(e);
             }
-        }
         Ok(())
     }
 
     fn validate_miimon_and_arp_interval(&self) -> Result<(), NipartError> {
         if let (Some(miimon), Some(arp_interval)) =
             (self.miimon, self.arp_interval)
-        {
-            if miimon > 0 && arp_interval > 0 {
+            && miimon > 0 && arp_interval > 0 {
                 let e = NipartError::new(
                     ErrorKind::InvalidArgument,
                     "Bond miimon and arp interval are not compatible options."
@@ -610,7 +608,6 @@ impl BondOptions {
                 log::error!("{e}");
                 return Err(e);
             }
-        }
         Ok(())
     }
 
@@ -689,8 +686,8 @@ impl BondOptions {
                     ));
                 }
             } else {
-                if let Some(arp_ip_target) = self.arp_ip_target.as_ref() {
-                    if !arp_ip_target.is_empty() {
+                if let Some(arp_ip_target) = self.arp_ip_target.as_ref()
+                    && !arp_ip_target.is_empty() {
                         return Err(NipartError::new(
                             ErrorKind::InvalidArgument,
                             "The `arp_ip_target` option is only valid when \
@@ -698,9 +695,8 @@ impl BondOptions {
                                 .to_string(),
                         ));
                     }
-                }
-                if let Some(ns_ip6_target) = self.ns_ip6_target.as_ref() {
-                    if !ns_ip6_target.is_empty() {
+                if let Some(ns_ip6_target) = self.ns_ip6_target.as_ref()
+                    && !ns_ip6_target.is_empty() {
                         return Err(NipartError::new(
                             ErrorKind::InvalidArgument,
                             "The `ns_ip6_target` option is only valid when \
@@ -708,7 +704,6 @@ impl BondOptions {
                                 .to_string(),
                         ));
                     }
-                }
             }
         }
         Ok(())

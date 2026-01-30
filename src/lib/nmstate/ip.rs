@@ -160,8 +160,8 @@ impl InterfaceIpv4 {
         _current: Option<&Self>,
     ) -> Result<(), NipartError> {
         self.dhcp_state = None;
-        if self.is_auto() {
-            if let Some(addrs) = self.addresses.as_ref() {
+        if self.is_auto()
+            && let Some(addrs) = self.addresses.as_ref() {
                 for addr in addrs.iter().filter(|a| !a.is_auto()) {
                     log::info!(
                         "Static address {addr} defined when dynamic IP is \
@@ -169,7 +169,6 @@ impl InterfaceIpv4 {
                     );
                 }
             }
-        }
 
         if let Some(addrs) = self.addresses.as_mut() {
             if let Some(addr) = addrs.as_slice().iter().find(|a| a.ip.is_ipv6())
@@ -436,8 +435,8 @@ impl InterfaceIpv6 {
 /// When `valid_life_time` or `preferred_life_time` not equal to `None` or
 /// `Some("forever")`:
 ///  * `NipartClient::apply_network_state()` will ignore this address.
-///  * `NipartNoDaemon::apply_network_state()` will apply this address with desired
-///    life time setting.
+///  * `NipartNoDaemon::apply_network_state()` will apply this address with
+///    desired life time setting.
 #[derive(
     Debug,
     Clone,

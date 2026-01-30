@@ -15,7 +15,7 @@ description = "Linux Network Management Tool"
 documentation = "https://gitlab.freedesktop.org/NetworkManager/NetworkManager/"
 edition = "2024"
 license = "Apache-2.0"
-rust-version = "1.87"
+rust-version = "1.88"
 
 [workspace.dependencies]
 serde = { version = "1.0.144", features = ["derive"] }

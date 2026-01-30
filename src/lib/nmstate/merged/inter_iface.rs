@@ -190,7 +190,10 @@ impl MergedInterfaces {
             .chain(self.kernel_ifaces.values_mut())
     }
 
-    pub(crate) fn verify(&self, current: &Interfaces) -> Result<(), NipartError> {
+    pub(crate) fn verify(
+        &self,
+        current: &Interfaces,
+    ) -> Result<(), NipartError> {
         let mut merged = self.clone();
         let mut current = current.clone();
 
@@ -350,14 +353,12 @@ impl MergedInterfaces {
                         .kernel_ifaces
                         .get(parent)
                         .and_then(|i| i.for_apply.as_ref())
-                    {
-                        if parent_iface.base_iface().is_up_priority_valid() {
+                        && parent_iface.base_iface().is_up_priority_valid() {
                             pending_changes.insert(
                                 iface_name.to_string(),
                                 parent_iface.base_iface().up_priority + 1,
                             );
                         }
-                    }
                 }
             }
         }

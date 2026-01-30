@@ -261,20 +261,18 @@ impl LinuxBridgeInterface {
     }
 
     fn sort_ports(&mut self) {
-        if let Some(br_conf) = self.bridge.as_mut() {
-            if let Some(port_confs) = br_conf.ports.as_mut() {
+        if let Some(br_conf) = self.bridge.as_mut()
+            && let Some(port_confs) = br_conf.ports.as_mut() {
                 port_confs.sort_unstable_by_key(|p| p.name.clone())
             }
-        }
     }
 
     fn remove_runtime_only_timers(&mut self) {
-        if let Some(br_conf) = self.bridge.as_mut() {
-            if let Some(opts) = br_conf.options.as_mut() {
+        if let Some(br_conf) = self.bridge.as_mut()
+            && let Some(opts) = br_conf.options.as_mut() {
                 opts.gc_timer = None;
                 opts.hello_timer = None;
             }
-        }
     }
 
     fn sanitize_stp_opts(&self) -> Result<(), NipartError> {
@@ -627,8 +625,8 @@ impl LinuxBridgeOptions {
         linux_bridge: &LinuxBridgeInterface,
         current: Option<&LinuxBridgeInterface>,
     ) -> Result<(), NipartError> {
-        if let Some(pvid) = self.vlan_default_pvid {
-            if pvid != 1 && !linux_bridge.vlan_filtering_is_enabled(current) {
+        if let Some(pvid) = self.vlan_default_pvid
+            && pvid != 1 && !linux_bridge.vlan_filtering_is_enabled(current) {
                 return Err(NipartError::new(
                     ErrorKind::InvalidArgument,
                     format!(
@@ -638,7 +636,6 @@ impl LinuxBridgeOptions {
                     ),
                 ));
             }
-        }
 
         Ok(())
     }
@@ -692,8 +689,8 @@ impl LinuxBridgeStpOptions {
     pub const FORWARD_DELAY_MIN: u8 = 2;
 
     pub(crate) fn sanitize(&self) -> Result<(), NipartError> {
-        if let Some(hello_time) = self.hello_time {
-            if !(Self::HELLO_TIME_MIN..=Self::HELLO_TIME_MAX)
+        if let Some(hello_time) = self.hello_time
+            && !(Self::HELLO_TIME_MIN..=Self::HELLO_TIME_MAX)
                 .contains(&hello_time)
             {
                 let e = NipartError::new(
@@ -709,10 +706,9 @@ impl LinuxBridgeStpOptions {
                 log::error!("{e}");
                 return Err(e);
             }
-        }
 
-        if let Some(max_age) = self.max_age {
-            if !(Self::MAX_AGE_MIN..=Self::MAX_AGE_MAX).contains(&max_age) {
+        if let Some(max_age) = self.max_age
+            && !(Self::MAX_AGE_MIN..=Self::MAX_AGE_MAX).contains(&max_age) {
                 let e = NipartError::new(
                     ErrorKind::InvalidArgument,
                     format!(
@@ -725,9 +721,8 @@ impl LinuxBridgeStpOptions {
                 log::error!("{e}");
                 return Err(e);
             }
-        }
-        if let Some(forward_delay) = self.forward_delay {
-            if !(Self::FORWARD_DELAY_MIN..=Self::FORWARD_DELAY_MAX)
+        if let Some(forward_delay) = self.forward_delay
+            && !(Self::FORWARD_DELAY_MIN..=Self::FORWARD_DELAY_MAX)
                 .contains(&forward_delay)
             {
                 let e = NipartError::new(
@@ -743,7 +738,6 @@ impl LinuxBridgeStpOptions {
                 log::error!("{e}");
                 return Err(e);
             }
-        }
         Ok(())
     }
 }

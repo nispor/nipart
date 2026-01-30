@@ -11,8 +11,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ErrorKind, Interface, InterfaceState, InterfaceType, JsonDisplay, NipartError,
-    NipartstateInterface,
+    ErrorKind, Interface, InterfaceState, InterfaceType, JsonDisplay,
+    NipartError, NipartstateInterface,
 };
 
 #[derive(
@@ -97,13 +97,12 @@ impl MergedInterface {
         ctrl_type: InterfaceType,
         ctrl_state: InterfaceState,
     ) -> Result<(), NipartError> {
-        if self.merged.base_iface().need_controller() && ctrl_name.is_empty() {
-            if let Some(org_ctrl) = self
+        if self.merged.base_iface().need_controller() && ctrl_name.is_empty()
+            && let Some(org_ctrl) = self
                 .current
                 .as_ref()
                 .and_then(|c| c.base_iface().controller.as_ref())
-            {
-                if Some(true) == self.for_apply.as_ref().map(|i| i.is_up()) {
+                && Some(true) == self.for_apply.as_ref().map(|i| i.is_up()) {
                     return Err(NipartError::new(
                         ErrorKind::InvalidArgument,
                         format!(
@@ -114,8 +113,6 @@ impl MergedInterface {
                         ),
                     ));
                 }
-            }
-        }
 
         if !self.is_desired() {
             self.mark_as_changed();

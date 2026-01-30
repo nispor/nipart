@@ -13,8 +13,8 @@ use std::collections::{HashMap, HashSet, hash_map::Entry};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ErrorKind, JsonDisplay, MergedInterfaces, NipartError, NipartstateInterface,
-    RouteEntry, RouteState, Routes,
+    ErrorKind, JsonDisplay, MergedInterfaces, NipartError,
+    NipartstateInterface, RouteEntry, RouteState, Routes,
 };
 
 const LOOPBACK_IFACE_NAME: &str = "lo";

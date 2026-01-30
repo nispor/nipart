@@ -488,9 +488,15 @@ fn str_to_obj_path(obj_path_str: &str) -> Result<OwnedObjectPath, NipartError> {
 }
 
 pub(crate) fn map_zbus_err(e: zbus::Error) -> NipartError {
-    NipartError::new(ErrorKind::Bug, format!("DBUS error of wpa_supplicant: {e}"))
+    NipartError::new(
+        ErrorKind::Bug,
+        format!("DBUS error of wpa_supplicant: {e}"),
+    )
 }
 
 pub(crate) fn map_zbus_fdo_err(e: zbus::fdo::Error) -> NipartError {
-    NipartError::new(ErrorKind::Bug, format!("DBUS error of wpa_supplicant: {e}"))
+    NipartError::new(
+        ErrorKind::Bug,
+        format!("DBUS error of wpa_supplicant: {e}"),
+    )
 }

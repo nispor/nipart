@@ -37,7 +37,9 @@ pub(crate) struct OvsDbRpcReply {
 }
 
 impl OvsDbJsonRpc {
-    pub(crate) async fn connect(socket_path: &str) -> Result<Self, NipartError> {
+    pub(crate) async fn connect(
+        socket_path: &str,
+    ) -> Result<Self, NipartError> {
         Ok(Self {
             socket: UnixStream::connect(socket_path).await.map_err(|e| {
                 NipartError::new(ErrorKind::Bug, format!("socket error {e}"))
@@ -45,7 +47,10 @@ impl OvsDbJsonRpc {
         })
     }
 
-    pub(crate) async fn send(&mut self, data: &Value) -> Result<(), NipartError> {
+    pub(crate) async fn send(
+        &mut self,
+        data: &Value,
+    ) -> Result<(), NipartError> {
         let buffer = serde_json::to_string(&data)?;
         log::debug!("OVSDB: sending command {buffer}");
         self.socket
@@ -79,10 +84,11 @@ impl OvsDbJsonRpc {
     ) -> Result<Value, NipartError> {
         let mut response: Vec<u8> = Vec::with_capacity(BUFFER_SIZE);
 
-        let mut reply: Result<OvsDbRpcReply, NipartError> = Err(NipartError::new(
-            ErrorKind::PluginFailure,
-            "Empty reply from OVSDB".to_string(),
-        ));
+        let mut reply: Result<OvsDbRpcReply, NipartError> =
+            Err(NipartError::new(
+                ErrorKind::PluginFailure,
+                "Empty reply from OVSDB".to_string(),
+            ));
 
         for _ in 0..MAX_RECV_RETRY_COUNT {
             self.socket.readable().await.map_err(|e| {

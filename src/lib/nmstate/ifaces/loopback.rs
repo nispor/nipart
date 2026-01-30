@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     BaseInterface, ErrorKind, InterfaceIpAddr, InterfaceIpv4, InterfaceIpv6,
-    InterfaceState, InterfaceType, JsonDisplay, NipartError, NipartstateInterface,
+    InterfaceState, InterfaceType, JsonDisplay, NipartError,
+    NipartstateInterface,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonDisplay)]
@@ -104,15 +105,14 @@ impl NipartstateInterface for LoopbackInterface {
                         .to_string(),
                 ));
             }
-            if let Some(addrs) = ipv4.addresses.as_mut() {
-                if !addrs.contains(&default_ipv4_addr) {
+            if let Some(addrs) = ipv4.addresses.as_mut()
+                && !addrs.contains(&default_ipv4_addr) {
                     log::info!(
                         "Appending 127.0.0.1/8 address to desired IPv4 \
                          addresses of loopback"
                     );
                     addrs.push(default_ipv4_addr);
                 }
-            }
         }
 
         if let Some(ipv6) = self.base.ipv6.as_mut() {
@@ -123,15 +123,14 @@ impl NipartstateInterface for LoopbackInterface {
                         .to_string(),
                 ));
             }
-            if let Some(addrs) = ipv6.addresses.as_mut() {
-                if !addrs.contains(&default_ipv6_addr) {
+            if let Some(addrs) = ipv6.addresses.as_mut()
+                && !addrs.contains(&default_ipv6_addr) {
                     log::info!(
                         "Appending ::1/128 address to desired IPv6 addresses \
                          of loopback"
                     );
                     addrs.push(default_ipv6_addr);
                 }
-            }
         }
         Ok(())
     }

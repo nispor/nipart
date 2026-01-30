@@ -142,11 +142,10 @@ fn remove_ready_state(
     let mut pending_ifaces: HashSet<(String, Option<InterfaceType>)> =
         HashSet::new();
     for iface_name in ready_iface_names {
-        if let Some(iface) = state.ifaces.get(iface_name.as_str(), None) {
-            if iface.base_iface().controller.is_none() {
+        if let Some(iface) = state.ifaces.get(iface_name.as_str(), None)
+            && iface.base_iface().controller.is_none() {
                 pending_ifaces.insert((iface.name().to_string(), None));
             }
-        }
     }
 
     // Include all virtual interface if not controller or controller has all

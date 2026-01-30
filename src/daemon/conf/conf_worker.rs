@@ -3,7 +3,9 @@
 use std::os::unix::fs::PermissionsExt;
 
 use futures_channel::{mpsc::UnboundedReceiver, oneshot::Sender};
-use nipart::{ErrorKind, InterfaceType, NetworkState, NipartError, NipartstateInterface};
+use nipart::{
+    ErrorKind, InterfaceType, NetworkState, NipartError, NipartstateInterface,
+};
 use tokio::{fs::File, io::AsyncWriteExt};
 
 use crate::TaskWorker;
@@ -34,11 +36,11 @@ pub(crate) enum NipartConfReply {
     State(Box<NetworkState>),
 }
 
-type FromManager = (NipartConfCmd, Sender<Result<NipartConfReply, NipartError>>);
+type FromManager =
+    (NipartConfCmd, Sender<Result<NipartConfReply, NipartError>>);
 
 const INTERNAL_STATE_DIR: &str = "/etc/nipart/states/internal";
-const APPLIED_STATE_PATH: &str =
-    "/etc/nipart/states/internal/applied.yml";
+const APPLIED_STATE_PATH: &str = "/etc/nipart/states/internal/applied.yml";
 const APPLIED_SECRETS_PATH: &str =
     "/etc/nipart/states/internal/applied.secrets.yml";
 
@@ -110,8 +112,8 @@ fn read_state_from_file() -> Result<NetworkState, NipartError> {
         }
     };
 
-    if std::path::Path::new(APPLIED_SECRETS_PATH).exists() {
-        if let Ok(secrets) = std::fs::read_to_string(APPLIED_SECRETS_PATH) {
+    if std::path::Path::new(APPLIED_SECRETS_PATH).exists()
+        && let Ok(secrets) = std::fs::read_to_string(APPLIED_SECRETS_PATH) {
             match serde_yaml::from_str::<NetworkState>(&secrets) {
                 Ok(s) => {
                     if let Err(e) = state.merge(&s) {
@@ -131,12 +133,13 @@ fn read_state_from_file() -> Result<NetworkState, NipartError> {
                 }
             };
         }
-    }
 
     Ok(state)
 }
 
-async fn save_state_to_file(net_state: &NetworkState) -> Result<(), NipartError> {
+async fn save_state_to_file(
+    net_state: &NetworkState,
+) -> Result<(), NipartError> {
     create_instal_state_dir()?;
     log::trace!("Saving state {net_state}");
 

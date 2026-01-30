@@ -33,9 +33,9 @@ async fn main() -> Result<(), nipart::NipartError> {
         };
     });
 
-    handle
-        .await
-        .map_err(|e| nipart::NipartError::new(nipart::ErrorKind::Bug, format!("{e}")))
+    handle.await.map_err(|e| {
+        nipart::NipartError::new(nipart::ErrorKind::Bug, format!("{e}"))
+    })
 }
 
 fn enable_logging() {

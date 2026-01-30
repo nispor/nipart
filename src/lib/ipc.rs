@@ -131,7 +131,10 @@ impl NipartIpcConnection {
         Ok(())
     }
 
-    pub async fn log(&mut self, log: NipartLogEntry) -> Result<(), NipartError> {
+    pub async fn log(
+        &mut self,
+        log: NipartLogEntry,
+    ) -> Result<(), NipartError> {
         self.send(Ok(log)).await
     }
 

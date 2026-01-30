@@ -4,7 +4,8 @@ use std::collections::HashMap;
 
 use super::{NipartWpaConn, dbus::NipartWpaSupDbus};
 use crate::{
-    Interface, Interfaces, NipartError, WifiAuthType, WifiCfgInterface, WifiConfig,
+    Interface, Interfaces, NipartError, WifiAuthType, WifiCfgInterface,
+    WifiConfig,
 };
 
 impl NipartWpaConn {
@@ -29,8 +30,8 @@ impl NipartWpaConn {
                 wifi_cfg.base_iface = Some(wpa_iface.iface_name.to_string());
                 wifi_cfg.auth_types =
                     wpa_iface.get_cur_auth_mode().map(|c| vec![c]);
-                if let Some(auth_types) = wifi_cfg.auth_types.as_ref() {
-                    if auth_types.iter().any(|auth_type| {
+                if let Some(auth_types) = wifi_cfg.auth_types.as_ref()
+                    && auth_types.iter().any(|auth_type| {
                         matches!(
                             auth_type,
                             WifiAuthType::Wpa2Personal
@@ -44,7 +45,6 @@ impl NipartWpaConn {
                                 .to_string(),
                         );
                     }
-                }
                 wifi_cfg.state = Some(wpa_iface.state.into());
                 if let Some(exist_wifi_cfg) =
                     wifi_cfgs.get_mut(wifi_cfg.ssid.as_str())
@@ -67,8 +67,7 @@ impl NipartWpaConn {
             };
             if let Ok(bss) =
                 dbus.get_current_bss(wpa_iface.obj_path.as_str()).await
-            {
-                if let Some(ssid) = bss.ssid.as_ref()
+                && let Some(ssid) = bss.ssid.as_ref()
                     && let Some(wifi_cfg) = wifi_cfgs.get(ssid)
                 {
                     if let Some(kernel_wifi_cfg) = iface.wifi.as_mut() {
@@ -77,7 +76,6 @@ impl NipartWpaConn {
                         iface.wifi = Some(wifi_cfg.clone());
                     }
                 }
-            }
         }
 
         for wifi_cfg in wifi_cfgs.values() {

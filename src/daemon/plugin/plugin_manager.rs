@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, NetworkState, NipartError, NipartstateApplyOption, NipartstateQueryOption,
+    ErrorKind, NetworkState, NipartError, NipartstateApplyOption,
+    NipartstateQueryOption,
 };
 
 use super::{NipartPluginCmd, NipartPluginReply, NipartPluginWorker};

@@ -17,11 +17,9 @@ impl MergedInterfaces {
         {
             if let Some(Interface::Ethernet(eth_iface)) =
                 iface.for_apply.as_ref()
-            {
-                if let Some(peer) =
+                && let Some(peer) =
                     eth_iface.veth.as_ref().map(|v| v.peer.as_str())
-                {
-                    if !self.kernel_ifaces.contains_key(peer) {
+                    && !self.kernel_ifaces.contains_key(peer) {
                         let mut base_iface = BaseInterface::new(
                             peer.to_string(),
                             InterfaceType::Ethernet,
@@ -63,8 +61,6 @@ impl MergedInterfaces {
 
                         new_veth_peers.push(merged_iface);
                     }
-                }
-            }
         }
         for merged_iface in new_veth_peers {
             let iface_name = merged_iface.merged.name().to_string();
@@ -79,16 +75,12 @@ impl MergedInterfaces {
         for iface in self.kernel_ifaces.values().filter(|i| {
             i.for_apply.as_ref().map(|i| i.is_absent()) == Some(true)
         }) {
-            if let Some(Interface::Ethernet(iface)) = iface.current.as_ref() {
-                if let Some(peer) = iface.veth.as_ref().map(|v| v.peer.as_str())
-                {
-                    if let Some(peer_iface) = self.kernel_ifaces.get(peer) {
-                        if peer_iface.desired.is_none() {
+            if let Some(Interface::Ethernet(iface)) = iface.current.as_ref()
+                && let Some(peer) = iface.veth.as_ref().map(|v| v.peer.as_str())
+                    && let Some(peer_iface) = self.kernel_ifaces.get(peer)
+                        && peer_iface.desired.is_none() {
                             pending_changes.push(peer.to_string());
                         }
-                    }
-                }
-            }
         }
         for iface_name in pending_changes {
             if let Some(iface) = self
@@ -132,12 +124,11 @@ impl Interfaces {
             } else {
                 continue;
             };
-            if let Some(peer_iface) = self.kernel_ifaces.get(peer) {
-                if peer_iface.base_iface().state != new_iface.base.state {
+            if let Some(peer_iface) = self.kernel_ifaces.get(peer)
+                && peer_iface.base_iface().state != new_iface.base.state {
                     pending_changes
                         .push((peer.to_string(), new_iface.base.state));
                 }
-            }
         }
         for (peer_name, iface_state) in pending_changes {
             if let Some(iface) = self.kernel_ifaces.get_mut(&peer_name) {

@@ -18,7 +18,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use super::ip::{is_ipv6_addr, sanitize_ip_network};
-use crate::{ErrorKind, Interfaces, JsonDisplay, NipartError, NipartstateInterface};
+use crate::{
+    ErrorKind, Interfaces, JsonDisplay, NipartError, NipartstateInterface,
+};
 
 const DEFAULT_TABLE_ID: u32 = 254; // main route table ID
 const LOOPBACK_IFACE_NAME: &str = "lo";
@@ -467,24 +469,22 @@ impl RouteEntry {
                     ),
                 ));
             }
-            if let Some(dst) = self.destination.as_deref() {
-                if is_ipv6_addr(dst) {
+            if let Some(dst) = self.destination.as_deref()
+                && is_ipv6_addr(dst) {
                     return Err(NipartError::new(
                         ErrorKind::NoSupport,
                         "IPv6 ECMP route with weight is not supported yet"
                             .to_string(),
                     ));
                 }
-            }
         }
-        if let Some(cwnd) = self.cwnd {
-            if cwnd == 0 {
+        if let Some(cwnd) = self.cwnd
+            && cwnd == 0 {
                 return Err(NipartError::new(
                     ErrorKind::InvalidArgument,
                     "The value of 'cwnd' cannot be 0".to_string(),
                 ));
             }
-        }
         if self.mtu == Some(0) {
             return Err(NipartError::new(
                 ErrorKind::InvalidArgument,
@@ -545,8 +545,8 @@ impl Hash for RouteEntry {
 // 0.0.0.0/8 and its subnet cannot be used as the route destination network
 // for unicast route
 fn validate_route_dst(route: &RouteEntry) -> Result<(), NipartError> {
-    if let Some(dst) = route.destination.as_deref() {
-        if !is_ipv6_addr(dst) {
+    if let Some(dst) = route.destination.as_deref()
+        && !is_ipv6_addr(dst) {
             let ip_net: Vec<&str> = dst.split('/').collect();
             let ip_addr = Ipv4Addr::from_str(ip_net[0])?;
             if ip_addr.octets()[0] == 0 {
@@ -588,6 +588,5 @@ fn validate_route_dst(route: &RouteEntry) -> Result<(), NipartError> {
             }
             return Ok(());
         }
-    }
     Ok(())
 }

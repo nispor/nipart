@@ -4,8 +4,8 @@ use std::time::SystemTime;
 
 use nipart::{
     ErrorKind, Interface, InterfaceState, InterfaceType, MergedNetworkState,
-    NetworkState, NipartError, NipartNoDaemon, NipartstateApplyOption, NipartstateInterface,
-    NipartstateQueryOption, WifiPhyInterface,
+    NetworkState, NipartError, NipartNoDaemon, NipartstateApplyOption,
+    NipartstateInterface, NipartstateQueryOption, WifiPhyInterface,
 };
 
 use super::commander::NipartCommander;
@@ -58,9 +58,10 @@ impl NipartCommander {
     ) -> Result<(), NipartError> {
         let iface_name = event.iface_name.as_str();
         let saved_state = self.conf_manager.query_state().await?;
-        let cur_state =
-            NipartNoDaemon::query_network_state(NipartstateQueryOption::running())
-                .await?;
+        let cur_state = NipartNoDaemon::query_network_state(
+            NipartstateQueryOption::running(),
+        )
+        .await?;
 
         if let Some(cur_iface) = cur_state.ifaces.kernel_ifaces.get(iface_name)
         {

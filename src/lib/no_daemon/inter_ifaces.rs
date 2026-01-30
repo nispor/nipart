@@ -157,7 +157,8 @@ async fn apply_ifaces_link_changes(
     }
 
     if !changed_wifi_ifaces.is_empty() {
-        NipartWpaConn::apply(changed_wifi_ifaces.as_slice(), merged_ifaces).await?;
+        NipartWpaConn::apply(changed_wifi_ifaces.as_slice(), merged_ifaces)
+            .await?;
     }
 
     if !np_ifaces.is_empty() {

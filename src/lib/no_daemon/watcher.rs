@@ -13,7 +13,9 @@ use rtnetlink::{
 use crate::{ErrorKind, NipartError, NipartNoDaemon};
 
 impl NipartNoDaemon {
-    pub async fn wait_link_carrier_up(iface_name: &str) -> Result<(), NipartError> {
+    pub async fn wait_link_carrier_up(
+        iface_name: &str,
+    ) -> Result<(), NipartError> {
         wait_link_carrier(iface_name, true).await
     }
 
@@ -53,8 +55,7 @@ async fn wait_link_carrier(
         if let NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewLink(
             link_msg,
         )) = nl_msg.payload
-        {
-            if link_msg
+            && link_msg
                 .attributes
                 .iter()
                 .any(|attr| attr == &iface_name_attr)
@@ -68,7 +69,6 @@ async fn wait_link_carrier(
             {
                 return Ok(());
             }
-        }
     }
     Err(NipartError::new(
         ErrorKind::Bug,

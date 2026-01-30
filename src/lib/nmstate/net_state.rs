@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CUR_SCHEMA_VERSION, ErrorKind, Interfaces, JsonDisplayHideSecrets, NipartError,
-    Routes,
+    CUR_SCHEMA_VERSION, ErrorKind, Interfaces, JsonDisplayHideSecrets,
+    NipartError, Routes,
 };
 
 #[derive(

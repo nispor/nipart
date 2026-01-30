@@ -27,7 +27,9 @@ impl NipartConfManager {
             iface.base_iface_mut().iface_index = None;
         }
 
-        self.mgr.exec(NipartConfCmd::SaveState(Box::new(state))).await?;
+        self.mgr
+            .exec(NipartConfCmd::SaveState(Box::new(state)))
+            .await?;
         Ok(())
     }
 

@@ -6,7 +6,8 @@ use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease, DhcpV4State};
 use super::{ip::apply_iface_ip_changes, route::apply_routes};
 use crate::{
     ErrorKind, InterfaceIpAddr, InterfaceIpv4, InterfaceType, MergedInterfaces,
-    MergedRoutes, NipartError, NipartNoDaemon, NipartstateInterface, RouteEntry, Routes,
+    MergedRoutes, NipartError, NipartNoDaemon, NipartstateInterface,
+    RouteEntry, Routes,
 };
 
 const DEFAULT_ROUTE_TABLE_ID: u32 = 254;

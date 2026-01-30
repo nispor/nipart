@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    JsonDisplayHideSecrets, NetworkState, NipartCanIpc, NipartError, NipartIpcConnection,
-    NipartstateApplyOption, NipartstateQueryOption,
+    JsonDisplayHideSecrets, NetworkState, NipartCanIpc, NipartError,
+    NipartIpcConnection, NipartstateApplyOption, NipartstateQueryOption,
 };
 
 impl NipartCanIpc for NetworkState {

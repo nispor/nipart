@@ -2,11 +2,14 @@
 
 use super::value::gen_revert_state;
 use crate::{
-    Interface, InterfaceState, MergedInterface, NipartError, NipartstateInterface,
+    Interface, InterfaceState, MergedInterface, NipartError,
+    NipartstateInterface,
 };
 
 impl MergedInterface {
-    pub(crate) fn generate_revert(&self) -> Result<Option<Interface>, NipartError> {
+    pub(crate) fn generate_revert(
+        &self,
+    ) -> Result<Option<Interface>, NipartError> {
         let apply_iface = match self.for_apply.as_ref() {
             Some(i) => i,
             None => return Ok(None),

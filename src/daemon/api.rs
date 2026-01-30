@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use nipart::{ErrorKind, NetworkState, NipartClientCmd, NipartError, NipartIpcConnection};
+use nipart::{
+    ErrorKind, NetworkState, NipartClientCmd, NipartError, NipartIpcConnection,
+};
 
-use crate::{commander::NipartCommander, lock::NipartLockManager, log_debug, log_info};
+use crate::{
+    commander::NipartCommander, lock::NipartLockManager, log_debug, log_info,
+};
 
 pub(crate) async fn process_api_connection(
     mut conn: NipartIpcConnection,
@@ -79,10 +83,12 @@ pub(crate) async fn process_api_connection(
                 conn.send(result).await?;
             }
             _ => {
-                conn.send::<Result<NetworkState, NipartError>>(Err(NipartError::new(
-                    ErrorKind::NoSupport,
-                    format!("Unsupported request {cmd:?}"),
-                )))
+                conn.send::<Result<NetworkState, NipartError>>(Err(
+                    NipartError::new(
+                        ErrorKind::NoSupport,
+                        format!("Unsupported request {cmd:?}"),
+                    ),
+                ))
                 .await?;
             }
         }
@@ -93,7 +99,9 @@ pub(crate) async fn process_api_connection(
 // to most distributions, we should use `std::os::unix::net::SocketCred`
 //
 // Return (uid, pid)
-fn get_peer_info(conn: &NipartIpcConnection) -> Result<(u32, i32), NipartError> {
+fn get_peer_info(
+    conn: &NipartIpcConnection,
+) -> Result<(u32, i32), NipartError> {
     let credential = nix::sys::socket::getsockopt(
         conn,
         nix::sys::socket::sockopt::PeerCredentials,

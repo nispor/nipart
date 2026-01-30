@@ -5,5 +5,7 @@ mod monitor_worker;
 
 pub(crate) use self::{
     monitor_manager::NipartMonitorManager,
-    monitor_worker::{NipartMonitorCmd, NipartMonitorReply, NipartMonitorWorker},
+    monitor_worker::{
+        NipartMonitorCmd, NipartMonitorReply, NipartMonitorWorker,
+    },
 };

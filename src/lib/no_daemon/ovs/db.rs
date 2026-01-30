@@ -207,14 +207,13 @@ impl TryFrom<&Value> for OvsDbEntry {
         );
         let v = v.clone();
         let mut ret = OvsDbEntry::default();
-        if let Value::Object(mut v) = v {
-            if let Some(Value::String(n)) = v.remove("name") {
+        if let Value::Object(mut v) = v
+            && let Some(Value::String(n)) = v.remove("name") {
                 ret.name = n;
-                if let Some(Value::Array(uuid)) = v.remove("_uuid") {
-                    if let Some(Value::String(uuid)) = uuid.get(1) {
+                if let Some(Value::Array(uuid)) = v.remove("_uuid")
+                    && let Some(Value::String(uuid)) = uuid.get(1) {
                         ret.uuid = uuid.to_string();
                     }
-                }
                 if let Some(Value::String(iface_type)) = v.remove("type") {
                     ret.iface_type = iface_type;
                 }
@@ -236,7 +235,6 @@ impl TryFrom<&Value> for OvsDbEntry {
 
                 return Ok(ret);
             }
-        }
         log::error!("{e}");
         Err(e)
     }
@@ -249,8 +247,8 @@ pub(crate) fn parse_str_map(v: &[Value]) -> HashMap<String, String> {
             "map" => {
                 if let Some(ids) = v.get(1).and_then(|i| i.as_array()) {
                     for kv in ids {
-                        if let Some(kv) = kv.as_array() {
-                            if let (
+                        if let Some(kv) = kv.as_array()
+                            && let (
                                 Some(Value::String(k)),
                                 Some(Value::String(v)),
                             ) = (kv.first(), kv.get(1))
@@ -260,7 +258,6 @@ pub(crate) fn parse_str_map(v: &[Value]) -> HashMap<String, String> {
                                 }
                                 ret.insert(k.to_string(), v.to_string());
                             }
-                        }
                     }
                 }
             }
@@ -279,8 +276,8 @@ pub(crate) fn parse_uuid_array(v: &[Value]) -> Vec<String> {
             "set" => {
                 if let Some(vs) = v.get(1).and_then(|i| i.as_array()) {
                     for v in vs {
-                        if let Some(kv) = v.as_array() {
-                            if let (
+                        if let Some(kv) = v.as_array()
+                            && let (
                                 Some(Value::String(k)),
                                 Some(Value::String(v)),
                             ) = (kv.first(), kv.get(1))
@@ -290,7 +287,6 @@ pub(crate) fn parse_uuid_array(v: &[Value]) -> Vec<String> {
                                 }
                                 ret.push(v.to_string());
                             }
-                        }
                     }
                 }
             }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    BaseInterface, MergedNetworkState, NetworkState, NipartError, NipartIpcConnection,
-    NipartstateInterface,
+    BaseInterface, MergedNetworkState, NetworkState, NipartError,
+    NipartIpcConnection, NipartstateInterface,
 };
 
 use super::{NipartDhcpCmd, NipartDhcpReply, NipartDhcpV4Worker};

@@ -76,7 +76,10 @@ pub struct BaseInterface {
 impl BaseInterface {
     pub fn hide_secrets(&mut self) {}
 
-    pub fn sanitize(&mut self, current: Option<&Self>) -> Result<(), NipartError> {
+    pub fn sanitize(
+        &mut self,
+        current: Option<&Self>,
+    ) -> Result<(), NipartError> {
         if let Some(ipv4) = self.ipv4.as_mut() {
             ipv4.sanitize(current.and_then(|c| c.ipv4.as_ref()))?;
         }
@@ -89,8 +92,8 @@ impl BaseInterface {
     }
 
     fn validate_mtu(&self, current: Option<&Self>) -> Result<(), NipartError> {
-        if let Some(current) = current {
-            if let (Some(desire_mtu), Some(min_mtu), Some(max_mtu)) =
+        if let Some(current) = current
+            && let (Some(desire_mtu), Some(min_mtu), Some(max_mtu)) =
                 (self.mtu, current.min_mtu, current.max_mtu)
             {
                 if desire_mtu > max_mtu {
@@ -113,7 +116,6 @@ impl BaseInterface {
                     ));
                 }
             }
-        }
         Ok(())
     }
 

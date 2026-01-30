@@ -130,10 +130,9 @@ fn should_skip_link_change(
             );
             return true;
         }
-        if let Some(Interface::Ethernet(cur_iface)) = cur_iface {
-            if let Some(peer) = cur_iface.veth.as_ref().map(|v| v.peer.as_str())
-            {
-                if peer > cur_iface.base.name.as_str()
+        if let Some(Interface::Ethernet(cur_iface)) = cur_iface
+            && let Some(peer) = cur_iface.veth.as_ref().map(|v| v.peer.as_str())
+                && peer > cur_iface.base.name.as_str()
                     && let Some(peer_iface) = merged_ifaces
                         .kernel_ifaces
                         .get(peer)
@@ -148,8 +147,6 @@ fn should_skip_link_change(
                     );
                     return true;
                 }
-            }
-        }
     }
     false
 }

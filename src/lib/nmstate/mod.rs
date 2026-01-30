@@ -46,7 +46,9 @@ pub use self::{
     },
     net_state::NetworkState,
     route::{RouteEntry, RouteState, RouteType, Routes},
-    state_options::{NipartstateApplyOption, NipartstateQueryOption, NipartstateStateKind},
+    state_options::{
+        NipartstateApplyOption, NipartstateQueryOption, NipartstateStateKind,
+    },
     version::CUR_SCHEMA_VERSION,
 };
 

@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 
 use super::{
-    NipartWpaConn, bss::WpaSupBss, dbus::NipartWpaSupDbus, network::WpaSupNetwork,
-    scan::bss_active_scan,
+    NipartWpaConn, bss::WpaSupBss, dbus::NipartWpaSupDbus,
+    network::WpaSupNetwork, scan::bss_active_scan,
 };
 use crate::{
     ErrorKind, Interface, InterfaceType, MergedInterfaces, NipartError,
@@ -185,11 +185,10 @@ async fn add_wifi_cfg(
         bssid: wifi_cfg.bssid.clone(),
         ..Default::default()
     };
-    if let Some(bss) = bss {
-        if bss.is_wpa3_psk() {
+    if let Some(bss) = bss
+        && bss.is_wpa3_psk() {
             wpa_network.change_to_wpa3_psk();
         }
-    }
     log::debug!("Adding WIFI network {ssid} to interface {}", iface_name);
     let network_obj_path = dbus
         .add_network(iface_obj_path.as_str(), &wpa_network)

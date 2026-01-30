@@ -10,7 +10,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    BaseInterface, InterfaceType, JsonDisplay, NipartError, NipartstateInterface,
+    BaseInterface, InterfaceType, JsonDisplay, NipartError,
+    NipartstateInterface,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonDisplay)]

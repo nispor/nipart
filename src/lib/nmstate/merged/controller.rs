@@ -11,7 +11,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     BondMode, ErrorKind, Interface, InterfaceState, InterfaceType, Interfaces,
-    MergedInterface, MergedInterfaces, NipartError, NipartstateInterface, OvsInterface,
+    MergedInterface, MergedInterfaces, NipartError, NipartstateInterface,
+    OvsInterface,
 };
 
 fn is_port_overbook(
@@ -148,8 +149,7 @@ impl MergedInterfaces {
                         .desired
                         .as_ref()
                         .and_then(|desire| desire.ports())
-                    {
-                        if !ports.contains(&merged_iface.merged.name()) {
+                        && !ports.contains(&merged_iface.merged.name()) {
                             return Err(NipartError::new(
                                 ErrorKind::InvalidArgument,
                                 format!(
@@ -161,7 +161,6 @@ impl MergedInterfaces {
                                 ),
                             ));
                         }
-                    }
                 } else {
                     return Err(NipartError::new(
                         ErrorKind::InvalidArgument,
@@ -177,7 +176,9 @@ impl MergedInterfaces {
         Ok(())
     }
 
-    fn validate_controller_in_other_port_list(&self) -> Result<(), NipartError> {
+    fn validate_controller_in_other_port_list(
+        &self,
+    ) -> Result<(), NipartError> {
         let mut port_to_ctrl = HashMap::new();
         for iface in self.iter().filter(|i| i.is_desired() && i.merged.is_up())
         {
@@ -201,8 +202,8 @@ impl MergedInterfaces {
             } else {
                 continue;
             };
-            if let Some(ctrl_name) = port_to_ctrl.get(iface.merged.name()) {
-                if des_ctrl_name != ctrl_name {
+            if let Some(ctrl_name) = port_to_ctrl.get(iface.merged.name())
+                && des_ctrl_name != ctrl_name {
                     if des_ctrl_name.is_empty() {
                         return Err(NipartError::new(
                             ErrorKind::InvalidArgument,
@@ -227,7 +228,6 @@ impl MergedInterfaces {
                         ));
                     }
                 }
-            }
         }
         Ok(())
     }
@@ -358,11 +358,10 @@ impl MergedInterfaces {
             if let Some(ports) = iface.ports() {
                 let ports = HashSet::from_iter(ports.iter().cloned());
                 if !ib_iface_names.is_disjoint(&ports) {
-                    if let Interface::Bond(iface) = iface {
-                        if iface.mode() == Some(BondMode::ActiveBackup) {
+                    if let Interface::Bond(iface) = iface
+                        && iface.mode() == Some(BondMode::ActiveBackup) {
                             continue;
                         }
-                    }
                     let e = NipartError::new(
                         ErrorKind::InvalidArgument,
                         format!(

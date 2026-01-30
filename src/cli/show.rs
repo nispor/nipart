@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    NetworkState, NipartClient, NipartNoDaemon, NipartstateInterface, NipartstateQueryOption,
+    NetworkState, NipartClient, NipartNoDaemon, NipartstateInterface,
+    NipartstateQueryOption,
 };
 
 use crate::CliError;

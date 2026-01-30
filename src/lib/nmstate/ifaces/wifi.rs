@@ -111,7 +111,10 @@ impl NipartstateInterface for WifiPhyInterface {
         }
     }
 
-    fn post_merge_iface_specific(&mut self, old: &Self) -> Result<(), NipartError> {
+    fn post_merge_iface_specific(
+        &mut self,
+        old: &Self,
+    ) -> Result<(), NipartError> {
         if let Some(wifi) = self.wifi.as_mut()
             && let Some(old_wifi) = old.wifi.as_ref()
         {
@@ -308,7 +311,10 @@ impl NipartstateInterface for WifiCfgInterface {
         }
     }
 
-    fn post_merge_iface_specific(&mut self, old: &Self) -> Result<(), NipartError> {
+    fn post_merge_iface_specific(
+        &mut self,
+        old: &Self,
+    ) -> Result<(), NipartError> {
         if let Some(wifi) = self.wifi.as_mut()
             && let Some(old_wifi) = old.wifi.as_ref()
         {

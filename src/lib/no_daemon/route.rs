@@ -10,7 +10,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    ErrorKind, Interfaces, MergedRoutes, NipartError, RouteEntry, RouteType, Routes,
+    ErrorKind, Interfaces, MergedRoutes, NipartError, RouteEntry, RouteType,
+    Routes,
 };
 
 const SUPPORTED_ROUTE_SCOPE: [nispor::RouteScope; 2] =

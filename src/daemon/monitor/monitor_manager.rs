@@ -4,7 +4,8 @@ use futures_channel::mpsc::UnboundedSender;
 use nipart::{InterfaceType, NipartError};
 
 use super::{
-    super::daemon::NipartManagerCmd, NipartMonitorCmd, NipartMonitorReply, NipartMonitorWorker,
+    super::daemon::NipartManagerCmd, NipartMonitorCmd, NipartMonitorReply,
+    NipartMonitorWorker,
 };
 use crate::TaskManager;
 

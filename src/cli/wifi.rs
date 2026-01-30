@@ -2,8 +2,8 @@
 
 use std::io::{IsTerminal, Write, stdin, stdout};
 
-use nix::sys::termios::{LocalFlags, SetArg, tcgetattr, tcsetattr};
 use nipart::{NetworkState, NipartClient, NipartNoDaemon};
+use nix::sys::termios::{LocalFlags, SetArg, tcgetattr, tcsetattr};
 
 use crate::CliError;
 

@@ -87,7 +87,10 @@ pub(crate) enum NipartMonitorReply {
     None,
 }
 
-type FromManager = (NipartMonitorCmd, Sender<Result<NipartMonitorReply, NipartError>>);
+type FromManager = (
+    NipartMonitorCmd,
+    Sender<Result<NipartMonitorReply, NipartError>>,
+);
 
 #[derive(Debug)]
 pub(crate) struct NipartMonitorWorker {
@@ -195,13 +198,12 @@ impl TaskWorker for NipartMonitorWorker {
                         }
                     }
                     result = netlink_msg_receiver.next() => {
-                        if let Some((nl_msg, _)) = result {
-                            if let Err(e) = self.process_rtnl_message(
+                        if let Some((nl_msg, _)) = result
+                            && let Err(e) = self.process_rtnl_message(
                                 nl_msg,
                             ).await {
                                 log::error!("{e}");
                             }
-                        }
                     }
                 }
                 if !self.manual_paused {
@@ -226,7 +228,10 @@ impl NipartMonitorWorker {
         self.netlink_msg_receiver = None;
     }
 
-    async fn notify(&mut self, event: NipartLinkEvent) -> Result<(), NipartError> {
+    async fn notify(
+        &mut self,
+        event: NipartLinkEvent,
+    ) -> Result<(), NipartError> {
         log::trace!("NipartMonitorWorker sending out {event:?}");
         if let Some(sender) = self.msg_to_commander.as_mut() {
             let cmd = NipartManagerCmd::LinkEvent(Box::new(event.clone()));
@@ -244,7 +249,8 @@ impl NipartMonitorWorker {
             Err(NipartError::new(
                 ErrorKind::Bug,
                 format!(
-                    "Got NipartMonitorWorker without msg_to_commander: {self:?}"
+                    "Got NipartMonitorWorker without msg_to_commander: \
+                     {self:?}"
                 ),
             ))
         }

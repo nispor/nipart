@@ -11,7 +11,8 @@ pub(crate) trait TaskWorker: Sized + Send {
     type Cmd: std::fmt::Display + Send;
     type Reply: Send;
     // Once `associated_type_defaults` feature is stable, we should use this:
-    // type FromManager = (Self::Cmd, Sender<Result<Self::Result, NipartError>>);
+    // type FromManager = (Self::Cmd, Sender<Result<Self::Result,
+    // NipartError>>);
 
     #[allow(clippy::type_complexity)]
     fn new(
@@ -24,7 +25,10 @@ pub(crate) trait TaskWorker: Sized + Send {
     #[allow(clippy::type_complexity)]
     fn receiver(
         &mut self,
-    ) -> &mut UnboundedReceiver<(Self::Cmd, Sender<Result<Self::Reply, NipartError>>)>;
+    ) -> &mut UnboundedReceiver<(
+        Self::Cmd,
+        Sender<Result<Self::Reply, NipartError>>,
+    )>;
 
     fn process_cmd(
         &mut self,
@@ -77,7 +81,8 @@ where
     where
         W: TaskWorker<Cmd = C, Reply = R> + 'static,
     {
-        let (sender, receiver) = unbounded::<(C, Sender<Result<R, NipartError>>)>();
+        let (sender, receiver) =
+            unbounded::<(C, Sender<Result<R, NipartError>>)>();
 
         let mut worker = W::new(receiver).await?;
 
@@ -87,7 +92,8 @@ where
     }
 
     pub(crate) async fn exec(&mut self, cmd: C) -> Result<R, NipartError> {
-        let (result_sender, result_receiver) = channel::<Result<R, NipartError>>();
+        let (result_sender, result_receiver) =
+            channel::<Result<R, NipartError>>();
 
         self.sender
             .send((cmd.clone(), result_sender))

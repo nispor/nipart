@@ -217,8 +217,8 @@ async fn connect_plugins(plugins: &mut HashMap<String, NipartDaemonPlugin>) {
         get_file_paths_in_dir(NipartPluginClient::DEFAULT_SOCKET_DIR)
     {
         let path = std::path::Path::new(&file_path);
-        if is_socket(path) {
-            if let Ok(mut client) = NipartPluginClient::new(&file_path).await {
+        if is_socket(path)
+            && let Ok(mut client) = NipartPluginClient::new(&file_path).await {
                 match client.query_plugin_info().await {
                     Ok(info) => {
                         log::info!(
@@ -240,6 +240,5 @@ async fn connect_plugins(plugins: &mut HashMap<String, NipartDaemonPlugin>) {
                     }
                 }
             }
-        }
     }
 }

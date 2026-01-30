@@ -13,8 +13,9 @@ use super::{
     db::{OvsDbConnection, OvsDbEntry},
 };
 use crate::{
-    BaseInterface, Interface, InterfaceType, Interfaces, NetworkState, NipartError,
-    NipartstateInterface, OvsBridgeConfig, OvsBridgeInterface, OvsBridgePortConfig,
+    BaseInterface, Interface, InterfaceType, Interfaces, NetworkState,
+    NipartError, NipartstateInterface, OvsBridgeConfig, OvsBridgeInterface,
+    OvsBridgePortConfig,
 };
 
 impl NipartOvsDb {

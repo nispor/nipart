@@ -2,7 +2,8 @@
 
 use nipart::{
     ErrorKind, InterfaceType, NetworkState, NipartError, NipartIpcConnection,
-    NipartNoDaemon, NipartstateInterface, NipartstateQueryOption, NipartstateStateKind,
+    NipartNoDaemon, NipartstateInterface, NipartstateQueryOption,
+    NipartstateStateKind,
 };
 
 use super::commander::NipartCommander;

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use nipart::{NetworkState, NipartClient, NipartNoDaemon, NipartstateApplyOption};
+use nipart::{
+    NetworkState, NipartClient, NipartNoDaemon, NipartstateApplyOption,
+};
 
 use super::{CliError, state::state_from_file};
 
