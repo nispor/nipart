@@ -330,17 +330,34 @@ fn parse_link_msg(link_msg: &LinkMessage) -> Option<NipartLinkEvent> {
         iface_type = InterfaceType::WifiPhy;
     }
 
-    let event_type = if link_msg
-        .attributes
-        .iter()
-        .any(|attr| matches!(attr, LinkAttribute::OperState(State::Up)))
-    {
-        NipartLinkEventType::CarrierUp
+    if let Some(op_state) = link_msg.attributes.iter().find_map(|attr| {
+        if let LinkAttribute::OperState(op_state) = attr {
+            Some(op_state)
+        } else {
+            None
+        }
+    }) {
+        let event_type = match op_state {
+            State::Up => NipartLinkEventType::CarrierUp,
+            State::Down | State::LowerLayerDown => {
+                NipartLinkEventType::CarrierDown
+            }
+            _ => {
+                log::trace!(
+                    "parse_link_msg(): ignoring netlink message due to \
+                     unsupported LinkAttribute::OperState value: {op_state:?}"
+                );
+                return None;
+            }
+        };
+        Some(NipartLinkEvent::new(iface_name, iface_type, event_type))
     } else {
-        NipartLinkEventType::CarrierDown
-    };
-
-    Some(NipartLinkEvent::new(iface_name, iface_type, event_type))
+        log::trace!(
+            "parse_link_msg() ignoring netlink message due to lack of \
+             LinkAttribute::OperState in {link_msg:?}",
+        );
+        None
+    }
 }
 
 fn parse_route_netlink_msg(
