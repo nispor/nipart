@@ -422,7 +422,7 @@ impl WifiConfig {
     pub fn hide_secrets(&mut self) {
         if self.password.is_some() {
             self.password =
-                Some(crate::NetworkState::HIDE_PASSWORD_STR.to_string());
+                Some(crate::NetworkState::HIDE_SECRET_STR.to_string());
         }
     }
 
@@ -492,7 +492,7 @@ impl From<&WifiConfig> for WifiConfigHideSecrets {
         } = v.clone();
         Self {
             password: if password.is_some() {
-                Some(crate::NetworkState::HIDE_PASSWORD_STR.to_string())
+                Some(crate::NetworkState::HIDE_SECRET_STR.to_string())
             } else {
                 None
             },

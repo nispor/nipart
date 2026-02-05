@@ -39,6 +39,8 @@ pub use self::{
         UnknownInterface, VethConfig, VlanConfig, VlanInterface, VlanProtocol,
         VlanQosMapping, VlanRegistrationProtocol, WifiAuthType,
         WifiCfgInterface, WifiConfig, WifiPhyInterface, WifiState,
+        WireguardConfig, WireguardInterface, WireguardIpAddress,
+        WireguardPeerConfig,
     },
     ip::{DhcpState, InterfaceIpAddr, InterfaceIpv4, InterfaceIpv6},
     merged::{

@@ -37,6 +37,12 @@ impl CommandShow {
                     .action(clap::ArgAction::SetTrue)
                     .help("Show the daemon saved state only"),
             )
+            .arg(
+                clap::Arg::new("SHOW_SECRETS")
+                    .long("show-secrets")
+                    .action(clap::ArgAction::SetTrue)
+                    .help("Show secrets(hide by default)"),
+            )
     }
 
     pub(crate) async fn handle(
@@ -58,12 +64,16 @@ impl CommandShow {
             };
             cli.query_network_state(opt).await?
         };
-        let net_state =
+        let mut net_state =
             if let Some(ifname) = matches.get_one::<String>("IFNAME") {
                 filter_net_state(&net_state, ifname)
             } else {
                 net_state
             };
+
+        if !matches.get_flag("SHOW_SECRETS") {
+            net_state.hide_secrets();
+        }
 
         println!("{}", serde_yaml::to_string(&net_state)?);
 

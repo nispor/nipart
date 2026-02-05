@@ -17,7 +17,7 @@ use crate::{
     InterfaceState, InterfaceType, JsonDisplayHideSecrets,
     LinuxBridgeInterface, LoopbackInterface, NipartError, NipartstateInterface,
     OvsBridgeInterface, OvsInterface, UnknownInterface, VlanInterface,
-    WifiCfgInterface, WifiPhyInterface,
+    WifiCfgInterface, WifiPhyInterface, WireguardInterface,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonDisplayHideSecrets)]
@@ -45,6 +45,7 @@ pub enum Interface {
     Bond(Box<BondInterface>),
     /// Linux Bridge Interface
     LinuxBridge(Box<LinuxBridgeInterface>),
+    Wireguard(Box<WireguardInterface>),
     /// Unknown interface.
     Unknown(Box<UnknownInterface>),
 }
@@ -135,6 +136,11 @@ impl<'de> Deserialize<'de> for Interface {
                 let inner = LinuxBridgeInterface::deserialize(v)
                     .map_err(serde::de::Error::custom)?;
                 Ok(Interface::LinuxBridge(Box::new(inner)))
+            }
+            Some(InterfaceType::Wireguard) => {
+                let inner = WireguardInterface::deserialize(v)
+                    .map_err(serde::de::Error::custom)?;
+                Ok(Interface::Wireguard(Box::new(inner)))
             }
             _ => {
                 let inner = UnknownInterface::deserialize(v)
@@ -293,6 +299,7 @@ macro_rules! gen_iface_trait_impl {
                     Self::Vlan,
                     Self::Bond,
                     Self::LinuxBridge,
+                    Self::Wireguard,
                     Self::Unknown,
                 )
             }
@@ -317,6 +324,7 @@ macro_rules! gen_iface_trait_impl_mut {
                     Self::Vlan,
                     Self::Bond,
                     Self::LinuxBridge,
+                    Self::Wireguard,
                     Self::Unknown,
                 )
             }
@@ -355,6 +363,7 @@ impl NipartstateInterface for Interface {
             Interface::Vlan,
             Interface::Bond,
             Interface::LinuxBridge,
+            Interface::Wireguard,
             Interface::Unknown,
         )
     }
@@ -373,6 +382,7 @@ impl NipartstateInterface for Interface {
             Interface::Vlan,
             Interface::Bond,
             Interface::LinuxBridge,
+            Interface::Wireguard,
             Interface::Unknown,
         );
     }
@@ -396,6 +406,7 @@ impl NipartstateInterface for Interface {
             Interface::Vlan,
             Interface::Bond,
             Interface::LinuxBridge,
+            Interface::Wireguard,
             Interface::Unknown,
         )
     }
@@ -419,6 +430,7 @@ impl NipartstateInterface for Interface {
             Interface::Vlan,
             Interface::Bond,
             Interface::LinuxBridge,
+            Interface::Wireguard,
             Interface::Unknown,
         )
     }
@@ -440,6 +452,7 @@ impl NipartstateInterface for Interface {
             Interface::Vlan,
             Interface::Bond,
             Interface::LinuxBridge,
+            Interface::Wireguard,
             Interface::Unknown,
         )
     }
@@ -458,6 +471,7 @@ impl NipartstateInterface for Interface {
             Interface::Vlan,
             Interface::Bond,
             Interface::LinuxBridge,
+            Interface::Wireguard,
             Interface::Unknown,
         )
     }
@@ -494,6 +508,9 @@ impl From<BaseInterface> for Interface {
             InterfaceType::IpVlan => todo!(),
             InterfaceType::WifiPhy => Interface::WifiPhy(Default::default()),
             InterfaceType::WifiCfg => Interface::WifiCfg(Default::default()),
+            InterfaceType::Wireguard => {
+                Interface::Wireguard(Default::default())
+            }
             InterfaceType::Unknown(_) => Interface::Unknown(Default::default()),
         };
         *iface.base_iface_mut() = base_iface;

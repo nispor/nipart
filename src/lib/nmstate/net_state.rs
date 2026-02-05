@@ -39,9 +39,10 @@ impl Default for NetworkState {
 }
 
 impl NetworkState {
-    pub const HIDE_PASSWORD_STR: &str = "<_password_hidden_by_nmstate>";
-    /// Nipartstate cannot retrieve password
-    pub const UNKNOWN_PASSWRD_STR: &str = "<_password_unknown_to_nmstate>";
+    /// Secret hidden by nipart
+    pub const HIDE_SECRET_STR: &str = "<_hidden_>";
+    /// Nipart cannot retrieve secret
+    pub const UNKNOWN_SECRET_STR: &str = "<_unknown_>";
 
     /// Return a network state with secrets only leaving self without any
     /// secrets.

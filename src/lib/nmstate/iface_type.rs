@@ -93,6 +93,8 @@ pub enum InterfaceType {
     WifiPhy,
     /// Pseudo interface for WiFi Configuration
     WifiCfg,
+    /// Wireguard Interface
+    Wireguard,
     /// Interface unknown
     #[serde(untagged)]
     Unknown(String),
@@ -143,6 +145,7 @@ impl InterfaceType {
                 | InterfaceType::Vlan
                 | InterfaceType::WifiPhy
                 | InterfaceType::Bond
+                | InterfaceType::Wireguard
         )
     }
 

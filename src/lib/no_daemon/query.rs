@@ -8,7 +8,7 @@ use crate::{
     BondInterface, DummyInterface, ErrorKind, EthernetInterface, Interface,
     InterfaceType, LinuxBridgeInterface, LoopbackInterface, NetworkState,
     NipartError, NipartNoDaemon, NipartstateInterface, NipartstateQueryOption,
-    UnknownInterface, VlanInterface, WifiPhyInterface,
+    UnknownInterface, VlanInterface, WifiPhyInterface, WireguardInterface,
 };
 
 impl NipartNoDaemon {
@@ -103,6 +103,12 @@ impl NipartNoDaemon {
                     }
                     br_iface.append_br_port_config(np_iface, port_np_ifaces);
                     Interface::LinuxBridge(Box::new(br_iface))
+                }
+                InterfaceType::Wireguard => {
+                    let wg_iface = WireguardInterface::new_from_nispor(
+                        base_iface, np_iface,
+                    );
+                    Interface::Wireguard(Box::new(wg_iface))
                 }
                 _ => {
                     log::trace!(
