@@ -161,14 +161,14 @@ impl InterfaceIpv4 {
     ) -> Result<(), NipartError> {
         self.dhcp_state = None;
         if self.is_auto()
-            && let Some(addrs) = self.addresses.as_ref() {
-                for addr in addrs.iter().filter(|a| !a.is_auto()) {
-                    log::info!(
-                        "Static address {addr} defined when dynamic IP is \
-                         enabled"
-                    );
-                }
+            && let Some(addrs) = self.addresses.as_ref()
+        {
+            for addr in addrs.iter().filter(|a| !a.is_auto()) {
+                log::info!(
+                    "Static address {addr} defined when dynamic IP is enabled"
+                );
             }
+        }
 
         if let Some(addrs) = self.addresses.as_mut() {
             if let Some(addr) = addrs.as_slice().iter().find(|a| a.ip.is_ipv6())

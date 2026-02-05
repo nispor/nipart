@@ -1,0 +1,25 @@
+header:
+  license:
+    content: |
+      SPDX-License-Identifier: Apache-2.0
+
+  paths:
+    - 'src/*'
+    - 'tests/**/*.py'
+
+  paths-ignore:
+    - 'target'
+    - '**/*.toml'
+    - '**/*.lock'
+    - '**/*.mod'
+    - '**/*.sum'
+    - '**/*.in'
+    - '**/*.yml'
+    - '**/*.md'
+    - 'CHANGELOG'
+    - 'LICENSE*'
+    - 'LICENSE'
+    - '.gitignore'
+    - '**/*.txt'
+
+  comment: on-failure

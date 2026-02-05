@@ -1,9 +1,10 @@
 #!/bin/bash -e
+# SPDX-License-Identifier: Apache-2.0
 
 EXEC_PATH=$(dirname "$(realpath "$0")")
 PROJECT_PATH="$(dirname $EXEC_PATH)"
 TEST_PATH="${PROJECT_PATH}/tests"
-TEST_OUTPUT_DIR="/tmp/nm-test"
+TEST_OUTPUT_DIR="/tmp/nipart-test"
 LOG_FILE_FMT="%(asctime)s [%(levelname)8s] \
 %(message)s (%(filename)s:%(lineno)s)"
 START_TIME="$(date  +%H:%M:%S)"
@@ -15,7 +16,7 @@ else
 fi
 
 if [ -e $TEST_OUTPUT_DIR ];then
-    rm -rf $TEST_OUTPUT_DIR
+    $SUDO rm -rf $TEST_OUTPUT_DIR
 fi
 
 mkdir $TEST_OUTPUT_DIR
@@ -27,16 +28,16 @@ sleep 1;
 
 function build {
     cd $PROJECT_PATH
-    if [ ! -e $PROJECT_PATH/target/debug/NetworkManager ];then
+    if [ ! -e $PROJECT_PATH/target/debug/nipartd ];then
         cargo build
     fi
 }
 
 function before_exit {
     collect_logs
-    $SUDO rm -rf /etc/NetworkManager/states 2>/dev/null || true
-    $SUDO mv -f /etc/NetworkManager/states.bak \
-        /etc/NetworkManager/states 2>/dev/null || true
+    $SUDO rm -rf /etc/nipartd/states 2>/dev/null || true
+    $SUDO mv -f /etc/nipartd/states.bak \
+        /etc/nipartd/states 2>/dev/null || true
 }
 
 function collect_logs {
@@ -59,10 +60,10 @@ trap before_exit ERR EXIT
 
 build
 
-$SUDO mv -f /etc/NetworkManager/states/ \
-    /etc/NetworkManager/states.bak 2>/dev/null || true
+$SUDO mv -f /etc/nipartd/states/ \
+    /etc/nipartd/states.bak 2>/dev/null || true
 
-$SUDO ulimit -c unlimited
+$SUDO bash -c "ulimit -c unlimited"
 
 $SUDO pytest \
     --verbose --verbose \
@@ -72,6 +73,6 @@ $SUDO pytest \
     --log-file-format="$LOG_FILE_FMT" \
     --log-file-date-format="%Y-%m-%d %H:%M:%S" \
     --log-file=$TEST_OUTPUT_DIR/pytest.log \
-    "$@" | tee $TEST_OUTPUT_DIR/pytest.output
+    "$@" 
 
 check_core_dump_and_quit

@@ -1,0 +1,39 @@
+name: CI
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: CI (stable)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Rust Stable
+        run: |
+          rustup override set stable
+          rustup update stable
+      - name: Install pytest
+        run: |
+          sudo apt update
+          sudo apt -y install python3-pytest
+
+      - name: Unit Test
+        run: cargo test
+
+      - name: Build the project
+        run: cargo build
+
+      - name: Integration test
+        run: sudo tests/run-tests.sh
+

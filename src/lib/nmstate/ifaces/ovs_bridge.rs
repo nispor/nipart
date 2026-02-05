@@ -83,13 +83,14 @@ impl NipartstateInterface for OvsBridgeInterface {
 
     fn ports(&self) -> Option<Vec<&str>> {
         if let Some(br_conf) = &self.bridge
-            && let Some(port_confs) = &br_conf.ports {
-                let mut port_names = Vec::new();
-                for port_conf in port_confs {
-                    port_names.push(port_conf.name.as_str());
-                }
-                return Some(port_names);
+            && let Some(port_confs) = &br_conf.ports
+        {
+            let mut port_names = Vec::new();
+            for port_conf in port_confs {
+                port_names.push(port_conf.name.as_str());
             }
+            return Some(port_names);
+        }
         None
     }
 }

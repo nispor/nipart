@@ -157,10 +157,10 @@ pub(crate) fn apply_iface_ip_changes(
         let mut cur_addrs: &[InterfaceIpAddr] = &[];
         if let Some(cur_ipv4) = cur_iface.ipv4.as_ref()
             && cur_ipv4.is_enabled()
-                && let Some(c) = cur_ipv4.addresses.as_ref()
-            {
-                cur_addrs = c;
-            }
+            && let Some(c) = cur_ipv4.addresses.as_ref()
+        {
+            cur_addrs = c;
+        }
         let np_addrs = nmstate_ip_addrs_to_nispor(des_addrs, cur_addrs);
 
         if !np_addrs.is_empty() {
@@ -183,10 +183,10 @@ pub(crate) fn apply_iface_ip_changes(
         let mut cur_addrs: &[InterfaceIpAddr] = &[];
         if let Some(cur_ipv6) = cur_iface.ipv6.as_ref()
             && cur_ipv6.is_enabled()
-                && let Some(c) = cur_ipv6.addresses.as_ref()
-            {
-                cur_addrs = c;
-            }
+            && let Some(c) = cur_ipv6.addresses.as_ref()
+        {
+            cur_addrs = c;
+        }
         let np_addrs = nmstate_ip_addrs_to_nispor(des_addrs, cur_addrs);
 
         if !np_addrs.is_empty() {

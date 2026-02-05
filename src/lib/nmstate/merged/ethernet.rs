@@ -19,48 +19,45 @@ impl MergedInterfaces {
                 iface.for_apply.as_ref()
                 && let Some(peer) =
                     eth_iface.veth.as_ref().map(|v| v.peer.as_str())
-                    && !self.kernel_ifaces.contains_key(peer) {
-                        let mut base_iface = BaseInterface::new(
-                            peer.to_string(),
-                            InterfaceType::Ethernet,
+                && !self.kernel_ifaces.contains_key(peer)
+            {
+                let mut base_iface = BaseInterface::new(
+                    peer.to_string(),
+                    InterfaceType::Ethernet,
+                );
+                let mut cur_base_iface = base_iface.clone();
+                cur_base_iface.state = InterfaceState::Down;
+                let cur_iface =
+                    Interface::Ethernet(Box::new(EthernetInterface::new_veth(
+                        cur_base_iface,
+                        eth_iface.name(),
+                    )));
+
+                // Veth peer should be activated after creation which
+                // is holding up_priority 0
+                base_iface.up_priority = 1;
+                let des_iface = Interface::Ethernet(Box::new(
+                    EthernetInterface::new_veth(base_iface, eth_iface.name()),
+                ));
+
+                let mut merged_iface = match MergedInterface::new(
+                    Some(des_iface),
+                    Some(cur_iface),
+                ) {
+                    Ok(i) => i,
+                    Err(e) => {
+                        log::error!(
+                            "BUG: Cannot create MergedInterface for newly \
+                             created veth peer {}: {e}",
+                            peer
                         );
-                        let mut cur_base_iface = base_iface.clone();
-                        cur_base_iface.state = InterfaceState::Down;
-                        let cur_iface = Interface::Ethernet(Box::new(
-                            EthernetInterface::new_veth(
-                                cur_base_iface,
-                                eth_iface.name(),
-                            ),
-                        ));
-
-                        // Veth peer should be activated after creation which
-                        // is holding up_priority 0
-                        base_iface.up_priority = 1;
-                        let des_iface = Interface::Ethernet(Box::new(
-                            EthernetInterface::new_veth(
-                                base_iface,
-                                eth_iface.name(),
-                            ),
-                        ));
-
-                        let mut merged_iface = match MergedInterface::new(
-                            Some(des_iface),
-                            Some(cur_iface),
-                        ) {
-                            Ok(i) => i,
-                            Err(e) => {
-                                log::error!(
-                                    "BUG: Cannot create MergedInterface for \
-                                     newly created veth peer {}: {e}",
-                                    peer
-                                );
-                                continue;
-                            }
-                        };
-                        merged_iface.for_verify = None;
-
-                        new_veth_peers.push(merged_iface);
+                        continue;
                     }
+                };
+                merged_iface.for_verify = None;
+
+                new_veth_peers.push(merged_iface);
+            }
         }
         for merged_iface in new_veth_peers {
             let iface_name = merged_iface.merged.name().to_string();
@@ -77,10 +74,11 @@ impl MergedInterfaces {
         }) {
             if let Some(Interface::Ethernet(iface)) = iface.current.as_ref()
                 && let Some(peer) = iface.veth.as_ref().map(|v| v.peer.as_str())
-                    && let Some(peer_iface) = self.kernel_ifaces.get(peer)
-                        && peer_iface.desired.is_none() {
-                            pending_changes.push(peer.to_string());
-                        }
+                && let Some(peer_iface) = self.kernel_ifaces.get(peer)
+                && peer_iface.desired.is_none()
+            {
+                pending_changes.push(peer.to_string());
+            }
         }
         for iface_name in pending_changes {
             if let Some(iface) = self
@@ -125,10 +123,10 @@ impl Interfaces {
                 continue;
             };
             if let Some(peer_iface) = self.kernel_ifaces.get(peer)
-                && peer_iface.base_iface().state != new_iface.base.state {
-                    pending_changes
-                        .push((peer.to_string(), new_iface.base.state));
-                }
+                && peer_iface.base_iface().state != new_iface.base.state
+            {
+                pending_changes.push((peer.to_string(), new_iface.base.state));
+            }
         }
         for (peer_name, iface_state) in pending_changes {
             if let Some(iface) = self.kernel_ifaces.get_mut(&peer_name) {

@@ -59,16 +59,16 @@ async fn wait_link_carrier(
                 .attributes
                 .iter()
                 .any(|attr| attr == &iface_name_attr)
-                && link_msg.attributes.iter().any(|attr| {
-                    if link_up {
-                        &LinkAttribute::OperState(State::Up) == attr
-                    } else {
-                        &LinkAttribute::OperState(State::Up) != attr
-                    }
-                })
-            {
-                return Ok(());
-            }
+            && link_msg.attributes.iter().any(|attr| {
+                if link_up {
+                    &LinkAttribute::OperState(State::Up) == attr
+                } else {
+                    &LinkAttribute::OperState(State::Up) != attr
+                }
+            })
+        {
+            return Ok(());
+        }
     }
     Err(NipartError::new(
         ErrorKind::Bug,
