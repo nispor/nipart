@@ -143,9 +143,10 @@ fn remove_ready_state(
         HashSet::new();
     for iface_name in ready_iface_names {
         if let Some(iface) = state.ifaces.get(iface_name.as_str(), None)
-            && iface.base_iface().controller.is_none() {
-                pending_ifaces.insert((iface.name().to_string(), None));
-            }
+            && iface.base_iface().controller.is_none()
+        {
+            pending_ifaces.insert((iface.name().to_string(), None));
+        }
     }
 
     // Include all virtual interface if not controller or controller has all

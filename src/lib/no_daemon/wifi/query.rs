@@ -39,12 +39,12 @@ impl NipartWpaConn {
                                 | WifiAuthType::Wpa1
                                 | WifiAuthType::Wep
                         )
-                    }) {
-                        wifi_cfg.password = Some(
-                            crate::NetworkState::UNKNOWN_PASSWRD_STR
-                                .to_string(),
-                        );
-                    }
+                    })
+                {
+                    wifi_cfg.password = Some(
+                        crate::NetworkState::UNKNOWN_PASSWRD_STR.to_string(),
+                    );
+                }
                 wifi_cfg.state = Some(wpa_iface.state.into());
                 if let Some(exist_wifi_cfg) =
                     wifi_cfgs.get_mut(wifi_cfg.ssid.as_str())
@@ -68,14 +68,14 @@ impl NipartWpaConn {
             if let Ok(bss) =
                 dbus.get_current_bss(wpa_iface.obj_path.as_str()).await
                 && let Some(ssid) = bss.ssid.as_ref()
-                    && let Some(wifi_cfg) = wifi_cfgs.get(ssid)
-                {
-                    if let Some(kernel_wifi_cfg) = iface.wifi.as_mut() {
-                        *kernel_wifi_cfg = wifi_cfg.merge(kernel_wifi_cfg)?;
-                    } else {
-                        iface.wifi = Some(wifi_cfg.clone());
-                    }
+                && let Some(wifi_cfg) = wifi_cfgs.get(ssid)
+            {
+                if let Some(kernel_wifi_cfg) = iface.wifi.as_mut() {
+                    *kernel_wifi_cfg = wifi_cfg.merge(kernel_wifi_cfg)?;
+                } else {
+                    iface.wifi = Some(wifi_cfg.clone());
                 }
+            }
         }
 
         for wifi_cfg in wifi_cfgs.values() {

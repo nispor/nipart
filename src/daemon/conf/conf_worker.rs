@@ -113,26 +113,27 @@ fn read_state_from_file() -> Result<NetworkState, NipartError> {
     };
 
     if std::path::Path::new(APPLIED_SECRETS_PATH).exists()
-        && let Ok(secrets) = std::fs::read_to_string(APPLIED_SECRETS_PATH) {
-            match serde_yaml::from_str::<NetworkState>(&secrets) {
-                Ok(s) => {
-                    if let Err(e) = state.merge(&s) {
-                        log::warn!(
-                            "Failed to merge saved secrets into saved state, \
-                             using empty state: {e}"
-                        );
-                        state = NetworkState::default();
-                    }
-                }
-                Err(e) => {
-                    log::debug!(
-                        "Deleting corrupted saved secrets file \
-                         {APPLIED_SECRETS_PATH}: {e}"
+        && let Ok(secrets) = std::fs::read_to_string(APPLIED_SECRETS_PATH)
+    {
+        match serde_yaml::from_str::<NetworkState>(&secrets) {
+            Ok(s) => {
+                if let Err(e) = state.merge(&s) {
+                    log::warn!(
+                        "Failed to merge saved secrets into saved state, \
+                         using empty state: {e}"
                     );
-                    std::fs::remove_file(APPLIED_SECRETS_PATH).ok();
+                    state = NetworkState::default();
                 }
-            };
-        }
+            }
+            Err(e) => {
+                log::debug!(
+                    "Deleting corrupted saved secrets file \
+                     {APPLIED_SECRETS_PATH}: {e}"
+                );
+                std::fs::remove_file(APPLIED_SECRETS_PATH).ok();
+            }
+        };
+    }
 
     Ok(state)
 }

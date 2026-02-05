@@ -132,21 +132,21 @@ fn should_skip_link_change(
         }
         if let Some(Interface::Ethernet(cur_iface)) = cur_iface
             && let Some(peer) = cur_iface.veth.as_ref().map(|v| v.peer.as_str())
-                && peer > cur_iface.base.name.as_str()
-                    && let Some(peer_iface) = merged_ifaces
-                        .kernel_ifaces
-                        .get(peer)
-                        .and_then(|m| m.for_apply.as_ref())
-                    && peer_iface.is_absent()
-                {
-                    log::info!(
-                        "Skipping removing interface {}/{} because its veth \
-                         peer is already marked as absent",
-                        apply_iface.name(),
-                        apply_iface.iface_type()
-                    );
-                    return true;
-                }
+            && peer > cur_iface.base.name.as_str()
+            && let Some(peer_iface) = merged_ifaces
+                .kernel_ifaces
+                .get(peer)
+                .and_then(|m| m.for_apply.as_ref())
+            && peer_iface.is_absent()
+        {
+            log::info!(
+                "Skipping removing interface {}/{} because its veth peer is \
+                 already marked as absent",
+                apply_iface.name(),
+                apply_iface.iface_type()
+            );
+            return true;
+        }
     }
     false
 }

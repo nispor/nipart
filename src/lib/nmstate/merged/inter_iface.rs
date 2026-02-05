@@ -353,12 +353,13 @@ impl MergedInterfaces {
                         .kernel_ifaces
                         .get(parent)
                         .and_then(|i| i.for_apply.as_ref())
-                        && parent_iface.base_iface().is_up_priority_valid() {
-                            pending_changes.insert(
-                                iface_name.to_string(),
-                                parent_iface.base_iface().up_priority + 1,
-                            );
-                        }
+                        && parent_iface.base_iface().is_up_priority_valid()
+                    {
+                        pending_changes.insert(
+                            iface_name.to_string(),
+                            parent_iface.base_iface().up_priority + 1,
+                        );
+                    }
                 }
             }
         }

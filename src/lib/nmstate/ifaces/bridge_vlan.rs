@@ -97,14 +97,15 @@ impl BridgeVlanConfig {
 
         if self.mode == Some(BridgeVlanMode::Access)
             && let Some(tags) = self.trunk_tags.as_ref()
-                && !tags.is_empty() {
-                    return Err(NipartError::new(
-                        ErrorKind::InvalidArgument,
-                        "Bridge VLAN filtering access mode cannot have \
-                         trunk-tags defined"
-                            .to_string(),
-                    ));
-                }
+            && !tags.is_empty()
+        {
+            return Err(NipartError::new(
+                ErrorKind::InvalidArgument,
+                "Bridge VLAN filtering access mode cannot have trunk-tags \
+                 defined"
+                    .to_string(),
+            ));
+        }
 
         if self.mode == Some(BridgeVlanMode::Trunk) && self.trunk_tags.is_none()
         {

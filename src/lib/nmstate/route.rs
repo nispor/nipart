@@ -470,21 +470,23 @@ impl RouteEntry {
                 ));
             }
             if let Some(dst) = self.destination.as_deref()
-                && is_ipv6_addr(dst) {
-                    return Err(NipartError::new(
-                        ErrorKind::NoSupport,
-                        "IPv6 ECMP route with weight is not supported yet"
-                            .to_string(),
-                    ));
-                }
-        }
-        if let Some(cwnd) = self.cwnd
-            && cwnd == 0 {
+                && is_ipv6_addr(dst)
+            {
                 return Err(NipartError::new(
-                    ErrorKind::InvalidArgument,
-                    "The value of 'cwnd' cannot be 0".to_string(),
+                    ErrorKind::NoSupport,
+                    "IPv6 ECMP route with weight is not supported yet"
+                        .to_string(),
                 ));
             }
+        }
+        if let Some(cwnd) = self.cwnd
+            && cwnd == 0
+        {
+            return Err(NipartError::new(
+                ErrorKind::InvalidArgument,
+                "The value of 'cwnd' cannot be 0".to_string(),
+            ));
+        }
         if self.mtu == Some(0) {
             return Err(NipartError::new(
                 ErrorKind::InvalidArgument,
@@ -546,35 +548,25 @@ impl Hash for RouteEntry {
 // for unicast route
 fn validate_route_dst(route: &RouteEntry) -> Result<(), NipartError> {
     if let Some(dst) = route.destination.as_deref()
-        && !is_ipv6_addr(dst) {
-            let ip_net: Vec<&str> = dst.split('/').collect();
-            let ip_addr = Ipv4Addr::from_str(ip_net[0])?;
-            if ip_addr.octets()[0] == 0 {
-                if dst.contains('/') {
-                    let prefix = match ip_net[1].parse::<i32>() {
-                        Ok(p) => p,
-                        Err(_) => {
-                            return Err(NipartError::new(
-                                ErrorKind::InvalidArgument,
-                                format!(
-                                    "The prefix of the route destination \
-                                     network '{dst}' is invalid"
-                                ),
-                            ));
-                        }
-                    };
-                    if prefix >= 8 && route.is_unicast() {
-                        let e = NipartError::new(
+        && !is_ipv6_addr(dst)
+    {
+        let ip_net: Vec<&str> = dst.split('/').collect();
+        let ip_addr = Ipv4Addr::from_str(ip_net[0])?;
+        if ip_addr.octets()[0] == 0 {
+            if dst.contains('/') {
+                let prefix = match ip_net[1].parse::<i32>() {
+                    Ok(p) => p,
+                    Err(_) => {
+                        return Err(NipartError::new(
                             ErrorKind::InvalidArgument,
-                            "0.0.0.0/8 and its subnet cannot be used as the \
-                             route destination for unicast route, please use \
-                             the default gateway 0.0.0.0/0 instead"
-                                .to_string(),
-                        );
-                        log::error!("{e}");
-                        return Err(e);
+                            format!(
+                                "The prefix of the route destination network \
+                                 '{dst}' is invalid"
+                            ),
+                        ));
                     }
-                } else if route.is_unicast() {
+                };
+                if prefix >= 8 && route.is_unicast() {
                     let e = NipartError::new(
                         ErrorKind::InvalidArgument,
                         "0.0.0.0/8 and its subnet cannot be used as the route \
@@ -585,8 +577,19 @@ fn validate_route_dst(route: &RouteEntry) -> Result<(), NipartError> {
                     log::error!("{e}");
                     return Err(e);
                 }
+            } else if route.is_unicast() {
+                let e = NipartError::new(
+                    ErrorKind::InvalidArgument,
+                    "0.0.0.0/8 and its subnet cannot be used as the route \
+                     destination for unicast route, please use the default \
+                     gateway 0.0.0.0/0 instead"
+                        .to_string(),
+                );
+                log::error!("{e}");
+                return Err(e);
             }
-            return Ok(());
         }
+        return Ok(());
+    }
     Ok(())
 }

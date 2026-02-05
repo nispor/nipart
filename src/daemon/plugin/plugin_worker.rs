@@ -218,27 +218,28 @@ async fn connect_plugins(plugins: &mut HashMap<String, NipartDaemonPlugin>) {
     {
         let path = std::path::Path::new(&file_path);
         if is_socket(path)
-            && let Ok(mut client) = NipartPluginClient::new(&file_path).await {
-                match client.query_plugin_info().await {
-                    Ok(info) => {
-                        log::info!(
-                            "Plugin {} version {} connected",
-                            info.name,
-                            info.version,
-                        );
-                        plugins.insert(
-                            info.name.to_string(),
-                            NipartDaemonPlugin {
-                                name: info.name.to_string(),
-                                plugin_info: info,
-                                socket_path: file_path,
-                            },
-                        );
-                    }
-                    Err(e) => {
-                        log::debug!("{e}");
-                    }
+            && let Ok(mut client) = NipartPluginClient::new(&file_path).await
+        {
+            match client.query_plugin_info().await {
+                Ok(info) => {
+                    log::info!(
+                        "Plugin {} version {} connected",
+                        info.name,
+                        info.version,
+                    );
+                    plugins.insert(
+                        info.name.to_string(),
+                        NipartDaemonPlugin {
+                            name: info.name.to_string(),
+                            plugin_info: info,
+                            socket_path: file_path,
+                        },
+                    );
+                }
+                Err(e) => {
+                    log::debug!("{e}");
                 }
             }
+        }
     }
 }

@@ -95,27 +95,27 @@ impl BaseInterface {
         if let Some(current) = current
             && let (Some(desire_mtu), Some(min_mtu), Some(max_mtu)) =
                 (self.mtu, current.min_mtu, current.max_mtu)
-            {
-                if desire_mtu > max_mtu {
-                    return Err(NipartError::new(
-                        ErrorKind::InvalidArgument,
-                        format!(
-                            "Desired MTU {} for interface {} is bigger than \
-                             maximum allowed MTU {}",
-                            desire_mtu, self.name, max_mtu
-                        ),
-                    ));
-                } else if desire_mtu < min_mtu {
-                    return Err(NipartError::new(
-                        ErrorKind::InvalidArgument,
-                        format!(
-                            "Desired MTU {} for interface {} is smaller than \
-                             minimum allowed MTU {}",
-                            desire_mtu, self.name, min_mtu
-                        ),
-                    ));
-                }
+        {
+            if desire_mtu > max_mtu {
+                return Err(NipartError::new(
+                    ErrorKind::InvalidArgument,
+                    format!(
+                        "Desired MTU {} for interface {} is bigger than \
+                         maximum allowed MTU {}",
+                        desire_mtu, self.name, max_mtu
+                    ),
+                ));
+            } else if desire_mtu < min_mtu {
+                return Err(NipartError::new(
+                    ErrorKind::InvalidArgument,
+                    format!(
+                        "Desired MTU {} for interface {} is smaller than \
+                         minimum allowed MTU {}",
+                        desire_mtu, self.name, min_mtu
+                    ),
+                ));
             }
+        }
         Ok(())
     }
 

@@ -106,13 +106,14 @@ impl NipartstateInterface for LoopbackInterface {
                 ));
             }
             if let Some(addrs) = ipv4.addresses.as_mut()
-                && !addrs.contains(&default_ipv4_addr) {
-                    log::info!(
-                        "Appending 127.0.0.1/8 address to desired IPv4 \
-                         addresses of loopback"
-                    );
-                    addrs.push(default_ipv4_addr);
-                }
+                && !addrs.contains(&default_ipv4_addr)
+            {
+                log::info!(
+                    "Appending 127.0.0.1/8 address to desired IPv4 addresses \
+                     of loopback"
+                );
+                addrs.push(default_ipv4_addr);
+            }
         }
 
         if let Some(ipv6) = self.base.ipv6.as_mut() {
@@ -124,13 +125,14 @@ impl NipartstateInterface for LoopbackInterface {
                 ));
             }
             if let Some(addrs) = ipv6.addresses.as_mut()
-                && !addrs.contains(&default_ipv6_addr) {
-                    log::info!(
-                        "Appending ::1/128 address to desired IPv6 addresses \
-                         of loopback"
-                    );
-                    addrs.push(default_ipv6_addr);
-                }
+                && !addrs.contains(&default_ipv6_addr)
+            {
+                log::info!(
+                    "Appending ::1/128 address to desired IPv6 addresses of \
+                     loopback"
+                );
+                addrs.push(default_ipv6_addr);
+            }
         }
         Ok(())
     }

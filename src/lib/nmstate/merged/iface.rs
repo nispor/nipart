@@ -97,22 +97,24 @@ impl MergedInterface {
         ctrl_type: InterfaceType,
         ctrl_state: InterfaceState,
     ) -> Result<(), NipartError> {
-        if self.merged.base_iface().need_controller() && ctrl_name.is_empty()
+        if self.merged.base_iface().need_controller()
+            && ctrl_name.is_empty()
             && let Some(org_ctrl) = self
                 .current
                 .as_ref()
                 .and_then(|c| c.base_iface().controller.as_ref())
-                && Some(true) == self.for_apply.as_ref().map(|i| i.is_up()) {
-                    return Err(NipartError::new(
-                        ErrorKind::InvalidArgument,
-                        format!(
-                            "Interface {} cannot live without controller, but \
-                             it is detached from original controller \
-                             {org_ctrl}, cannot apply desired `state:up`",
-                            self.merged.name()
-                        ),
-                    ));
-                }
+            && Some(true) == self.for_apply.as_ref().map(|i| i.is_up())
+        {
+            return Err(NipartError::new(
+                ErrorKind::InvalidArgument,
+                format!(
+                    "Interface {} cannot live without controller, but it is \
+                     detached from original controller {org_ctrl}, cannot \
+                     apply desired `state:up`",
+                    self.merged.name()
+                ),
+            ));
+        }
 
         if !self.is_desired() {
             self.mark_as_changed();

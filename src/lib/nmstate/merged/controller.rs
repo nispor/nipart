@@ -149,18 +149,18 @@ impl MergedInterfaces {
                         .desired
                         .as_ref()
                         .and_then(|desire| desire.ports())
-                        && !ports.contains(&merged_iface.merged.name()) {
-                            return Err(NipartError::new(
-                                ErrorKind::InvalidArgument,
-                                format!(
-                                    "Interface {} has controller {} but not \
-                                     listed in port list of controller \
-                                     interface",
-                                    merged_iface.merged.name(),
-                                    des_ctrl_name,
-                                ),
-                            ));
-                        }
+                        && !ports.contains(&merged_iface.merged.name())
+                    {
+                        return Err(NipartError::new(
+                            ErrorKind::InvalidArgument,
+                            format!(
+                                "Interface {} has controller {} but not \
+                                 listed in port list of controller interface",
+                                merged_iface.merged.name(),
+                                des_ctrl_name,
+                            ),
+                        ));
+                    }
                 } else {
                     return Err(NipartError::new(
                         ErrorKind::InvalidArgument,
@@ -203,31 +203,32 @@ impl MergedInterfaces {
                 continue;
             };
             if let Some(ctrl_name) = port_to_ctrl.get(iface.merged.name())
-                && des_ctrl_name != ctrl_name {
-                    if des_ctrl_name.is_empty() {
-                        return Err(NipartError::new(
-                            ErrorKind::InvalidArgument,
-                            format!(
-                                "Interface {} desired to detach controller \
-                                 via controller property set to '', but still \
-                                 been listed as port of controller {} ",
-                                iface.merged.name(),
-                                ctrl_name
-                            ),
-                        ));
-                    } else {
-                        return Err(NipartError::new(
-                            ErrorKind::InvalidArgument,
-                            format!(
-                                "Interface {} has controller property set to \
-                                 {}, but been listed as port of controller {} ",
-                                iface.merged.name(),
-                                des_ctrl_name,
-                                ctrl_name
-                            ),
-                        ));
-                    }
+                && des_ctrl_name != ctrl_name
+            {
+                if des_ctrl_name.is_empty() {
+                    return Err(NipartError::new(
+                        ErrorKind::InvalidArgument,
+                        format!(
+                            "Interface {} desired to detach controller via \
+                             controller property set to '', but still been \
+                             listed as port of controller {} ",
+                            iface.merged.name(),
+                            ctrl_name
+                        ),
+                    ));
+                } else {
+                    return Err(NipartError::new(
+                        ErrorKind::InvalidArgument,
+                        format!(
+                            "Interface {} has controller property set to {}, \
+                             but been listed as port of controller {} ",
+                            iface.merged.name(),
+                            des_ctrl_name,
+                            ctrl_name
+                        ),
+                    ));
                 }
+            }
         }
         Ok(())
     }
@@ -359,9 +360,10 @@ impl MergedInterfaces {
                 let ports = HashSet::from_iter(ports.iter().cloned());
                 if !ib_iface_names.is_disjoint(&ports) {
                     if let Interface::Bond(iface) = iface
-                        && iface.mode() == Some(BondMode::ActiveBackup) {
-                            continue;
-                        }
+                        && iface.mode() == Some(BondMode::ActiveBackup)
+                    {
+                        continue;
+                    }
                     let e = NipartError::new(
                         ErrorKind::InvalidArgument,
                         format!(
