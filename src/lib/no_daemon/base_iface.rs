@@ -32,6 +32,7 @@ fn np_iface_type_to_nmstate(
         nispor::IfaceType::Xfrm => InterfaceType::Xfrm,
         nispor::IfaceType::IpVlan => InterfaceType::IpVlan,
         nispor::IfaceType::Wifi => InterfaceType::WifiPhy,
+        nispor::IfaceType::Wireguard => InterfaceType::Wireguard,
         nispor::IfaceType::Other(v) => InterfaceType::Unknown(v.to_lowercase()),
         _ => {
             InterfaceType::Unknown(format!("{np_iface_type:?}").to_lowercase())

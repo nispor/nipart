@@ -43,7 +43,7 @@ fn _get_json_value_difference<'a, 'b>(
         }
         (Value::String(des), Value::String(cur)) => {
             if des != cur {
-                if des == crate::NetworkState::HIDE_PASSWORD_STR {
+                if des == crate::NetworkState::HIDE_SECRET_STR {
                     None
                 } else {
                     Some((reference, desire, current))

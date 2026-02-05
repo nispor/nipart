@@ -25,7 +25,7 @@ pub(crate) fn gen_revert_state(
             };
             for (key, des_value) in des_obj.iter() {
                 let des_value_display = if SECRET_KEYS.contains(&key.as_str()) {
-                    &Value::from(crate::NetworkState::HIDE_PASSWORD_STR)
+                    &Value::from(crate::NetworkState::HIDE_SECRET_STR)
                 } else {
                     des_value
                 };

@@ -42,7 +42,7 @@ impl NipartWpaConn {
                     })
                 {
                     wifi_cfg.password = Some(
-                        crate::NetworkState::UNKNOWN_PASSWRD_STR.to_string(),
+                        crate::NetworkState::UNKNOWN_SECRET_STR.to_string(),
                     );
                 }
                 wifi_cfg.state = Some(wpa_iface.state.into());

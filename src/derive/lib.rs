@@ -87,3 +87,42 @@ pub fn derive_json_display_hide_secrets(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
+#[proc_macro_derive(DebugHideSecrets)]
+pub fn derive_debug_hide_secrets(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let class_name = &input.ident;
+
+    // Build the output, possibly using quasi-quotation
+    let expanded = quote::quote! {
+        impl std::fmt::Debug for #class_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let mut self_clone = self.clone();
+                self_clone.hide_secrets();
+                match serde_json::to_string(&self_clone) {
+                    Ok(s) => {
+                        // For simple string, remove the quote.
+                        if s.matches('"').count() == 2
+                            && let Some(s) =
+                                s.strip_prefix('"')
+                                    .and_then(|s| s.strip_suffix('"'))
+                        {
+                            write!(f, "{}", s)
+                        } else {
+                            write!(f, "{}", s)
+                        }
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "BUG: Failed to convert {self_clone:?} \
+                            into JSON: {e}"
+                        );
+                        write!(f, "{self_clone:?}")
+                    }
+                }
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}

@@ -13,6 +13,7 @@ mod ovs_iface;
 mod unknown;
 mod vlan;
 mod wifi;
+mod wireguard;
 
 pub use self::{
     base::BaseInterface,
@@ -42,5 +43,9 @@ pub use self::{
     },
     wifi::{
         WifiAuthType, WifiCfgInterface, WifiConfig, WifiPhyInterface, WifiState,
+    },
+    wireguard::{
+        WireguardConfig, WireguardInterface, WireguardIpAddress,
+        WireguardPeerConfig,
     },
 };

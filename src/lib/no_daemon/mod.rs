@@ -16,6 +16,7 @@ mod route;
 mod vlan;
 mod watcher;
 mod wifi;
+mod wireguard;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct NipartNoDaemon {}
