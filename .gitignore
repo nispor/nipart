@@ -1,5 +1,1 @@
-/target
-/Cargo.lock
-.pytest_cache
-__pycache__
-tags
+Nothing should be ignored based on the provided file changes. The only modified file is `tests/wg_test.py`, which is a Python source file and should not be ignored.
