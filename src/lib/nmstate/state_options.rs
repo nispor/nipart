@@ -6,40 +6,40 @@ use crate::{CUR_SCHEMA_VERSION, JsonDisplay};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonDisplay)]
 #[non_exhaustive]
-pub struct NipartstateQueryOption {
+pub struct NmstateQueryOption {
     /// Schema version for output
     #[serde(default)]
     pub version: u32,
     /// Which kind of NetworkState to query, default:
-    /// [NipartstateStateKind::RunningNetworkState]
+    /// [NmstateStateKind::RunningNetworkState]
     #[serde(default)]
-    pub kind: NipartstateStateKind,
+    pub kind: NmstateStateKind,
     /// Whether include secrets/passwords, default to false.
     #[serde(default)]
     pub include_secrets: bool,
 }
 
-impl Default for NipartstateQueryOption {
+impl Default for NmstateQueryOption {
     fn default() -> Self {
         Self {
             version: CUR_SCHEMA_VERSION,
-            kind: NipartstateStateKind::default(),
+            kind: NmstateStateKind::default(),
             include_secrets: false,
         }
     }
 }
 
-impl NipartstateQueryOption {
+impl NmstateQueryOption {
     pub fn running() -> Self {
         Self {
-            kind: NipartstateStateKind::RunningNetworkState,
+            kind: NmstateStateKind::RunningNetworkState,
             ..Default::default()
         }
     }
 
     pub fn saved() -> Self {
         Self {
-            kind: NipartstateStateKind::SavedNetworkState,
+            kind: NmstateStateKind::SavedNetworkState,
             ..Default::default()
         }
     }
@@ -55,7 +55,7 @@ impl NipartstateQueryOption {
 )]
 #[non_exhaustive]
 #[serde(rename_all = "kebab-case")]
-pub enum NipartstateStateKind {
+pub enum NmstateStateKind {
     /// The current running network state
     #[default]
     RunningNetworkState,
@@ -68,7 +68,7 @@ pub enum NipartstateStateKind {
 )]
 #[non_exhaustive]
 #[serde(rename_all = "kebab-case")]
-pub struct NipartstateApplyOption {
+pub struct NmstateApplyOption {
     /// Do not verify whether post applied state matches with desired state.
     #[serde(default)]
     pub no_verify: bool,
@@ -82,7 +82,7 @@ pub struct NipartstateApplyOption {
     pub dhcp_in_no_daemon: bool,
 }
 
-impl NipartstateApplyOption {
+impl NmstateApplyOption {
     pub fn new() -> Self {
         Self::default()
     }

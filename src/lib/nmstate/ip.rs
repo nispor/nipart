@@ -124,19 +124,19 @@ pub struct InterfaceIpv4 {
 impl Default for InterfaceIpv4 {
     /// Create [InterfaceIpv4] with IP disabled.
     fn default() -> Self {
+        Self::new_disabled()
+    }
+}
+
+impl InterfaceIpv4 {
+    /// Create [InterfaceIpv4] with IP disabled.
+    pub fn new_disabled() -> Self {
         Self {
             enabled: Some(false),
             dhcp: None,
             dhcp_state: None,
             addresses: None,
         }
-    }
-}
-
-impl InterfaceIpv4 {
-    /// Create [InterfaceIpv4] with IP disabled.
-    pub fn new() -> Self {
-        Self::default()
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -299,19 +299,19 @@ pub struct InterfaceIpv6 {
 impl Default for InterfaceIpv6 {
     /// Create [InterfaceIpv6] with IP disabled.
     fn default() -> Self {
+        Self::new_disabled()
+    }
+}
+
+impl InterfaceIpv6 {
+    /// New [InterfaceIpv6] with IP disabled.
+    pub fn new_disabled() -> Self {
         Self {
             enabled: Some(false),
             dhcp: None,
             autoconf: None,
             addresses: None,
         }
-    }
-}
-
-impl InterfaceIpv6 {
-    /// New [InterfaceIpv6] with IP disabled.
-    pub fn new() -> Self {
-        Self::default()
     }
 
     pub fn is_enabled(&self) -> bool {

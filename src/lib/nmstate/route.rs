@@ -18,7 +18,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use super::ip::{is_ipv6_addr, sanitize_ip_network};
-use crate::{ErrorKind, Interfaces, JsonDisplay, NipartError, NipartInterface};
+use crate::{
+    ErrorKind, Interfaces, JsonDisplay, NipartError, NmstateInterface,
+};
 
 const DEFAULT_TABLE_ID: u32 = 254; // main route table ID
 const LOOPBACK_IFACE_NAME: &str = "lo";

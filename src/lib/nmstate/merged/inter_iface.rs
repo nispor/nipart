@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ErrorKind, Interface, InterfaceType, Interfaces, JsonDisplayHideSecrets,
-    MergedInterface, NipartError, NipartInterface,
+    MergedInterface, NipartError, NmstateInterface,
 };
 
 // The max loop count for Interfaces.set_ifaces_up_priority()
@@ -30,6 +30,7 @@ pub struct MergedInterfaces {
     pub kernel_ifaces: HashMap<String, MergedInterface>,
     pub user_ifaces: HashMap<(String, InterfaceType), MergedInterface>,
     pub insert_order: Vec<(String, InterfaceType)>,
+    pub current: Interfaces,
 }
 
 impl MergedInterfaces {
@@ -109,6 +110,7 @@ impl MergedInterfaces {
             kernel_ifaces,
             user_ifaces,
             insert_order,
+            current,
         };
 
         ret.post_merge_sanitize()?;

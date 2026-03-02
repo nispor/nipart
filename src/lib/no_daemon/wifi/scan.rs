@@ -15,11 +15,11 @@ impl NipartNoDaemon {
     pub async fn wifi_scan(
         iface_name: Option<&str>,
     ) -> Result<Vec<WifiConfig>, NipartError> {
-        match _wifi_scan(iface_name).await {
+        match _wifi_scan(iface_name, false).await {
             Ok(r) => Ok(r),
             Err(_) => {
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                _wifi_scan(iface_name).await
+                _wifi_scan(iface_name, true).await
             }
         }
     }
@@ -28,6 +28,8 @@ impl NipartNoDaemon {
 pub(crate) async fn bss_active_scan(
     dbus: &NipartWpaSupDbus<'_>,
     ifaces: &[&str],
+    abort_current: bool,
+    interested_ssids: &[&str],
 ) -> Result<HashMap<(String, String), WpaSupBss>, NipartError> {
     // Interface name to dbus object path map
     let mut iface_obj_paths: HashMap<String, String> = HashMap::new();
@@ -44,6 +46,10 @@ pub(crate) async fn bss_active_scan(
 
     for (iface_name, iface_obj_path) in iface_obj_paths.iter() {
         if !dbus.is_iface_scanning(iface_obj_path.as_str()).await? {
+            log::debug!("Starting WIFI active scan on {iface_name}");
+            dbus.scan(iface_obj_path.as_str()).await?;
+        } else if abort_current {
+            dbus.abort_scan(iface_obj_path.as_str()).await.ok();
             log::debug!("Starting WIFI active scan on {iface_name}");
             dbus.scan(iface_obj_path.as_str()).await?;
         } else {
@@ -67,10 +73,14 @@ pub(crate) async fn bss_active_scan(
         };
         for mut bss in bsses {
             bss.iface_name = iface_name.to_string();
-            let Some(ssid) = bss.ssid.clone() else {
+            let Some(ssid) = bss.ssid.as_deref() else {
                 continue;
             };
-            let key = (iface_name.to_string(), ssid);
+            if interested_ssids.is_empty() || !interested_ssids.contains(&ssid)
+            {
+                continue;
+            }
+            let key = (iface_name.to_string(), ssid.to_string());
 
             if let Some(ies) = bss.ies.as_ref()
                 && let Ok(ies) = Nl80211Elements::parse(ies.as_slice())
@@ -111,6 +121,7 @@ pub(crate) async fn bss_active_scan(
 
 async fn _wifi_scan(
     iface_name: Option<&str>,
+    abort_current: bool,
 ) -> Result<Vec<WifiConfig>, NipartError> {
     let mut ret = Vec::new();
     let dbus = NipartWpaSupDbus::new().await?;
@@ -145,7 +156,9 @@ async fn _wifi_scan(
         avaiable_wifi_phys
     };
 
-    let mut bsses = bss_active_scan(&dbus, scan_ifaces.as_slice()).await?;
+    let mut bsses =
+        bss_active_scan(&dbus, scan_ifaces.as_slice(), abort_current, &[])
+            .await?;
 
     for ((iface_name, _ssid), bss) in bsses.drain() {
         let mut wifi_cfg = WifiConfig::from(bss);

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     JsonDisplayHideSecrets, NetworkState, NipartCanIpc, NipartError,
-    NipartIpcConnection, NipartstateApplyOption, NipartstateQueryOption,
+    NipartIpcConnection, NmstateApplyOption, NmstateQueryOption,
 };
 
 impl NipartCanIpc for NetworkState {
@@ -25,8 +25,8 @@ pub struct NipartClient {
 #[non_exhaustive]
 pub enum NipartClientCmd {
     Ping,
-    QueryNetworkState(Box<NipartstateQueryOption>),
-    ApplyNetworkState(Box<(NetworkState, NipartstateApplyOption)>),
+    QueryNetworkState(Box<NmstateQueryOption>),
+    ApplyNetworkState(Box<(NetworkState, NmstateApplyOption)>),
 }
 
 impl NipartCanIpc for NipartClientCmd {
@@ -74,7 +74,7 @@ impl NipartClient {
 
     pub async fn query_network_state(
         &mut self,
-        option: NipartstateQueryOption,
+        option: NmstateQueryOption,
     ) -> Result<NetworkState, NipartError> {
         self.ipc
             .send(Ok(NipartClientCmd::QueryNetworkState(Box::new(option))))
@@ -85,7 +85,7 @@ impl NipartClient {
     pub async fn apply_network_state(
         &mut self,
         desired_state: NetworkState,
-        option: NipartstateApplyOption,
+        option: NmstateApplyOption,
     ) -> Result<NetworkState, NipartError> {
         self.ipc
             .send(Ok(NipartClientCmd::ApplyNetworkState(Box::new((

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{BaseInterface, JsonDisplay, NipartInterface};
+use crate::{BaseInterface, JsonDisplay, NmstateInterface};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, JsonDisplay)]
 #[serde(rename_all = "kebab-case")]
@@ -26,7 +26,7 @@ impl UnknownInterface {
     }
 }
 
-impl NipartInterface for UnknownInterface {
+impl NmstateInterface for UnknownInterface {
     fn base_iface(&self) -> &BaseInterface {
         &self.base
     }

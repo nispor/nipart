@@ -15,7 +15,7 @@ use super::value::get_json_value_difference;
 use crate::{
     BaseInterface, BondInterface, DummyInterface, ErrorKind, EthernetInterface,
     InterfaceState, InterfaceType, JsonDisplayHideSecrets,
-    LinuxBridgeInterface, LoopbackInterface, NipartError, NipartInterface,
+    LinuxBridgeInterface, LoopbackInterface, NipartError, NmstateInterface,
     OvsBridgeInterface, OvsInterface, UnknownInterface, VlanInterface,
     WifiCfgInterface, WifiPhyInterface, WireguardInterface,
 };
@@ -45,6 +45,7 @@ pub enum Interface {
     Bond(Box<BondInterface>),
     /// Linux Bridge Interface
     LinuxBridge(Box<LinuxBridgeInterface>),
+    /// Wireguard Interface
     Wireguard(Box<WireguardInterface>),
     /// Unknown interface.
     Unknown(Box<UnknownInterface>),
@@ -332,7 +333,7 @@ macro_rules! gen_iface_trait_impl_mut {
     }
 }
 
-impl NipartInterface for Interface {
+impl NmstateInterface for Interface {
     gen_iface_trait_impl!(
         (is_virtual, bool),
         (base_iface, &BaseInterface),
@@ -519,7 +520,7 @@ impl From<BaseInterface> for Interface {
 }
 
 impl Interface {
-    pub(crate) fn clone_name_type_only(&self) -> Self {
+    pub fn clone_name_type_only(&self) -> Self {
         self.base_iface().clone_name_type_only().into()
     }
 

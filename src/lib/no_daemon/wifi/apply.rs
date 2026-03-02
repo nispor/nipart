@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use super::{
     NipartWpaConn, bss::WpaSupBss, dbus::NipartWpaSupDbus,
@@ -8,8 +8,10 @@ use super::{
 };
 use crate::{
     ErrorKind, Interface, InterfaceType, MergedInterfaces, NipartError,
-    NipartInterface, WifiConfig,
+    NmstateInterface, WifiConfig,
 };
+
+const MAX_SCAN_RETRY: usize = 5;
 
 impl NipartWpaConn {
     pub(crate) async fn apply(
@@ -93,12 +95,43 @@ async fn add_networks(
         .map(|(iface_name, _)| *iface_name)
         .collect();
 
+    let interested_ssids: Vec<&str> = wifi_cfg_to_add
+        .iter()
+        .map(|(_, wifi_cfg)| wifi_cfg.ssid.as_str())
+        .collect();
+
     if ifaces_to_scan.is_empty() {
         return Ok(());
     }
     log::trace!("Adding WIFI network {:?}", wifi_cfg_to_add);
 
-    let existing_bsses = bss_active_scan(dbus, &ifaces_to_scan).await?;
+    let mut existing_bsses: HashMap<(String, String), WpaSupBss> =
+        HashMap::new();
+    for i in 1..(MAX_SCAN_RETRY + 1) {
+        // TODO: Only retry on retryable error
+        match bss_active_scan(
+            dbus,
+            &ifaces_to_scan,
+            i != 1,
+            interested_ssids.as_slice(),
+        )
+        .await
+        {
+            Ok(s) => {
+                if !s.is_empty() {
+                    existing_bsses = s;
+                    break;
+                } else {
+                    log::trace!("No BSS found, retry {i}/{MAX_SCAN_RETRY}");
+                }
+            }
+            Err(e) => {
+                log::trace!("Scan failure: {e}, retry {i}/{MAX_SCAN_RETRY}");
+            }
+        }
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+    log::trace!("Got WIFI scan result: {existing_bsses:?}");
 
     for (iface_name, wifi_cfg) in wifi_cfg_to_add {
         add_wifi_cfg(

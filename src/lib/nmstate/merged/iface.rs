@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ErrorKind, Interface, InterfaceState, InterfaceType, JsonDisplay,
-    NipartError, NipartInterface,
+    MergedInterfaces, NipartError, NmstateInterface,
 };
 
 #[derive(
@@ -178,5 +178,27 @@ impl MergedInterface {
             }
         }
         Ok(())
+    }
+
+    /// Whether specified interface can be bring up
+    pub(crate) fn can_bring_up(
+        &self,
+        merged_ifaces: &MergedInterfaces,
+    ) -> bool {
+        if let Some(iface) = self.for_apply.as_ref() {
+            let trigger =
+                iface.base_iface().trigger.clone().unwrap_or_default();
+            match trigger.process(
+                iface.name(),
+                iface.iface_type(),
+                &merged_ifaces.current,
+            ) {
+                None => iface.base_iface().state == InterfaceState::Up,
+                Some(false) => false,
+                Some(true) => true,
+            }
+        } else {
+            false
+        }
     }
 }

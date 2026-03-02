@@ -9,29 +9,28 @@ use futures_channel::{
     mpsc::{UnboundedReceiver, UnboundedSender},
     oneshot::Sender,
 };
-use futures_util::{SinkExt, stream::StreamExt};
+use futures_util::{SinkExt, StreamExt};
 use nipart::{ErrorKind, InterfaceType, NipartError};
 use rtnetlink::{
     MulticastGroup, new_multicast_connection,
-    packet_core::{Emitable, NetlinkMessage, NetlinkPayload},
+    packet_core::{NetlinkMessage, NetlinkPayload},
     packet_route::{
         RouteNetlinkMessage,
         link::{
             InfoKind, LinkAttribute, LinkInfo, LinkLayerType, LinkMessage,
-            State,
+            State, WirelessEvent,
         },
     },
     sys::SocketAddr,
 };
+use wl_nl80211::{Nl80211Element, Nl80211Elements, packet_core::Parseable};
 
 use super::super::{
-    daemon::NipartManagerCmd,
-    event::{NipartLinkEvent, NipartLinkEventType},
-    task::TaskWorker,
+    daemon::NipartManagerCmd, link_event::NipartLinkEvent, task::TaskWorker,
 };
 
-// When the same event happens, how long should consider previous event expired
-// and OK to emit the same event again.
+// When the same event happens, only consider previous event expired after
+// 30 seconds.
 const EVENT_EXPIRE_TIME_SEC: u64 = 30;
 
 #[derive(Debug, Clone)]
@@ -39,14 +38,14 @@ pub(crate) enum NipartMonitorCmd {
     /// Set the sender for monitor to contact commander. Must be invoked
     /// right after NipartMonitorWorker started.
     SetCommanderSender(UnboundedSender<NipartManagerCmd>),
-    /// Start monitoring on specified interface type
-    AddIfaceType(InterfaceType),
-    /// Stop monitoring on specified interface type
-    DelIfaceType(InterfaceType),
     /// Start monitoring on specified interface
     AddIface(String),
     /// Stop monitoring on specified interface
     DelIface(String),
+    /// Start monitoring on WIFI SSID association
+    EnableWifiMonitor,
+    /// Stop monitoring on WIFI SSID association
+    DisableWifiMonitor,
     /// Stop the monitoring but preserving the internal monitoring list
     Pause,
     /// Resume the monitoring, emit current status of monitoring
@@ -66,11 +65,11 @@ impl std::fmt::Display for NipartMonitorCmd {
             Self::DelIface(iface) => {
                 write!(f, "stop-iface-monitor:{iface}")
             }
-            Self::AddIfaceType(iface_type) => {
-                write!(f, "start-iface-type-monitor:{iface_type}")
+            Self::EnableWifiMonitor => {
+                write!(f, "enable-wifi-monitor")
             }
-            Self::DelIfaceType(iface_type) => {
-                write!(f, "stop-iface-type-monitor:{iface_type}")
+            Self::DisableWifiMonitor => {
+                write!(f, "disable-wifi-monitor")
             }
             Self::Pause => {
                 write!(f, "pause-monitor")
@@ -100,7 +99,7 @@ pub(crate) struct NipartMonitorWorker {
         UnboundedReceiver<(NetlinkMessage<RouteNetlinkMessage>, SocketAddr)>,
     >,
     iface_monitor_list: HashSet<String>,
-    iface_type_monitor_list: HashSet<InterfaceType>,
+    wifi_monitor_enabled: bool,
     msg_to_commander: Option<UnboundedSender<NipartManagerCmd>>,
     manual_paused: bool,
     emited: HashMap<String, NipartLinkEvent>,
@@ -116,7 +115,7 @@ impl TaskWorker for NipartMonitorWorker {
         Ok(Self {
             receiver,
             iface_monitor_list: HashSet::new(),
-            iface_type_monitor_list: HashSet::new(),
+            wifi_monitor_enabled: false,
             netlink_handle: None,
             netlink_msg_receiver: None,
             manual_paused: false,
@@ -146,19 +145,21 @@ impl TaskWorker for NipartMonitorWorker {
             }
             NipartMonitorCmd::DelIface(iface) => {
                 self.iface_monitor_list.remove(&iface);
-                if self.iface_monitor_list.is_empty() {
+                if self.iface_monitor_list.is_empty()
+                    && !self.wifi_monitor_enabled
+                {
                     self.pause();
                 }
             }
-            NipartMonitorCmd::AddIfaceType(v) => {
-                self.iface_type_monitor_list.insert(v);
+            NipartMonitorCmd::EnableWifiMonitor => {
+                self.wifi_monitor_enabled = true;
                 if self.netlink_msg_receiver.is_none() && !self.manual_paused {
                     self.resume().await?;
                 }
             }
-            NipartMonitorCmd::DelIfaceType(v) => {
-                self.iface_type_monitor_list.remove(&v);
-                if self.iface_type_monitor_list.is_empty() {
+            NipartMonitorCmd::DisableWifiMonitor => {
+                self.wifi_monitor_enabled = false;
+                if self.iface_monitor_list.is_empty() {
                     self.pause();
                 }
             }
@@ -169,7 +170,7 @@ impl TaskWorker for NipartMonitorWorker {
             NipartMonitorCmd::Resume => {
                 self.manual_paused = false;
                 if !self.iface_monitor_list.is_empty()
-                    || !self.iface_type_monitor_list.is_empty()
+                    || self.wifi_monitor_enabled
                 {
                     self.resume().await?;
                 }
@@ -243,7 +244,11 @@ impl NipartMonitorWorker {
                     ),
                 )
             })?;
-            self.emited.insert(event.iface_name.to_string(), event);
+            if event.is_delete {
+                self.emited.remove(&event.iface_name);
+            } else {
+                self.emited.insert(event.iface_name.to_string(), event);
+            }
             Ok(())
         } else {
             Err(NipartError::new(
@@ -271,7 +276,8 @@ impl NipartMonitorWorker {
 
         let mut link_handle = handle.link().get().execute();
         while let Some(Ok(link_msg)) = link_handle.next().await {
-            if let Some(event) = parse_link_msg(&link_msg)
+            if let Some(event) =
+                parse_link_msg(&link_msg, self.wifi_monitor_enabled, false)
                 && self.should_emit(&event)
             {
                 self.notify(event).await?;
@@ -287,7 +293,8 @@ impl NipartMonitorWorker {
         &mut self,
         nl_msg: NetlinkMessage<RouteNetlinkMessage>,
     ) -> Result<(), NipartError> {
-        if let Some(event) = parse_route_netlink_msg(nl_msg)
+        if let Some(event) =
+            parse_route_netlink_msg(nl_msg, self.wifi_monitor_enabled)
             && self.should_emit(&event)
         {
             self.notify(event).await?;
@@ -295,11 +302,18 @@ impl NipartMonitorWorker {
         Ok(())
     }
 
-    fn is_previous_event_expired(&self, event: &NipartLinkEvent) -> bool {
-        if let Some(previous_event) = self.emited.get(event.iface_name.as_str())
+    fn is_previous_event_expired_or_changed(
+        &self,
+        event: &NipartLinkEvent,
+    ) -> bool {
+        if event.is_delete {
+            true
+        } else if let Some(previous_event) =
+            self.emited.get(event.iface_name.as_str())
+            && (event.ssid.is_none() || event.ssid != previous_event.ssid)
             && let Ok(elapsed) = previous_event.time_stamp.elapsed()
         {
-            previous_event.event_type != event.event_type
+            previous_event.is_up != event.is_up
                 || elapsed
                     > std::time::Duration::from_secs(EVENT_EXPIRE_TIME_SEC)
         } else {
@@ -308,13 +322,19 @@ impl NipartMonitorWorker {
     }
 
     fn should_emit(&self, event: &NipartLinkEvent) -> bool {
-        self.is_previous_event_expired(event)
+        self.is_previous_event_expired_or_changed(event)
             && (self.iface_monitor_list.contains(&event.iface_name)
-                || self.iface_type_monitor_list.contains(&event.iface_type))
+                || (self.wifi_monitor_enabled && event.ssid.is_some())
+                || (self.wifi_monitor_enabled
+                    && event.iface_type == InterfaceType::WifiPhy))
     }
 }
 
-fn parse_link_msg(link_msg: &LinkMessage) -> Option<NipartLinkEvent> {
+fn parse_link_msg(
+    link_msg: &LinkMessage,
+    wifi_monitor_enabled: bool,
+    is_delete: bool,
+) -> Option<NipartLinkEvent> {
     let iface_name = link_msg.attributes.iter().find_map(|attr| {
         if let &LinkAttribute::IfName(iface_name) = &attr {
             Some(iface_name.to_string())
@@ -322,12 +342,25 @@ fn parse_link_msg(link_msg: &LinkMessage) -> Option<NipartLinkEvent> {
             None
         }
     })?;
+    let iface_index = link_msg.header.index;
 
     let mut iface_type = parse_iface_type_from_nl_msg(link_msg);
     // The rtnetlink protocol has no information about wireless, so wireless
     // NIC is treated as InterfaceType::Ethernet in rtnetlink.
     if iface_type == InterfaceType::Ethernet && is_wifi_phy_nic(&iface_name) {
         iface_type = InterfaceType::WifiPhy;
+    }
+
+    if is_delete {
+        let mut event = NipartLinkEvent::new(
+            iface_name,
+            iface_index,
+            iface_type,
+            false,
+            None,
+        );
+        event.is_delete = true;
+        return Some(event);
     }
 
     if let Some(op_state) = link_msg.attributes.iter().find_map(|attr| {
@@ -337,25 +370,70 @@ fn parse_link_msg(link_msg: &LinkMessage) -> Option<NipartLinkEvent> {
             None
         }
     }) {
-        let event_type = match op_state {
-            State::Up => NipartLinkEventType::CarrierUp,
-            State::Down | State::LowerLayerDown => {
-                NipartLinkEventType::CarrierDown
-            }
+        let is_up = match op_state {
+            State::Up => true,
+            State::Down | State::LowerLayerDown => false,
             _ => {
                 log::trace!(
                     "parse_link_msg(): ignoring netlink message due to \
                      unsupported LinkAttribute::OperState value: {op_state:?}"
                 );
-                println!("HAHA954 {:?}", link_msg);
-                let mut buf = vec![0; link_msg.buffer_len()];
-
-                link_msg.emit(&mut buf);
-                println!("HAHA198 {:?}", buf);
                 return None;
             }
         };
-        Some(NipartLinkEvent::new(iface_name, iface_type, event_type))
+        Some(NipartLinkEvent::new(
+            iface_name,
+            iface_index,
+            iface_type,
+            is_up,
+            None,
+        ))
+    } else if wifi_monitor_enabled
+        && let Some(wifi_ie) = link_msg.attributes.iter().find_map(|attr| {
+            if let LinkAttribute::Wireless(WirelessEvent::AssociateResponse(
+                wifi_ie,
+            )) = attr
+            {
+                Some(wifi_ie)
+            } else {
+                None
+            }
+        })
+    {
+        match Nl80211Elements::parse(wifi_ie.as_slice()) {
+            Ok(elements) => elements
+                .0
+                .into_iter()
+                .find_map(|ie| {
+                    if let Nl80211Element::Ssid(ssid) = ie {
+                        Some(ssid)
+                    } else {
+                        None
+                    }
+                })
+                .map(|ssid| {
+                    NipartLinkEvent::new(
+                        iface_name,
+                        iface_index,
+                        iface_type,
+                        true,
+                        Some(ssid),
+                    )
+                }),
+            Err(e) => {
+                log::trace!(
+                    "parse_link_msg() failed to parse wifi information \
+                     element : {e} {wifi_ie:?})"
+                );
+                None
+            }
+        }
+    } else if wifi_monitor_enabled {
+        log::trace!(
+            "parse_link_msg() ignoring netlink message due to lack of \
+             LinkAttribute::OperState or LinkAttribute::Wireless"
+        );
+        None
     } else {
         log::trace!(
             "parse_link_msg() ignoring netlink message due to lack of \
@@ -367,13 +445,20 @@ fn parse_link_msg(link_msg: &LinkMessage) -> Option<NipartLinkEvent> {
 
 fn parse_route_netlink_msg(
     nl_msg: NetlinkMessage<RouteNetlinkMessage>,
+    wifi_monitor_enabled: bool,
 ) -> Option<NipartLinkEvent> {
     if let NetlinkPayload::InnerMessage(RouteNetlinkMessage::NewLink(
         link_msg,
     )) = nl_msg.payload
     {
-        parse_link_msg(&link_msg)
+        parse_link_msg(&link_msg, wifi_monitor_enabled, false)
+    } else if let NetlinkPayload::InnerMessage(RouteNetlinkMessage::DelLink(
+        link_msg,
+    )) = nl_msg.payload
+    {
+        parse_link_msg(&link_msg, wifi_monitor_enabled, true)
     } else {
+        log::trace!("BUG: Unexpected rtnetlink notification msg: {nl_msg:?}");
         None
     }
 }

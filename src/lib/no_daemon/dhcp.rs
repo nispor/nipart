@@ -6,7 +6,7 @@ use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease, DhcpV4State};
 use super::{ip::apply_iface_ip_changes, route::apply_routes};
 use crate::{
     ErrorKind, InterfaceIpAddr, InterfaceIpv4, InterfaceType, MergedInterfaces,
-    MergedRoutes, NipartError, NipartInterface, NipartNoDaemon, RouteEntry,
+    MergedRoutes, NipartError, NipartNoDaemon, NmstateInterface, RouteEntry,
     Routes,
 };
 
@@ -116,10 +116,12 @@ async fn apply_lease(
     ip_addr.preferred_life_time = Some(format!("{}sec", lease.lease_time_sec));
     ip_addr.valid_life_time = Some(format!("{}sec", lease.lease_time_sec));
 
-    let mut ipv4_conf = InterfaceIpv4::new();
-    ipv4_conf.enabled = Some(true);
-    ipv4_conf.dhcp = Some(true);
-    ipv4_conf.addresses = Some(vec![ip_addr]);
+    let ipv4_conf = InterfaceIpv4 {
+        enabled: Some(true),
+        dhcp: Some(true),
+        addresses: Some(vec![ip_addr]),
+        ..Default::default()
+    };
 
     let mut apply_base_iface =
         merged_iface.merged.base_iface().clone_name_type_only();

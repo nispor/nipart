@@ -9,8 +9,8 @@ use std::{
 use futures_channel::{mpsc::UnboundedReceiver, oneshot::Sender};
 use futures_util::{StreamExt, stream::FuturesUnordered};
 use nipart::{
-    NetworkState, NipartError, NipartPluginClient, NipartstateApplyOption,
-    NipartstateQueryOption,
+    NetworkState, NipartError, NipartPluginClient, NmstateApplyOption,
+    NmstateQueryOption,
 };
 
 use super::plugin_exec::NipartDaemonPlugin;
@@ -22,8 +22,8 @@ const NM_PLUGIN_CONN_RETRY_INTERVAL_MS: u64 = 200;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum NipartPluginCmd {
-    QueryNetworkState(Box<NipartstateQueryOption>),
-    ApplyNetworkState(Box<(NetworkState, NipartstateApplyOption)>),
+    QueryNetworkState(Box<NmstateQueryOption>),
+    ApplyNetworkState(Box<(NetworkState, NmstateApplyOption)>),
 }
 
 impl std::fmt::Display for NipartPluginCmd {

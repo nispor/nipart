@@ -432,6 +432,26 @@ impl NipartWpaSupDbus<'_> {
             .map_err(map_zbus_err)
     }
 
+    pub(crate) async fn abort_scan(
+        &self,
+        iface_obj_path: &str,
+    ) -> Result<(), NipartError> {
+        log::trace!("Aborting WIFI scan on {iface_obj_path}",);
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            WPA_SUP_DBUS_IFACE_ROOT,
+            iface_obj_path,
+            WPA_SUP_DBUS_IFACE_IFACE,
+        )
+        .await
+        .map_err(map_zbus_err)?;
+
+        proxy
+            .call::<&str, (), ()>("AbortScan", &())
+            .await
+            .map_err(map_zbus_err)
+    }
+
     pub(crate) async fn is_iface_scanning(
         &self,
         iface_obj_path: &str,

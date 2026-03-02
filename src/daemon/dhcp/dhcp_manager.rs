@@ -2,7 +2,7 @@
 
 use nipart::{
     BaseInterface, MergedNetworkState, NetworkState, NipartError,
-    NipartInterface, NipartIpcConnection,
+    NipartIpcConnection, NmstateInterface,
 };
 
 use super::{NipartDhcpCmd, NipartDhcpReply, NipartDhcpV4Worker};
@@ -118,6 +118,15 @@ impl NipartDhcpV4Manager {
                         )
                         .await;
                         self.stop_iface_dhcp(apply_iface.name()).await?;
+                        log_debug(
+                            conn.as_deref_mut(),
+                            format!(
+                                "Stopped DHCPv4 on interface {}({})",
+                                apply_iface.name(),
+                                apply_iface.iface_type()
+                            ),
+                        )
+                        .await;
                     }
                 }
             } else {

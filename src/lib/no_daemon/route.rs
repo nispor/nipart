@@ -331,11 +331,10 @@ pub(crate) async fn apply_routes(
 
 fn validate_routes(merged_routes: &MergedRoutes) -> Result<(), NipartError> {
     for iface in merged_routes.route_changed_ifaces.as_slice() {
-        let iface_routes = if let Some(r) = merged_routes.merged.get(iface) {
-            r
-        } else {
+        let Some(iface_routes) = merged_routes.merged.get(iface) else {
             continue;
         };
+
         let mut hashed_rts: HashMap<(&str, Option<u32>), &RouteEntry> =
             HashMap::new();
         for rt in iface_routes {

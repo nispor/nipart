@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     BaseInterface, ErrorKind, InterfaceType, JsonDisplay,
-    JsonDisplayHideSecrets, NipartError, NipartInterface,
+    JsonDisplayHideSecrets, NipartError, NmstateInterface,
 };
 
 #[derive(
@@ -47,7 +47,7 @@ impl Default for WireguardInterface {
     }
 }
 
-impl NipartInterface for WireguardInterface {
+impl NmstateInterface for WireguardInterface {
     fn base_iface(&self) -> &BaseInterface {
         &self.base
     }
@@ -135,6 +135,7 @@ impl WireguardConfig {
     /// * Discard query only properties
     /// * Need WireguardConfig for creating interface
     /// * Need `private_key` for creating interface
+    /// * Cannot use `HIDE_SECRET_STR` when current is None
     /// * Discard `private_key` if set to `HIDE_SECRET_STR`
     /// * Need `endpoint` for each peer config
     pub(crate) fn sanitize(
@@ -153,6 +154,20 @@ impl WireguardConfig {
                         iface_name,
                     ),
                 ));
+            } else {
+                if self.private_key.as_deref()
+                    == Some(crate::NetworkState::HIDE_SECRET_STR)
+                {
+                    return Err(NipartError::new(
+                        ErrorKind::InvalidArgument,
+                        format!(
+                            "Private key cannot be set to {}  for creating \
+                             new wireguard interface {}",
+                            crate::NetworkState::HIDE_SECRET_STR,
+                            iface_name,
+                        ),
+                    ));
+                }
             }
         } else {
             if self.private_key.as_deref()
@@ -164,17 +179,7 @@ impl WireguardConfig {
 
         if let Some(peers) = self.peers.as_mut() {
             for peer in peers {
-                if peer.endpoint.is_none() {
-                    return Err(NipartError::new(
-                        ErrorKind::InvalidArgument,
-                        format!(
-                            "Missing mandatory property `endpoint` for \
-                             configuration wireguard peer {peer} of interface \
-                             {iface_name}",
-                        ),
-                    ));
-                }
-                peer.sanitize()?;
+                peer.sanitize(iface_name, current)?;
             }
         }
 
@@ -228,7 +233,7 @@ pub struct WireguardPeerConfig {
     /// Base64 encoded preshared key, will be shown as `<_hidden_>` for Debug
     /// and excluded from Serialize.
     /// If undefined or defined as `<_hidden_>`, will use current value.
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub preshared_key: Option<String>,
     /// Last handshake in a format of `32 seconds ago`.
     /// Query only property, will be ignore during apply.
@@ -258,15 +263,41 @@ impl WireguardPeerConfig {
 
     /// * Discard query only properties
     /// * Discard `preshared_key` if set to `HIDE_SECRET_STR`
-    pub(crate) fn sanitize(&mut self) -> Result<(), NipartError> {
+    pub(crate) fn sanitize(
+        &mut self,
+        iface_name: &str,
+        current: Option<&WireguardConfig>,
+    ) -> Result<(), NipartError> {
         self.rx_bytes = None;
         self.tx_bytes = None;
         self.last_handshake = None;
 
+        if self.endpoint.is_none() {
+            return Err(NipartError::new(
+                ErrorKind::InvalidArgument,
+                format!(
+                    "Missing mandatory property `endpoint` for configuration \
+                     wireguard peer {self} of interface {iface_name}",
+                ),
+            ));
+        }
+
         if self.preshared_key.as_deref()
             == Some(crate::NetworkState::HIDE_SECRET_STR)
         {
-            self.preshared_key = None;
+            if current.is_none() {
+                return Err(NipartError::new(
+                    ErrorKind::InvalidArgument,
+                    format!(
+                        "`preshared-key` cannot be set to {} for creating new \
+                         wireguard interface {}",
+                        crate::NetworkState::HIDE_SECRET_STR,
+                        iface_name,
+                    ),
+                ));
+            } else {
+                self.preshared_key = None;
+            }
         }
 
         Ok(())

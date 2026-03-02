@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{ErrorKind, NipartInterface, WifiPhyInterface};
+use crate::{ErrorKind, NmstateInterface, WifiPhyInterface};
 
 #[test]
 fn test_wifi_phy_hold_wifi_cfg_with_other_base_iface() {

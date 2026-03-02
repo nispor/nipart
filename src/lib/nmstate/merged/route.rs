@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet, hash_map::Entry};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ErrorKind, JsonDisplay, MergedInterfaces, NipartError, NipartInterface,
+    ErrorKind, JsonDisplay, MergedInterfaces, NipartError, NmstateInterface,
     RouteEntry, RouteState, Routes,
 };
 
@@ -181,14 +181,15 @@ impl MergedRoutes {
             .filter(|rt| !rt.is_absent())
         {
             if let Some(cur_rts) = current.config.as_ref() {
-                if !cur_rts.as_slice().iter().any(|cur_rt| cur_rt.is_match(rt))
+                if !cur_rts.as_slice().iter().any(|cur_rt| rt.is_match(cur_rt))
                 {
                     changed_routes.insert(rt.clone());
+                    merged_routes.push(rt.clone());
                 }
             } else {
                 changed_routes.insert(rt.clone());
+                merged_routes.push(rt.clone());
             }
-            merged_routes.push(rt.clone());
         }
 
         merged_routes.sort_unstable();
