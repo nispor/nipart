@@ -5,8 +5,8 @@ use super::{
     ip::{np_ipv4_to_nmstate, np_ipv6_to_nmstate},
 };
 use crate::{
+    BaseInterface, InterfaceLinkState, InterfaceState, InterfaceType,
     NipartError,
-    nmstate::{BaseInterface, InterfaceState, InterfaceType},
 };
 
 fn np_iface_type_to_nmstate(
@@ -63,6 +63,19 @@ fn np_iface_state_to_nmstate(
     }
 }
 
+impl From<&nispor::IfaceState> for InterfaceLinkState {
+    fn from(np_state: &nispor::IfaceState) -> Self {
+        match np_state {
+            nispor::IfaceState::Up => Self::Up,
+            nispor::IfaceState::Dormant => Self::Dormant,
+            nispor::IfaceState::Down => Self::Down,
+            nispor::IfaceState::LowerLayerDown => Self::LowerLayerDown,
+            nispor::IfaceState::Testing => Self::Testing,
+            _ => Self::Unknown,
+        }
+    }
+}
+
 pub(crate) fn np_iface_to_base_iface(
     np_iface: &nispor::Iface,
 ) -> BaseInterface {
@@ -72,6 +85,7 @@ pub(crate) fn np_iface_to_base_iface(
             &np_iface.state,
             np_iface.flags.as_slice(),
         ),
+        link_state: Some((&np_iface.state).into()),
         iface_index: Some(np_iface.index),
         iface_type: np_iface_type_to_nmstate(&np_iface.iface_type),
         mac_address: Some(np_iface.mac_address.to_uppercase()),

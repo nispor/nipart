@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     BaseInterface, ErrorKind, InterfaceType, JsonDisplay,
-    JsonDisplayHideSecrets, NipartError, NipartInterface,
+    JsonDisplayHideSecrets, NipartError, NmstateInterface,
     nmstate::{
         deserializer::{number_as_string, option_number_as_string},
         value::copy_undefined_value,
@@ -35,6 +35,10 @@ impl WifiPhyInterface {
             wifi: Some(wifi),
         }
     }
+
+    pub fn ssid(&self) -> Option<&str> {
+        self.wifi.as_ref().map(|w| w.ssid.as_str())
+    }
 }
 
 impl Default for WifiPhyInterface {
@@ -49,7 +53,7 @@ impl Default for WifiPhyInterface {
     }
 }
 
-impl NipartInterface for WifiPhyInterface {
+impl NmstateInterface for WifiPhyInterface {
     fn base_iface(&self) -> &BaseInterface {
         &self.base
     }
@@ -226,6 +230,10 @@ impl WifiCfgInterface {
     pub fn parent(&self) -> Option<&str> {
         self.wifi.as_ref().and_then(|w| w.base_iface.as_deref())
     }
+
+    pub fn ssid(&self) -> Option<&str> {
+        self.wifi.as_ref().map(|w| w.ssid.as_str())
+    }
 }
 
 impl From<WifiConfig> for WifiCfgInterface {
@@ -252,7 +260,7 @@ impl Default for WifiCfgInterface {
     }
 }
 
-impl NipartInterface for WifiCfgInterface {
+impl NmstateInterface for WifiCfgInterface {
     fn base_iface(&self) -> &BaseInterface {
         &self.base
     }

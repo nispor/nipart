@@ -11,7 +11,7 @@ use nipart::{
 
 use super::{
     api::process_api_connection, commander::NipartCommander,
-    event::NipartLinkEvent,
+    link_event::NipartLinkEvent,
 };
 
 #[derive(Debug, Clone)]
@@ -22,6 +22,7 @@ pub(crate) enum NipartManagerCmd {
 #[derive(Debug)]
 pub(crate) struct NipartDaemon {
     api_ipc: NipartIpcListener,
+    // For command send from managers of daemon.
     managers_ipc: UnboundedReceiver<NipartManagerCmd>,
     // Daemon will fork(tokio is controlling maximum threads) new thread for
     // each client connection, this commander will be cloned and move to all
@@ -79,10 +80,7 @@ impl NipartDaemon {
                 },
                 cmd = self.managers_ipc.next() => {
                     if let Some(cmd) = cmd {
-                        log::trace!("Got command from manager {cmd:?}");
-                        if let Err(e) = self.handle_manager_cmd(cmd).await {
-                            log::error!("{e}");
-                        }
+                        self.handle_manager_cmd(cmd).await;
                     }
                 },
                 // TODO(Gris Ge): Handle TERM signal here:
@@ -109,15 +107,18 @@ impl NipartDaemon {
         }
     }
 
-    async fn handle_manager_cmd(
-        &mut self,
-        cmd: NipartManagerCmd,
-    ) -> Result<(), NipartError> {
+    async fn handle_manager_cmd(&mut self, cmd: NipartManagerCmd) {
+        // Since event worker is single thread, the event will be processed
+        // as the order of its arrival.
+        log::trace!("Got command from manager {cmd:?}");
         match cmd {
             NipartManagerCmd::LinkEvent(event) => {
-                self.commander.handle_link_event(*event).await?
+                if let Err(e) =
+                    self.commander.event_manager.handle_event(*event).await
+                {
+                    log::error!("{e}");
+                }
             }
         }
-        Ok(())
     }
 }

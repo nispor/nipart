@@ -4,14 +4,15 @@ use std::collections::HashSet;
 
 use futures_channel::mpsc::UnboundedSender;
 use nipart::{
-    InterfaceType, NetworkState, NipartError, NipartInterface, NipartNoDaemon,
-    NipartstateQueryOption,
+    InterfaceType, NetworkState, NipartError, NipartNoDaemon,
+    NmstateApplyOption, NmstateInterface, NmstateQueryOption,
 };
 
 use super::{
     conf::NipartConfManager, daemon::NipartManagerCmd,
-    dhcp::NipartDhcpV4Manager, monitor::NipartMonitorManager,
-    plugin::NipartPluginManager, udev::udev_net_device_is_initialized,
+    dhcp::NipartDhcpV4Manager, event::NipartEventManager,
+    monitor::NipartMonitorManager, plugin::NipartPluginManager,
+    udev::udev_net_device_is_initialized,
 };
 
 const BOOTUP_NIC_CHECK_MAX_COUNT: u64 = 30;
@@ -29,18 +30,23 @@ pub(crate) struct NipartCommander {
     pub(crate) monitor_manager: NipartMonitorManager,
     pub(crate) conf_manager: NipartConfManager,
     pub(crate) plugin_manager: NipartPluginManager,
+    pub(crate) event_manager: NipartEventManager,
 }
 
 impl NipartCommander {
     pub(crate) async fn new(
         sender: UnboundedSender<NipartManagerCmd>,
     ) -> Result<Self, NipartError> {
-        Ok(Self {
+        let mut ret = Self {
             dhcpv4_manager: NipartDhcpV4Manager::new().await?,
             monitor_manager: NipartMonitorManager::new(sender.clone()).await?,
             conf_manager: NipartConfManager::new().await?,
             plugin_manager: NipartPluginManager::new().await?,
-        })
+            event_manager: NipartEventManager::new().await?,
+        };
+        ret.event_manager.set_commander(ret.clone()).await?;
+
+        Ok(ret)
     }
 
     // Workflow:
@@ -73,7 +79,7 @@ impl NipartCommander {
                     self.apply_network_state(
                         None,
                         nic_ready_state,
-                        Default::default(),
+                        NmstateApplyOption::new().no_verify().memory_only(),
                     )
                     .await?;
                     log::debug!("Remaining saved state: {saved_state}");
@@ -105,7 +111,7 @@ async fn get_initialized_nics(
     saved_state: &NetworkState,
 ) -> Result<Vec<String>, NipartError> {
     let cur_state =
-        NipartNoDaemon::query_network_state(NipartstateQueryOption::running())
+        NipartNoDaemon::query_network_state(NmstateQueryOption::running())
             .await?;
 
     let mut ret = Vec::new();

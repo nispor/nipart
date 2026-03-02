@@ -2,7 +2,7 @@
 
 use super::value::gen_revert_state;
 use crate::{
-    Interface, InterfaceState, MergedInterface, NipartError, NipartInterface,
+    Interface, InterfaceState, MergedInterface, NipartError, NmstateInterface,
 };
 
 impl MergedInterface {

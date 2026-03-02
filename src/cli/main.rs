@@ -46,10 +46,10 @@ async fn main() -> Result<(), CliError> {
     let matches = cli_cmd.get_matches_mut();
 
     let (log_groups, log_level) = match matches.get_count("verbose") {
-        0 => (vec!["nm", "nmstate"], log::LevelFilter::Info),
-        1 => (vec!["nm", "nmstate"], log::LevelFilter::Debug),
-        2 => (vec!["nm", "nmstate"], log::LevelFilter::Trace),
-        3 => (vec!["nm", "nmstate", "nispor"], log::LevelFilter::Trace),
+        0 => (vec!["nipart", "nmstate"], log::LevelFilter::Info),
+        1 => (vec!["nipart", "nmstate"], log::LevelFilter::Debug),
+        2 => (vec!["nipart", "nmstate"], log::LevelFilter::Trace),
+        3 => (vec!["nipart", "nmstate", "nispor"], log::LevelFilter::Trace),
         _ => (vec![""], log::LevelFilter::Trace),
     };
 

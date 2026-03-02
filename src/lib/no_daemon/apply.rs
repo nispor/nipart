@@ -3,7 +3,7 @@
 use super::{inter_ifaces::apply_ifaces, route::apply_routes};
 use crate::{
     InterfaceType, MergedNetworkState, NetworkState, NipartError,
-    NipartInterface, NipartNoDaemon, NipartstateApplyOption,
+    NipartNoDaemon, NmstateApplyOption, NmstateInterface,
 };
 
 const RETRY_COUNT_COMMON: usize = 10;
@@ -13,7 +13,7 @@ const RETRY_INTERVAL_MS: u64 = 500;
 impl NipartNoDaemon {
     pub async fn apply_network_state(
         desired_state: NetworkState,
-        option: NipartstateApplyOption,
+        option: NmstateApplyOption,
     ) -> Result<NetworkState, NipartError> {
         let current_state =
             Self::query_network_state(Default::default()).await?;

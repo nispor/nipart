@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     BaseInterface, ErrorKind, Interface, InterfaceType, JsonDisplay,
-    MergedInterface, NipartError, NipartInterface,
+    MergedInterface, NipartError, NmstateInterface,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonDisplay)]
@@ -50,7 +50,7 @@ impl Default for VlanInterface {
     }
 }
 
-impl NipartInterface for VlanInterface {
+impl NmstateInterface for VlanInterface {
     fn base_iface(&self) -> &BaseInterface {
         &self.base
     }

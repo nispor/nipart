@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     BondMode, ErrorKind, Interface, InterfaceState, InterfaceType, Interfaces,
-    MergedInterface, MergedInterfaces, NipartError, NipartInterface,
+    MergedInterface, MergedInterfaces, NipartError, NmstateInterface,
     OvsInterface,
 };
 

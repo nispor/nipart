@@ -6,7 +6,7 @@ use super::value::copy_undefined_value;
 use crate::{BaseInterface, InterfaceState, InterfaceType, NipartError};
 
 /// Trait implemented by all type of interfaces.
-pub trait NipartInterface:
+pub trait NmstateInterface:
     std::fmt::Debug + for<'a> Deserialize<'a> + Serialize + Default + Clone
 {
     fn base_iface(&self) -> &BaseInterface;

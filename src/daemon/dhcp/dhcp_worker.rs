@@ -14,7 +14,7 @@ use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease, DhcpV4State};
 use nipart::{
     BaseInterface, DhcpState, ErrorKind, Interface, InterfaceIpAddr,
     InterfaceIpv4, NetworkState, NipartError, NipartNoDaemon,
-    NipartstateApplyOption, RouteEntry, Routes,
+    NmstateApplyOption, RouteEntry, Routes,
 };
 
 use crate::TaskWorker;
@@ -87,7 +87,8 @@ impl TaskWorker for NipartDhcpV4Worker {
             NipartDhcpCmd::StartIfaceDhcp(base_iface) => {
                 let iface_name = base_iface.name.clone();
                 let thread = NipartDhcpV4Thread::new(*base_iface).await?;
-                self.threads.insert(iface_name, thread);
+                self.threads.insert(iface_name.clone(), thread);
+                log::debug!("DHCP thread started on interface {iface_name}");
                 Ok(NipartDhcpReply::None)
             }
             NipartDhcpCmd::StopIfaceDhcp(iface) => {
@@ -285,7 +286,7 @@ async fn dhcp_thread(
             }
             _ = quit_indicator.next() => {
                 log::info!(
-                    "DHCPv4 on {}({}) stopped",
+                    "Stopped DHCPv4 on {}({})",
                     base_iface.name,
                     base_iface.iface_type,
                 );
@@ -332,7 +333,7 @@ async fn apply_lease(
     ip_addr.preferred_life_time = Some(format!("{}sec", lease.lease_time_sec));
     ip_addr.valid_life_time = Some(format!("{}sec", lease.lease_time_sec));
 
-    let mut ipv4_conf = InterfaceIpv4::new();
+    let mut ipv4_conf = InterfaceIpv4::default();
     ipv4_conf.enabled = Some(true);
     ipv4_conf.dhcp = Some(true);
     ipv4_conf.addresses = Some(vec![ip_addr]);
@@ -350,7 +351,7 @@ async fn apply_lease(
 
     net_state.routes = gen_routes(lease, base_iface);
 
-    let apply_opt = NipartstateApplyOption::new().no_verify();
+    let apply_opt = NmstateApplyOption::new().memory_only().no_verify();
     NipartNoDaemon::apply_network_state(net_state, apply_opt).await?;
     Ok(())
 }

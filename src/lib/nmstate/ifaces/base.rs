@@ -9,8 +9,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ErrorKind, InterfaceIpv4, InterfaceIpv6, InterfaceState, InterfaceType,
-    JsonDisplay, NipartError,
+    ErrorKind, InterfaceIpv4, InterfaceIpv6, InterfaceLinkState,
+    InterfaceState, InterfaceTrigger, InterfaceType, JsonDisplay, NipartError,
 };
 
 #[derive(
@@ -29,6 +29,16 @@ pub struct BaseInterface {
     pub iface_index: Option<u32>,
     #[serde(default)]
     pub state: InterfaceState,
+    /// Bring interface up and down base on [InterfaceTrigger] instruction.
+    /// Default value is `[InterfaceTrigger::OneShot]` meaning daemon use
+    /// `state` value to bring interface up/down and never take any auto action
+    /// afterwards.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<InterfaceTrigger>,
+    /// Link carrier state, query only property.
+    /// Serialize to `link-state`
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link_state: Option<InterfaceLinkState>,
     /// In which order should this interface been activated. The smallest
     /// number will be activated first.
     /// Undefined or set to 0 when applying desire state means automatically

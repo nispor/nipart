@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::{
     ErrorKind, NetworkState, NipartError, NipartIpcConnection,
     NipartIpcListener, NipartPluginClient, NipartPluginCmd, NipartPluginInfo,
-    NipartstateApplyOption, NipartstateQueryOption,
+    NmstateApplyOption, NmstateQueryOption,
 };
 
 pub trait NipartPlugin: Send + Sync + Sized + 'static {
@@ -27,8 +27,8 @@ pub trait NipartPlugin: Send + Sync + Sized + 'static {
     /// The `&self` will cloned and move to forked thread for each connection.
     fn run() -> impl Future<Output = Result<(), NipartError>> + Send {
         let mut log_builder = env_logger::Builder::new();
-        log_builder.filter(Some("nm"), log::LevelFilter::Debug);
-        log_builder.filter(Some("nm_plugin"), log::LevelFilter::Debug);
+        log_builder.filter(Some("nipart"), log::LevelFilter::Debug);
+        log_builder.filter(Some("nipart_plugin"), log::LevelFilter::Debug);
         log_builder.filter(
             Some(&format!("nipart-plugin-{}", Self::PLUGIN_NAME)),
             log::LevelFilter::Debug,
@@ -102,7 +102,7 @@ pub trait NipartPlugin: Send + Sync + Sized + 'static {
     /// Default implementation is return no support error.
     fn query_network_state(
         _plugin: &Arc<Self>,
-        _opt: NipartstateQueryOption,
+        _opt: NmstateQueryOption,
         _conn: &mut NipartIpcConnection,
     ) -> impl Future<Output = Result<NetworkState, NipartError>> + Send {
         async {
@@ -121,7 +121,7 @@ pub trait NipartPlugin: Send + Sync + Sized + 'static {
     fn apply_network_state(
         _plugin: &Arc<Self>,
         _desired_state: NetworkState,
-        _opt: NipartstateApplyOption,
+        _opt: NmstateApplyOption,
         _conn: &mut NipartIpcConnection,
     ) -> impl Future<Output = Result<(), NipartError>> + Send {
         async {

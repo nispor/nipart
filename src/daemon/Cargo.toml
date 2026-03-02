@@ -22,6 +22,7 @@ uuid = { workspace = true }
 mozim = { workspace = true }
 rtnetlink = { workspace = true }
 nix = { workspace = true }
+wl-nl80211 = { workspace = true }
 
 [[bin]]
 name = "nipartd"

@@ -14,7 +14,7 @@ use crate::{
     BondArpValidate, BondConfig, BondFailOverMac, BondInterface, BondLacpRate,
     BondMode, BondOptions, BondPortConfig, BondPrimaryReselect,
     BondXmitHashPolicy, ErrorKind, MergedInterfaces, NipartError,
-    NipartInterface,
+    NmstateInterface,
 };
 
 impl From<nispor::BondMode> for BondMode {

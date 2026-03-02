@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use nipart::{ErrorKind, NetworkState, NipartError, NipartInterface};
+use nipart::{ErrorKind, NetworkState, NipartError, NmstateInterface};
 
 use super::{NipartConfCmd, NipartConfReply, NipartConfWorker};
 use crate::TaskManager;

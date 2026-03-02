@@ -4,7 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use futures_channel::{mpsc::UnboundedReceiver, oneshot::Sender};
 use nipart::{
-    ErrorKind, InterfaceType, NetworkState, NipartError, NipartInterface,
+    ErrorKind, InterfaceType, NetworkState, NipartError, NmstateInterface,
 };
 use tokio::{fs::File, io::AsyncWriteExt};
 

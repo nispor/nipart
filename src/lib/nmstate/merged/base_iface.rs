@@ -3,7 +3,7 @@
 use crate::{BaseInterface, InterfaceState, InterfaceType, NipartError};
 
 impl BaseInterface {
-    // `NipartInterface::merge()` already done JSON level merging, this
+    // `NmstateInterface::merge()` already done JSON level merging, this
     // function is doing special merging after that.
     pub fn post_merge(&mut self, old: &Self) -> Result<(), NipartError> {
         // Do not allow unknown interface type overriding existing

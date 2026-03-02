@@ -7,6 +7,7 @@ mod conf;
 mod daemon;
 mod dhcp;
 mod event;
+mod link_event;
 mod lock;
 mod logger;
 mod monitor;
@@ -40,7 +41,7 @@ async fn main() -> Result<(), nipart::NipartError> {
 
 fn enable_logging() {
     let mut log_builder = env_logger::Builder::new();
-    log_builder.filter(Some("nm"), log::LevelFilter::Trace);
+    log_builder.filter(Some("nipartd"), log::LevelFilter::Trace);
     log_builder.filter(Some("nipart"), log::LevelFilter::Trace);
     log_builder.init();
 }

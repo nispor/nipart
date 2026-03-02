@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
-
 use nipart::{
-    Interface, InterfaceType, MergedInterfaces, MergedNetworkState,
-    NetworkState, NipartError, NipartInterface, NipartIpcConnection,
-    NipartNoDaemon, NipartstateApplyOption,
+    Interface, MergedNetworkState, NetworkState, NipartError,
+    NipartIpcConnection, NipartNoDaemon, NmstateApplyOption, NmstateInterface,
 };
 
 use super::commander::NipartCommander;
@@ -19,7 +16,7 @@ impl NipartCommander {
         &mut self,
         mut conn: Option<&mut NipartIpcConnection>,
         mut desired_state: NetworkState,
-        opt: NipartstateApplyOption,
+        opt: NmstateApplyOption,
     ) -> Result<NetworkState, NipartError> {
         if desired_state.is_empty() {
             log_info(
@@ -79,7 +76,7 @@ impl NipartCommander {
         // Suppress the monitor during applying
         self.monitor_manager.pause().await?;
         if let Err(e) = self
-            .apply_merged_state(conn.as_deref_mut(), &merged_state, &opt)
+            .apply_merged_state(conn.as_deref_mut(), &merged_state)
             .await
         {
             log_warn(
@@ -127,29 +124,11 @@ impl NipartCommander {
             .await;
         }
 
-        let (mut ifaces_start_monitor, mut ifaces_stop_monitor) =
-            gen_iface_monitor_list(&merged_state.ifaces);
+        let saved_state = self.conf_manager.query_state().await?;
 
-        for iface in ifaces_stop_monitor.drain() {
-            self.monitor_manager.del_iface_from_monitor(&iface).await?;
-        }
-        for iface in ifaces_start_monitor.drain() {
-            self.monitor_manager.add_iface_to_monitor(&iface).await?;
-        }
-
-        let (mut iface_types_start_monitor, mut iface_types_stop_monitor) =
-            gen_iface_type_monitor_list(&merged_state.ifaces);
-
-        for iface_type in iface_types_stop_monitor.drain() {
-            self.monitor_manager
-                .del_iface_type_from_monitor(iface_type)
-                .await?;
-        }
-        for iface_type in iface_types_start_monitor.drain() {
-            self.monitor_manager
-                .add_iface_type_to_monitor(iface_type)
-                .await?;
-        }
+        self.monitor_manager
+            .setup_monitor(&merged_state, &saved_state)
+            .await?;
 
         self.monitor_manager.resume().await?;
 
@@ -177,7 +156,7 @@ impl NipartCommander {
         mut conn: Option<&mut NipartIpcConnection>,
         revert_state: NetworkState,
     ) -> Result<(), NipartError> {
-        let mut opt = NipartstateApplyOption::default();
+        let mut opt = NmstateApplyOption::default();
         opt.no_verify = true;
 
         let current_state = self
@@ -227,6 +206,23 @@ impl NipartCommander {
                 .push(Interface::WifiCfg(Box::new(*iface.clone())));
         }
 
+        // Up/down trigger is not stored into config manager yet. In order to
+        // pass the verification, we need to pretend the up/down trigger is
+        // stored.
+        for merged_iface in merged_state.ifaces.iter() {
+            if let Some(post_apply_iface) =
+                post_apply_current_state.ifaces.get_mut(
+                    merged_iface.merged.name(),
+                    Some(merged_iface.merged.iface_type()),
+                )
+            {
+                post_apply_iface.base_iface_mut().trigger = merged_iface
+                    .for_apply
+                    .as_ref()
+                    .and_then(|i| i.base_iface().trigger.clone());
+            }
+        }
+
         log_trace(
             conn,
             format!("Post apply network state: {post_apply_current_state}"),
@@ -236,20 +232,27 @@ impl NipartCommander {
         Ok(())
     }
 
-    async fn apply_merged_state(
+    // Apply state to plugin/dhcp/kernel and verify, but don't do these tasks:
+    //  * Checkpoint rollback
+    //  * Config save
+    //  * Setup monitor session
+    pub(crate) async fn apply_merged_state(
         &mut self,
         mut conn: Option<&mut NipartIpcConnection>,
         merged_state: &MergedNetworkState,
-        opt: &NipartstateApplyOption,
     ) -> Result<(), NipartError> {
         let apply_state = merged_state.gen_state_for_apply();
 
         log_trace(conn.as_deref_mut(), format!("apply_state {apply_state}"))
             .await;
 
-        NipartNoDaemon::apply_merged_state(merged_state).await?;
+        let mut merged_state_for_no_daemon = merged_state.clone();
+        // Remove interfaces for conditional activating
+        merged_state_for_no_daemon.remove_conditional_activation();
+
+        NipartNoDaemon::apply_merged_state(&merged_state_for_no_daemon).await?;
         self.plugin_manager
-            .apply_network_state(&apply_state, opt)
+            .apply_network_state(&apply_state, &merged_state.option)
             .await?;
 
         self.dhcpv4_manager
@@ -257,9 +260,11 @@ impl NipartCommander {
             .await?;
 
         let mut result: Result<(), NipartError> = Ok(());
-        if !opt.no_verify {
+        if !merged_state.option.no_verify {
             for cur_retry_count in 1..(RETRY_COUNT + 1) {
-                result = self.verify(conn.as_deref_mut(), merged_state).await;
+                result = self
+                    .verify(conn.as_deref_mut(), &merged_state_for_no_daemon)
+                    .await;
                 if let Err(e) = &result {
                     log_info(
                         conn.as_deref_mut(),
@@ -301,65 +306,4 @@ fn remove_undesired_ifaces(
             .user_ifaces
             .contains_key(&(key.clone()))
     });
-}
-
-/// Return iface names to start and stop monitor
-fn gen_iface_monitor_list(
-    merged_ifaces: &MergedInterfaces,
-) -> (HashSet<String>, HashSet<String>) {
-    let has_wifi_bind_to_any = merged_ifaces.iter().any(|i| {
-        if let Interface::WifiCfg(wifi_iface) = &i.merged {
-            wifi_iface.parent().is_none() && wifi_iface.is_up()
-        } else {
-            false
-        }
-    });
-
-    // We will use `gen_iface_type_monitor_list()` to handle this
-    // bind to any WIFI.
-    if has_wifi_bind_to_any {
-        return (HashSet::new(), HashSet::new());
-    }
-
-    let mut ifaces_start_monitor = HashSet::new();
-    let mut ifaces_stop_monitor = HashSet::new();
-
-    for wifi_iface in merged_ifaces.iter().filter_map(|i| {
-        if let Interface::WifiCfg(wifi_iface) = &i.merged {
-            Some(wifi_iface)
-        } else {
-            None
-        }
-    }) {
-        if let Some(parent) = wifi_iface.parent() {
-            if wifi_iface.is_up() {
-                ifaces_start_monitor.insert(parent.to_string());
-            } else if wifi_iface.is_absent() || wifi_iface.is_down() {
-                ifaces_stop_monitor.insert(parent.to_string());
-            }
-        }
-    }
-
-    (ifaces_start_monitor, ifaces_stop_monitor)
-}
-
-/// Return iface types to start and stop monitor
-fn gen_iface_type_monitor_list(
-    merged_ifaces: &MergedInterfaces,
-) -> (HashSet<InterfaceType>, HashSet<InterfaceType>) {
-    let has_wifi_bind_to_any = merged_ifaces.iter().any(|i| {
-        if let Interface::WifiCfg(wifi_iface) = &i.merged {
-            wifi_iface.parent().is_none() && wifi_iface.is_up()
-        } else {
-            false
-        }
-    });
-
-    let iface_types = HashSet::from_iter([InterfaceType::WifiPhy]);
-
-    if has_wifi_bind_to_any {
-        (iface_types, HashSet::new())
-    } else {
-        (HashSet::new(), iface_types)
-    }
 }

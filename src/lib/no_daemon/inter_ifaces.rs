@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{
     ErrorKind, Interface, InterfaceType, MergedInterface, MergedInterfaces,
-    NipartError, NipartInterface,
+    NipartError, NmstateInterface,
 };
 
 pub(crate) async fn apply_ifaces(
@@ -15,9 +15,14 @@ pub(crate) async fn apply_ifaces(
 ) -> Result<(), NipartError> {
     delete_ifaces_before_apply(merged_ifaces).await?;
 
-    apply_ifaces_link_changes(merged_ifaces).await?;
-
-    apply_ifaces_ip_changes(merged_ifaces).await?;
+    // Some interface might been deleted when apply, hence it is OK to fail, we
+    // trust verification stage to find the problem
+    if let Err(e) = apply_ifaces_link_changes(merged_ifaces).await {
+        log::info!("{e}");
+    }
+    if let Err(e) = apply_ifaces_ip_changes(merged_ifaces).await {
+        log::info!("{e}");
+    }
 
     Ok(())
 }
@@ -93,6 +98,16 @@ async fn apply_ifaces_link_changes(
             continue;
         };
 
+        // Skip interface when it is not virtual and not exist in current.
+        if !apply_iface.is_virtual() && merged_iface.current.is_none() {
+            log::debug!(
+                "Ignore non-exist physical interface {}/{}",
+                apply_iface.name(),
+                apply_iface.iface_type()
+            );
+            continue;
+        }
+
         if apply_iface.iface_type() == &InterfaceType::WifiCfg
             || apply_iface.iface_type() == &InterfaceType::WifiPhy
         {
@@ -131,34 +146,24 @@ async fn apply_ifaces_link_changes(
         };
         match apply_iface {
             Interface::Bond(bond_iface) => {
-                np_ifaces
-                    .extend(bond_iface.apply_bond_port_configs().into_iter());
+                np_ifaces.extend(bond_iface.apply_bond_port_configs());
             }
             Interface::LinuxBridge(br_iface) => {
-                np_ifaces.extend(
-                    br_iface
-                        .apply_linux_bridge_port_configs(
-                            if let Some(Interface::LinuxBridge(cur_br_iface)) =
-                                merged_iface.current.as_ref()
-                            {
-                                Some(cur_br_iface)
-                            } else {
-                                None
-                            },
-                        )
-                        .into_iter(),
-                );
+                np_ifaces.extend(br_iface.apply_linux_bridge_port_configs(
+                    if let Some(Interface::LinuxBridge(cur_br_iface)) =
+                        merged_iface.current.as_ref()
+                    {
+                        Some(cur_br_iface)
+                    } else {
+                        None
+                    },
+                ));
             }
             Interface::OvsBridge(_) => {
                 // Place holder
             }
             _ => (),
         }
-    }
-
-    if !changed_wifi_ifaces.is_empty() {
-        NipartWpaConn::apply(changed_wifi_ifaces.as_slice(), merged_ifaces)
-            .await?;
     }
 
     if !np_ifaces.is_empty() {
@@ -175,6 +180,11 @@ async fn apply_ifaces_link_changes(
                 format!("Failed to change link layer: {e}"),
             ));
         }
+    }
+
+    if !changed_wifi_ifaces.is_empty() {
+        NipartWpaConn::apply(changed_wifi_ifaces.as_slice(), merged_ifaces)
+            .await?;
     }
 
     Ok(())

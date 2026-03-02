@@ -3,8 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    JsonDisplayHideSecrets, MergedInterfaces, MergedRoutes, NetworkState,
-    NipartError, NipartstateApplyOption,
+    InterfaceType, JsonDisplayHideSecrets, MergedInterfaces, MergedRoutes,
+    NetworkState, NipartError, NmstateApplyOption, NmstateInterface,
 };
 
 #[derive(
@@ -22,14 +22,14 @@ pub struct MergedNetworkState {
     pub description: Option<String>,
     pub ifaces: MergedInterfaces,
     pub routes: MergedRoutes,
-    pub option: NipartstateApplyOption,
+    pub option: NmstateApplyOption,
 }
 
 impl MergedNetworkState {
     pub fn new(
         desired: NetworkState,
         current: NetworkState,
-        option: NipartstateApplyOption,
+        option: NmstateApplyOption,
     ) -> Result<Self, NipartError> {
         let merged_ifaces =
             MergedInterfaces::new(desired.ifaces, current.ifaces)?;
@@ -60,6 +60,46 @@ impl MergedNetworkState {
 
     pub fn hide_secrets(&mut self) {
         self.ifaces.hide_secrets()
+    }
+
+    /// Retains interface which can be bring up in `MergedInterfaces`
+    pub fn remove_conditional_activation(&mut self) {
+        let mut pending_changes: Vec<(String, InterfaceType)> = Vec::new();
+        for merged_iface in self.ifaces.iter().filter(|i| i.for_apply.is_some())
+        {
+            if merged_iface.merged.is_up()
+                && !merged_iface.can_bring_up(&self.ifaces)
+            {
+                pending_changes.push((
+                    merged_iface.merged.name().to_string(),
+                    merged_iface.merged.iface_type().clone(),
+                ));
+            }
+        }
+        for (iface_name, iface_type) in pending_changes {
+            log::trace!(
+                "Interface {}/{} is ignored for instant apply because its \
+                 trigger condition is not met yet",
+                iface_name,
+                iface_type
+            );
+            if iface_type.is_userspace() {
+                self.ifaces.user_ifaces.remove(&(iface_name, iface_type));
+            } else {
+                self.routes
+                    .route_changed_ifaces
+                    .retain(|n| n != &iface_name);
+                self.routes.changed_routes.retain(|rt| {
+                    rt.next_hop_iface.as_ref() != Some(&iface_name)
+                });
+                if let Some(config_rts) = self.routes.desired.config.as_mut() {
+                    config_rts.retain(|rt| {
+                        rt.next_hop_iface.as_ref() != Some(&iface_name)
+                    });
+                }
+                self.ifaces.kernel_ifaces.remove(&iface_name);
+            }
+        }
     }
 }
 

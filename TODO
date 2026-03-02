@@ -13,3 +13,4 @@
  * Plugin cannot send back logs to user
  * WIFI should connect to AP with best signal
  * `nmc wifi connect` should wait connect and retry for wrong-password
+ * `npt wait-online` for systemd service `Before=network-online.target`

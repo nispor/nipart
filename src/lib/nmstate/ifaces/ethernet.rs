@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     BaseInterface, ErrorKind, InterfaceType, JsonDisplay, NipartError,
-    NipartInterface,
+    NmstateInterface,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonDisplay)]
@@ -58,7 +58,7 @@ impl Default for EthernetInterface {
     }
 }
 
-impl NipartInterface for EthernetInterface {
+impl NmstateInterface for EthernetInterface {
     fn base_iface(&self) -> &BaseInterface {
         &self.base
     }
@@ -68,7 +68,7 @@ impl NipartInterface for EthernetInterface {
     }
 
     fn is_virtual(&self) -> bool {
-        false
+        self.veth.is_some()
     }
 
     fn hide_secrets_iface_specific(&mut self) {}
