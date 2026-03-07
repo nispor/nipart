@@ -117,6 +117,7 @@ impl NmstateInterface for WifiPhyInterface {
 
     fn post_merge_iface_specific(
         &mut self,
+        _new: &Self,
         old: &Self,
     ) -> Result<(), NipartError> {
         if let Some(wifi) = self.wifi.as_mut()
@@ -321,6 +322,7 @@ impl NmstateInterface for WifiCfgInterface {
 
     fn post_merge_iface_specific(
         &mut self,
+        _new: &Self,
         old: &Self,
     ) -> Result<(), NipartError> {
         if let Some(wifi) = self.wifi.as_mut()

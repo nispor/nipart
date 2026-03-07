@@ -240,15 +240,17 @@ macro_rules! gen_include_revert_context_iface_specific{
 }
 
 macro_rules! gen_post_merge_iface_specific{
-    ( $merged:ident, $old:ident, $($variant:path,)+ ) => {
-        match ($merged, $old) {
+    ( $merged:ident, $new:ident, $old:ident, $($variant:path,)+ ) => {
+        match ($merged, $new, $old) {
             $(
-                ($variant(i), $variant(o)) => i.post_merge_iface_specific(o),
+                ($variant(i), $variant(n), $variant(o)) =>
+                    i.post_merge_iface_specific(n, o),
             )+
-            (merged, old) => {
+            (merged, new, old) => {
                 log::error!(
                     "BUG: Interface::post_merge_iface_specific() \
-                     Unexpected input merged {merged:?} old_state {old:?}"
+                     Unexpected input merged {merged:?} new_state {new:?}, \
+                     old_state {old:?}"
                 );
                 Ok(())
             }
@@ -438,10 +440,12 @@ impl NmstateInterface for Interface {
 
     fn post_merge_iface_specific(
         &mut self,
+        new_state: &Self,
         old_state: &Self,
     ) -> Result<(), NipartError> {
         gen_post_merge_iface_specific!(
             self,
+            new_state,
             old_state,
             Interface::Ethernet,
             Interface::OvsBridge,
