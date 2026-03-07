@@ -309,6 +309,44 @@ impl NmstateInterface for BondInterface {
         _current: &Self,
     ) {
     }
+
+    // When bond mode changed, do not merge bond options from old state.
+    fn post_merge_iface_specific(
+        &mut self,
+        new_state: &Self,
+        old_state: &Self,
+    ) -> Result<(), NipartError> {
+        if new_state.mode().is_some()
+            && new_state.mode() != old_state.mode()
+            && let Some(bond_conf) = self.bond.as_mut()
+            && let Some(new_bond_conf) = new_state.bond.as_ref()
+        {
+            log::debug!(
+                "Interface {} has bond mode changed, will not merge bond \
+                 options and port options from previous.",
+                new_state.name()
+            );
+            bond_conf.options = new_bond_conf.options.clone();
+            bond_conf.ports_config = new_bond_conf.ports_config.clone();
+            if bond_conf.ports_config.is_none()
+                && let Some(old_ports_conf) = old_state
+                    .bond
+                    .as_ref()
+                    .and_then(|b| b.ports_config.as_ref())
+            {
+                bond_conf.ports_config = Some(
+                    old_ports_conf
+                        .iter()
+                        .map(|c| BondPortConfig {
+                            name: c.name.to_string(),
+                            ..Default::default()
+                        })
+                        .collect(),
+                );
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(

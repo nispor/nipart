@@ -85,7 +85,7 @@ pub trait NmstateInterface:
 
         let mut ret: Self = serde_json::from_value(new_value)?;
         ret.base_iface_mut().post_merge(old_state.base_iface())?;
-        ret.post_merge_iface_specific(&old_state)?;
+        ret.post_merge_iface_specific(new_state, &old_state)?;
 
         Ok(ret)
     }
@@ -95,6 +95,7 @@ pub trait NmstateInterface:
     /// [BaseInterface].
     fn post_merge_iface_specific(
         &mut self,
+        _new_state: &Self,
         _old_state: &Self,
     ) -> Result<(), NipartError> {
         Ok(())
