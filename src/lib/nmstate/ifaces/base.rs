@@ -131,6 +131,7 @@ impl BaseInterface {
 
     pub(crate) fn sanitize_before_verify(&mut self, current: &mut Self) {
         self.up_priority = 0;
+        self.controller_type = None;
         if let Some(des_ipv4) = self.ipv4.as_mut()
             && let Some(cur_ipv4) = current.ipv4.as_mut()
         {
