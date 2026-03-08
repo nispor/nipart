@@ -23,10 +23,11 @@ jobs:
         run: |
           rustup override set stable
           rustup update stable
-      - name: Install pytest
+
+      - name: Install tools required for tests
         run: |
           sudo apt update
-          sudo apt -y install python3-pytest
+          sudo apt -y install python3-pytest dnsmasq
 
       - name: Unit Test
         run: cargo test
@@ -36,4 +37,3 @@ jobs:
 
       - name: Integration test
         run: sudo tests/run-tests.sh
-

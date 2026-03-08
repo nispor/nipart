@@ -7,7 +7,6 @@ import nipart
 from .testlib.cmdlib import exec_cmd
 from .testlib.dhcp import DHCP_SRV_IP4
 from .testlib.dhcp import DHCP_SRV_IP4_PREFIX
-from .testlib.env import is_fedora
 from .testlib.retry import retry_till_true_or_timeout
 from .testlib.statelib import load_yaml
 
