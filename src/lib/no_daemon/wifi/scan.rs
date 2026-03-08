@@ -15,13 +15,13 @@ impl NipartNoDaemon {
     pub async fn wifi_scan(
         iface_name: Option<&str>,
     ) -> Result<Vec<WifiConfig>, NipartError> {
-        match _wifi_scan(iface_name, false).await {
-            Ok(r) => Ok(r),
-            Err(_) => {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                _wifi_scan(iface_name, true).await
-            }
+        if let Ok(r) = _wifi_scan(iface_name, false).await
+            && !r.is_empty()
+        {
+            return Ok(r);
         }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        _wifi_scan(iface_name, true).await
     }
 }
 
@@ -45,14 +45,17 @@ pub(crate) async fn bss_active_scan(
     }
 
     for (iface_name, iface_obj_path) in iface_obj_paths.iter() {
-        if !dbus.is_iface_scanning(iface_obj_path.as_str()).await? {
-            log::debug!("Starting WIFI active scan on {iface_name}");
+        let is_scanning =
+            dbus.is_iface_scanning(iface_obj_path.as_str()).await?;
+        if !is_scanning || abort_current {
+            if is_scanning {
+                dbus.abort_scan(iface_obj_path.as_str()).await.ok();
+            }
+            log::debug!(
+                "Starting WIFI active scan on {iface_name} {iface_obj_path}"
+            );
             dbus.scan(iface_obj_path.as_str()).await?;
-        } else if abort_current {
-            dbus.abort_scan(iface_obj_path.as_str()).await.ok();
-            log::debug!("Starting WIFI active scan on {iface_name}");
-            dbus.scan(iface_obj_path.as_str()).await?;
-        } else {
+        } else if is_scanning {
             log::debug!(
                 "There already has an on-going WIFI scan on {iface_name}"
             );
@@ -76,7 +79,8 @@ pub(crate) async fn bss_active_scan(
             let Some(ssid) = bss.ssid.as_deref() else {
                 continue;
             };
-            if interested_ssids.is_empty() || !interested_ssids.contains(&ssid)
+            if !(interested_ssids.is_empty()
+                || interested_ssids.contains(&ssid))
             {
                 continue;
             }

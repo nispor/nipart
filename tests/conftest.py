@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import shutil
 import pathlib
 import subprocess
 import sys
@@ -20,9 +22,20 @@ CLI_PATH = f"{project_dir}/target/debug/npt"
 
 
 @pytest.fixture(scope="session", autouse=True)
-def test_env_setup(run_daemon):
+def test_env_setup(backup_config, run_daemon):
     yield
 
+
+@pytest.fixture(scope="session")
+def backup_config():
+    if os.path.isdir("/etc/nipart"):
+        os.rename("/etc/nipart", "/etc/nipart.before_test")
+    yield
+    if os.path.isdir("/etc/nipart") and os.path.isdir(
+        "/etc/nipart.before_test"
+    ):
+        shutil.rmtree("/etc/nipart")
+        os.rename("/etc/nipart.before_test", "/etc/nipart")
 
 @pytest.fixture(scope="session")
 def run_daemon():

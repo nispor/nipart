@@ -188,7 +188,16 @@ impl NipartWpaSupDbus<'_> {
         let mut ret: Vec<WpaSupInterface> = Vec::new();
         for iface_obj_path in self.get_iface_obj_paths().await? {
             match self.get_iface(&iface_obj_path).await {
-                Ok(iface) => ret.push(iface),
+                Ok(iface) => {
+                    if !iface.iface_name.is_empty() {
+                        ret.push(iface);
+                    } else {
+                        log::trace!(
+                            "Ignoring WPA interface with empty interface name \
+                             {iface:?}"
+                        );
+                    }
+                }
                 Err(e) => {
                     // Interface might just been deleted
                     log::trace!(
@@ -221,6 +230,7 @@ impl NipartWpaSupDbus<'_> {
             )
             .await
             .map_err(map_zbus_err)?;
+        log::trace!("NipartWpaSupDbus::get_iface(): got return {value:?}");
 
         WpaSupInterface::from_value(value, obj_path)
     }
