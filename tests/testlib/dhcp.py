@@ -3,8 +3,6 @@
 import os
 import signal
 
-import pytest
-
 from .cmdlib import exec_cmd
 
 DHCP_SRV_IP4_PREFIX = "192.0.2"

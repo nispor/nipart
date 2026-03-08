@@ -9,7 +9,10 @@ def retry_till_true_or_timeout(timeout, func, *args, **kwargs):
     while timeout > 0:
         if ret:
             break
-        print(f"{func.__name__} returned False: retrying " f"{timeout}/{max_timeout}")
+        print(
+            f"{func.__name__} returned False: retrying "
+            f"{timeout}/{max_timeout}"
+        )
         time.sleep(1)
         timeout -= 1
         ret = func(*args, **kwargs)

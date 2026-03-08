@@ -1,10 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import os
 import re
 import signal
-import time
 
 import nipart
 import pytest
@@ -13,8 +11,6 @@ from .cmdlib import exec_cmd
 from .retry import retry_till_true_or_timeout
 from .dhcp import start_dhcp_server
 from .dhcp import stop_dhcp_server
-from .dhcp import DHCP_SRV_IP4
-from .dhcp import DHCP_SRV_IP6
 from .dhcp import DHCP_SRV_NIC
 
 HWSIM0_PERM_MAC = "02:00:00:00:00:00"

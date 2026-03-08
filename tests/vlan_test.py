@@ -6,7 +6,6 @@ import pytest
 
 import nipart
 
-from .testlib.cmdlib import exec_cmd
 from .testlib.statelib import load_yaml
 from .testlib.statelib import show_only
 

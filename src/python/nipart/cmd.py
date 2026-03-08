@@ -28,7 +28,9 @@ class NipartCmdQueryNetworkState:
         return json.dumps(
             {
                 "kind": NipartCmdQueryNetworkState.IPC_KIND,
-                "data": {NipartCmdQueryNetworkState.IPC_KIND: self.opt.to_dict()},
+                "data": {
+                    NipartCmdQueryNetworkState.IPC_KIND: self.opt.to_dict()
+                },
             }
         )
 

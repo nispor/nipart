@@ -1,16 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
-from operator import itemgetter
-
 import pytest
 
 import nipart
 
-from .testlib.cmdlib import exec_cmd
 from .testlib.statelib import load_yaml
 from .testlib.statelib import show_only
 from .testlib.statelib import state_match
-
 
 TEST_PORT1 = "dummy1"
 TEST_PORT2 = "dummy2"
@@ -19,9 +15,7 @@ TEST_BRIDGE_NIC = "br0"
 
 @pytest.fixture
 def linux_bridge_over_dummy():
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BRIDGE_NIC}
                 type: linux-bridge
@@ -55,13 +49,9 @@ def linux_bridge_over_dummy():
               - name: {TEST_PORT2}
                 type: dummy
                 state: up
-            """
-        )
-    )
+            """))
     yield
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BRIDGE_NIC}
                 type: linux-bridge
@@ -72,9 +62,7 @@ def linux_bridge_over_dummy():
               - name: {TEST_PORT2}
                 type: dummy
                 state: absent
-            """
-        )
-    )
+            """))
 
 
 def test_create_and_remove_linux_bridge(linux_bridge_over_dummy):
@@ -140,19 +128,15 @@ def test_create_and_remove_linux_bridge(linux_bridge_over_dummy):
     ],
 )
 def test_modify_linux_bridge_options(linux_bridge_over_dummy, opt_key_value):
-    (opt_name, opt_value) = opt_key_value
-    nipart.apply(
-        load_yaml(
-            f"""---
+    opt_name, opt_value = opt_key_value
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BRIDGE_NIC}
                 type: linux-bridge
                 bridge:
                   options:
                     {opt_name}: "{opt_value}"
-            """
-        )
-    )
+            """))
     linux_bridge_iface = show_only(TEST_BRIDGE_NIC)
     assert (
         state_match(
@@ -164,9 +148,7 @@ def test_modify_linux_bridge_options(linux_bridge_over_dummy, opt_key_value):
 
 
 def test_modify_linux_bridge_stp_options(linux_bridge_over_dummy):
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BRIDGE_NIC}
                 type: linux-bridge
@@ -178,9 +160,7 @@ def test_modify_linux_bridge_stp_options(linux_bridge_over_dummy):
                       hello-time: 4
                       max-age: 40
                       priority: 10000
-            """
-        )
-    )
+            """))
     linux_bridge_iface = show_only(TEST_BRIDGE_NIC)
     assert state_match(
         {
@@ -195,9 +175,7 @@ def test_modify_linux_bridge_stp_options(linux_bridge_over_dummy):
 
 
 def test_modify_linux_bridge_port_options(linux_bridge_over_dummy):
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BRIDGE_NIC}
                 type: linux-bridge
@@ -211,9 +189,7 @@ def test_modify_linux_bridge_port_options(linux_bridge_over_dummy):
                       stp-hairpin-mode: false
                       stp-priority: 1
                       stp-path-cost: 10
-            """
-        )
-    )
+            """))
     linux_bridge_iface = show_only(TEST_BRIDGE_NIC)
     assert state_match(
         [
@@ -235,9 +211,7 @@ def test_modify_linux_bridge_port_options(linux_bridge_over_dummy):
 
 
 def test_modify_linux_bridge_vlan(linux_bridge_over_dummy):
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BRIDGE_NIC}
                 type: linux-bridge
@@ -258,9 +232,7 @@ def test_modify_linux_bridge_vlan(linux_bridge_over_dummy):
                         - id-range:
                             min: 501
                             max: 601
-            """
-        )
-    )
+            """))
     linux_bridge_iface = show_only(TEST_BRIDGE_NIC)
     assert state_match(
         [
