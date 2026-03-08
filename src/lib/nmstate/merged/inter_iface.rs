@@ -389,7 +389,10 @@ fn verify_desire_absent_but_found_in_current(
     des_iface: &Interface,
     cur_iface: &Interface,
 ) -> Result<(), NipartError> {
-    if cur_iface.is_virtual() {
+    // Veth interface desired with `veth` config is virtual, but veth interface
+    // without `veth` config is physical. Hence we use `des_iface` to check
+    // whether it is virtual or not.
+    if des_iface.is_virtual() {
         // Virtual interface should be deleted by absent action
         Err(NipartError::new(
             ErrorKind::VerificationError,
