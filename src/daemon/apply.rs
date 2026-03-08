@@ -35,6 +35,9 @@ impl NipartCommander {
 
         let mut state_to_save = self.conf_manager.query_state().await?;
         let mut state_to_apply = state_to_save.clone();
+        // TODO(Gris): There are many logs shows in this `merge()` process
+        // which is not redirected to requested user. We should
+        // find a way to redirect these logs.
         state_to_apply.merge(&desired_state)?;
         remove_undesired_ifaces(&mut state_to_apply, &desired_state);
 

@@ -82,6 +82,10 @@ impl<'de> Deserialize<'de> for Interface {
             if let Some(s) = v.get("state") {
                 new_value.insert("state".to_string(), s.clone());
             }
+            // If "veth" section is defined, we need to delete a veth peer
+            if let Some(s) = v.get("veth") {
+                new_value.insert("veth".to_string(), s.clone());
+            }
             v = serde_json::value::Value::Object(new_value);
         }
 

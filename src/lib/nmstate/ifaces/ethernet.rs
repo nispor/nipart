@@ -21,6 +21,8 @@ pub struct EthernetInterface {
     pub base: BaseInterface,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ethernet: Option<EthernetConfig>,
+    /// To delete a veth pair, you need to define `veth` section along with
+    /// `state: absent`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub veth: Option<VethConfig>,
 }

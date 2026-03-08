@@ -119,7 +119,7 @@ fn should_skip_link_change(
             return true;
         }
         if !apply_iface.is_virtual() {
-            log::debug!(
+            log::info!(
                 "Skipping removing interface {} because it is not virtual",
                 apply_iface.name()
             );
@@ -141,6 +141,7 @@ fn should_skip_link_change(
                 .get(peer)
                 .and_then(|m| m.for_apply.as_ref())
             && peer_iface.is_absent()
+            && peer_iface.is_virtual()
         {
             log::info!(
                 "Skipping removing interface {}/{} because its veth peer is \
