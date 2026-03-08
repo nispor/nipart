@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import pathlib
 from .cmdlib import exec_cmd
 

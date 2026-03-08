@@ -15,7 +15,7 @@ from .testlib.retry import retry_till_true_or_timeout
 project_dir = pathlib.Path(__file__).parent.parent.resolve()
 sys.path.insert(0, f"{project_dir}/src/python")
 
-from nipart import NipartClient
+from nipart import NipartClient  # noqa: E402
 
 DAEMON_LOG = "/tmp/nipart_test_daemon.log"
 CLI_PATH = f"{project_dir}/target/debug/npt"
@@ -37,6 +37,7 @@ def backup_config():
         shutil.rmtree("/etc/nipart")
         os.rename("/etc/nipart.before_test", "/etc/nipart")
 
+
 @pytest.fixture(scope="session")
 def run_daemon():
     bin_path = pathlib.Path(f"{project_dir}/target/debug/nipartd").resolve()
@@ -55,7 +56,7 @@ def check_daemon_connection():
     try:
         client = NipartClient()
         return client.ping() == "pong"
-    except:
+    except Exception:
         return False
 
 

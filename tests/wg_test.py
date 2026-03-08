@@ -4,12 +4,7 @@ import pytest
 
 import nipart
 
-from .testlib.cmdlib import exec_cmd
-from .testlib.dhcp import DHCP_SRV_IP4
-from .testlib.dhcp import DHCP_SRV_IP4_PREFIX
-from .testlib.retry import retry_till_true_or_timeout
 from .testlib.statelib import load_yaml
-
 
 WG_TEST_NIC = "wg0"
 
@@ -17,20 +12,15 @@ WG_TEST_NIC = "wg0"
 @pytest.fixture
 def clean_up():
     yield
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {WG_TEST_NIC}
                 type: wireguard
-                state: absent"""
-        )
-    )
+                state: absent"""))
 
 
 def test_wireguard_iface_static_ip(clean_up):
-    desired_state = load_yaml(
-        f"""---
+    desired_state = load_yaml(f"""---
         interfaces:
           - name: {WG_TEST_NIC}
             type: wireguard
@@ -50,6 +40,5 @@ def test_wireguard_iface_static_ip(clean_up):
                   - ip: '::'
                     prefix-length: 0
                   protocol-version: 1
-        """
-    )
+        """)
     nipart.apply(desired_state)

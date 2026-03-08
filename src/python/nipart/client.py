@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-import struct
 import socket
 
 from .cmd import NipartCmdApplyNetworkState

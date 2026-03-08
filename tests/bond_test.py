@@ -1,16 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
-from operator import itemgetter
-
 import pytest
 
 import nipart
 
-from .testlib.cmdlib import exec_cmd
 from .testlib.statelib import load_yaml
 from .testlib.statelib import show_only
 from .testlib.statelib import state_match
-
 
 TEST_PORT1 = "dummy1"
 TEST_PORT2 = "dummy2"
@@ -19,9 +15,7 @@ TEST_BOND_NIC = "bond99"
 
 @pytest.fixture
 def bond_over_dummy():
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BOND_NIC}
                 type: bond
@@ -44,13 +38,9 @@ def bond_over_dummy():
               - name: {TEST_PORT2}
                 type: dummy
                 state: up
-            """
-        )
-    )
+            """))
     yield
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BOND_NIC}
                 type: bond
@@ -61,9 +51,7 @@ def bond_over_dummy():
               - name: {TEST_PORT2}
                 type: dummy
                 state: absent
-            """
-        )
-    )
+            """))
 
 
 def test_create_and_remove_bond(bond_over_dummy):
@@ -73,16 +61,14 @@ def test_create_and_remove_bond(bond_over_dummy):
 
 
 def test_bond_change_mode(bond_over_dummy):
-    state = load_yaml(
-        f"""---
+    state = load_yaml(f"""---
         interfaces:
           - name: {TEST_BOND_NIC}
             type: bond
             state: up
             bond:
               mode: 0
-        """
-    )
+        """)
     nipart.apply(state)
     bond_iface = show_only(TEST_BOND_NIC)
     assert bond_iface["state"] == "up"
@@ -91,8 +77,7 @@ def test_bond_change_mode(bond_over_dummy):
 
 
 def test_bond_change_port_config(bond_over_dummy):
-    state = load_yaml(
-        f"""---
+    state = load_yaml(f"""---
         interfaces:
           - name: {TEST_BOND_NIC}
             type: bond
@@ -105,8 +90,7 @@ def test_bond_change_port_config(bond_over_dummy):
               - name: {TEST_PORT2}
                 queue-id: 0
                 priority: 20
-        """
-    )
+        """)
     nipart.apply(state)
     bond_iface = show_only(TEST_BOND_NIC)
     assert bond_iface["state"] == "up"
