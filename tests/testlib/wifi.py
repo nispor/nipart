@@ -17,7 +17,6 @@ from .dhcp import DHCP_SRV_IP4
 from .dhcp import DHCP_SRV_IP6
 from .dhcp import DHCP_SRV_NIC
 
-
 HWSIM0_PERM_MAC = "02:00:00:00:00:00"
 HWSIM1_PERM_MAC = "02:00:00:00:01:00"
 TEST_NET_NS = "wifi-test"
@@ -49,24 +48,37 @@ def wifi_env():
     exec_cmd(f"ip netns add {TEST_NET_NS}".split())
 
     exec_cmd("modprobe mac80211_hwsim radios=2".split())
-    assert retry_till_true_or_timeout(TIMEOUT_SECS_SIM_WIFI_NICS, has_sim_wifi_nics)
+    assert retry_till_true_or_timeout(
+        TIMEOUT_SECS_SIM_WIFI_NICS, has_sim_wifi_nics
+    )
 
     state = nipart.show()
+    # The nipart.show() has started wpa_supplicant again, we need to
+    # kill it so it does not hold outdated information on mac80211_hwsim
+    # created temporary WIFI NIC.
+    exec_cmd("killall wpa_supplicant".split(), check=False)
     wlan1 = get_nic_name_by_perm_mac(state, HWSIM0_PERM_MAC)
     exec_cmd(f"ip link set {wlan1} name {WIFI_TEST_NIC}".split())
     wlan2 = get_nic_name_by_perm_mac(state, HWSIM1_PERM_MAC)
     exec_cmd(f"ip link set {wlan2} name {DHCP_SRV_NIC}".split())
-    exec_cmd(f"ip link set {WIFI_TEST_NIC} up".split())
     start_hostapd()
     yield
-    exec_cmd(f"ip netns del {TEST_NET_NS}".split())
-    exec_cmd("modprobe -r mac80211_hwsim".split(), check=False)
     os.remove(HOSTAPD_CONF_PATH)
     if os.path.exists(HOSTAPD_PID_PATH):
         with open(HOSTAPD_PID_PATH) as fd:
             pid = fd.read()
         os.kill(int(pid), signal.SIGTERM)
     stop_dhcp_server()
+    exec_cmd(f"ip netns del {TEST_NET_NS}".split())
+    retry_till_true_or_timeout(10, unload_wifi_sim_kernel_module)
+
+
+def unload_wifi_sim_kernel_module():
+    try:
+        exec_cmd("modprobe -r mac80211_hwsim".split())
+        return True
+    except Exception:
+        return False
 
 
 def get_nic_name_by_perm_mac(state, mac):
@@ -97,7 +109,10 @@ def start_hostapd():
     assert phy_id
     # Move phy2 to namespace with hostpad
     exec_cmd(f"iw phy#{phy_id} set netns name {TEST_NET_NS}".split())
-    exec_cmd(f"ip netns exec {TEST_NET_NS} ip link set {DHCP_SRV_NIC} up".split())
+    exec_cmd(f"ip link set {WIFI_TEST_NIC} up".split())
+    exec_cmd(
+        f"ip netns exec {TEST_NET_NS} ip link set {DHCP_SRV_NIC} up".split()
+    )
     with open(HOSTAPD_CONF_PATH, "w") as fd:
         fd.write(HOSTAPD_CONF)
 
@@ -106,11 +121,11 @@ def start_hostapd():
         f"hostapd -B -d {HOSTAPD_CONF_PATH} -P {HOSTAPD_PID_PATH}".split(),
     )
 
-    retry_till_true_or_timeout(2, hostapd_is_up)
+    assert retry_till_true_or_timeout(2, hostapd_is_up)
 
     start_dhcp_server(TEST_NET_NS)
 
 
 def hostapd_is_up():
-    output = exec_cmd(f"iw {WIFI_TEST_NIC} scan".split())[1]
+    output = exec_cmd(f"iw {WIFI_TEST_NIC} scan".split(), check=False)[1]
     return "Test-WIFI" in output

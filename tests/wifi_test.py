@@ -19,15 +19,11 @@ from .testlib.wifi import wifi_env
 @pytest.fixture
 def clean_up():
     yield
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {WIFI_TEST_NIC}
                 type: wifi-phy
-                state: absent"""
-        )
-    )
+                state: absent"""))
 
 
 def ping_peer():
@@ -38,12 +34,12 @@ def ping_peer():
     return True
 
 
-@pytest.mark.skipif(not is_fedora(), reason=("Only fedora has mac80211_hwsim module "))
+@pytest.mark.skipif(
+    not is_fedora(), reason=("Only fedora has mac80211_hwsim module ")
+)
 class TestWifi:
-    def test_wifi_iface_static_ip(self, wifi_env, clean_up):
-        nipart.apply(
-            load_yaml(
-                f"""---
+    def test_wifi_iface_static_ip(self, clean_up, wifi_env):
+        nipart.apply(load_yaml(f"""---
                 interfaces:
                   - name: {WIFI_TEST_NIC}
                     type: wifi-phy
@@ -56,15 +52,11 @@ class TestWifi:
                       dhcp: false
                       address:
                         - ip: {DHCP_SRV_IP4_PREFIX}.99
-                          prefix-length: 24"""
-            )
-        )
+                          prefix-length: 24"""))
         assert retry_till_true_or_timeout(5, ping_peer)
 
     def test_wifi_iface_dhcpv4(self, wifi_env, clean_up):
-        nipart.apply(
-            load_yaml(
-                f"""---
+        nipart.apply(load_yaml(f"""---
                 interfaces:
                   - name: {WIFI_TEST_NIC}
                     type: wifi-phy
@@ -74,7 +66,5 @@ class TestWifi:
                       password: {TEST_WIFI_PSK}
                     ipv4:
                       enabled: true
-                      dhcp: true"""
-            )
-        )
+                      dhcp: true"""))
         assert retry_till_true_or_timeout(5, ping_peer)
