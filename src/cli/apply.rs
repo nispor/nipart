@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-use nipart::{NetworkState, NipartClient, NipartNoDaemon, NmstateApplyOption};
+use nipart::{NetworkState, NipartApplyOption, NipartClient, NipartNoDaemon};
 
 use super::{CliError, state::state_from_file};
 
@@ -41,7 +41,7 @@ impl CommandApply {
     pub(crate) async fn handle(
         matches: &clap::ArgMatches,
     ) -> Result<(), CliError> {
-        let mut opt = NmstateApplyOption::default();
+        let mut opt = NipartApplyOption::default();
         opt.no_verify = matches.get_flag("NO_VERIFY");
 
         let desired_state = if let Some(file_paths) =

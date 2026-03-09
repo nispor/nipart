@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, NetworkState, NipartError, NmstateApplyOption,
-    NmstateQueryOption,
+    ErrorKind, NetworkState, NipartApplyOption, NipartError, NipartQueryOption,
 };
 
 use super::{NipartPluginCmd, NipartPluginReply, NipartPluginWorker};
@@ -23,7 +22,7 @@ impl NipartPluginManager {
     // TODO: Support redirect logs from plugin to user
     pub(crate) async fn query_network_state(
         &mut self,
-        opt: NmstateQueryOption,
+        opt: NipartQueryOption,
     ) -> Result<Vec<NetworkState>, NipartError> {
         let reply = self
             .mgr
@@ -46,7 +45,7 @@ impl NipartPluginManager {
     pub(crate) async fn apply_network_state(
         &mut self,
         state: &NetworkState,
-        opt: &NmstateApplyOption,
+        opt: &NipartApplyOption,
     ) -> Result<(), NipartError> {
         self.mgr
             .exec(NipartPluginCmd::ApplyNetworkState(Box::new((

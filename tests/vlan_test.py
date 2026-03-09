@@ -9,7 +9,6 @@ import nipart
 from .testlib.statelib import load_yaml
 from .testlib.statelib import show_only
 
-
 TEST_BASE_NIC = "dummy1"
 TEST_BASE_NIC2 = "dummy2"
 TEST_VLAN_NIC = "dummy1.100"
@@ -17,9 +16,7 @@ TEST_VLAN_NIC = "dummy1.100"
 
 @pytest.fixture
 def vlan_over_dummy():
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_VLAN_NIC}
                 type: vlan
@@ -30,13 +27,9 @@ def vlan_over_dummy():
               - name: {TEST_BASE_NIC}
                 type: dummy
                 state: up
-            """
-        )
-    )
+            """))
     yield
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_VLAN_NIC}
                 type: vlan
@@ -44,9 +37,7 @@ def vlan_over_dummy():
               - name: {TEST_BASE_NIC}
                 type: dummy
                 state: absent
-            """
-        )
-    )
+            """))
 
 
 def test_create_and_remove_vlan(vlan_over_dummy):
@@ -57,27 +48,19 @@ def test_create_and_remove_vlan(vlan_over_dummy):
 
 @pytest.fixture
 def dummy2():
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BASE_NIC2}
                 type: dummy
                 state: up
-            """
-        )
-    )
+            """))
     yield
-    nipart.apply(
-        load_yaml(
-            f"""---
+    nipart.apply(load_yaml(f"""---
             interfaces:
               - name: {TEST_BASE_NIC2}
                 type: dummy
                 state: absent
-            """
-        )
-    )
+            """))
 
 
 def test_vlan_change_property(vlan_over_dummy, dummy2):
@@ -112,14 +95,12 @@ def test_vlan_change_property(vlan_over_dummy, dummy2):
         ("egress-qos-map", []),
     ]:
         print(f"Changing VLAN prop {prop_name} to {prop_value}")
-        state = load_yaml(
-            f"""---
+        state = load_yaml(f"""---
                 interfaces:
                   - name: {TEST_VLAN_NIC}
                     type: vlan
                     state: up
-                """
-        )
+                """)
         state["interfaces"][0]["vlan"] = {prop_name: prop_value}
         nipart.apply(state)
         vlan_iface = show_only(TEST_VLAN_NIC)

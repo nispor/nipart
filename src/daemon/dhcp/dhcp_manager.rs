@@ -2,7 +2,7 @@
 
 use nipart::{
     BaseInterface, MergedNetworkState, NetworkState, NipartError,
-    NipartIpcConnection, NmstateInterface,
+    NipartInterface, NipartIpcConnection,
 };
 
 use super::{NipartDhcpCmd, NipartDhcpReply, NipartDhcpV4Worker};

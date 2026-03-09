@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    ErrorKind, InterfaceType, NetworkState, NipartError, NipartIpcConnection,
-    NipartNoDaemon, NmstateInterface, NmstateQueryOption, NmstateStateKind,
+    ErrorKind, InterfaceType, NetworkState, NipartError, NipartInterface,
+    NipartIpcConnection, NipartNoDaemon, NipartQueryOption, NipartStateKind,
 };
 
 use super::commander::NipartCommander;
@@ -11,7 +11,7 @@ impl NipartCommander {
     pub(crate) async fn query_network_state(
         &mut self,
         conn: Option<&mut NipartIpcConnection>,
-        opt: NmstateQueryOption,
+        opt: NipartQueryOption,
     ) -> Result<NetworkState, NipartError> {
         if let Some(conn) = conn {
             conn.log_debug(format!("querying network state with option {opt}"))
@@ -20,7 +20,7 @@ impl NipartCommander {
             log::debug!("querying network state with option {opt}");
         }
         match opt.kind {
-            NmstateStateKind::RunningNetworkState => {
+            NipartStateKind::RunningNetworkState => {
                 let mut net_state =
                     NipartNoDaemon::query_network_state(opt.clone()).await?;
 
@@ -60,7 +60,7 @@ impl NipartCommander {
                 // TODO: Mark interface/routes not int saved state as ignored.
                 Ok(net_state)
             }
-            NmstateStateKind::SavedNetworkState => {
+            NipartStateKind::SavedNetworkState => {
                 let mut state = self.conf_manager.query_state().await?;
                 if !opt.include_secrets {
                     state.hide_secrets();

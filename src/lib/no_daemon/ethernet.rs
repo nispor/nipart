@@ -2,7 +2,7 @@
 
 use crate::{
     BaseInterface, EthernetConfig, EthernetDuplex, EthernetInterface,
-    Interface, NipartError, NmstateInterface, VethConfig,
+    Interface, NipartError, NipartInterface, VethConfig,
 };
 
 pub(crate) fn apply_ethernet_conf(

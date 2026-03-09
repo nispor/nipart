@@ -4,16 +4,16 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 
 from nipart import NipartClient
-from nipart import NipartstateStateKind
-from nipart import NipartstateQueryOption
+from nipart import NipartStateKind
+from nipart import NipartQueryOption
 import yaml
 
 RETRY_COUNT = 100
 
 
-def show_only(iface_name, kind=NipartstateStateKind.RUNNING):
+def show_only(iface_name, kind=NipartStateKind.RUNNING):
     client = NipartClient()
-    state = client.query_network_state(NipartstateQueryOption(kind=kind))
+    state = client.query_network_state(NipartQueryOption(kind=kind))
     for iface in state["interfaces"]:
         if iface["name"] == iface_name:
             return iface
@@ -21,7 +21,7 @@ def show_only(iface_name, kind=NipartstateStateKind.RUNNING):
 
 def show_saved_only(iface_name):
     client = NipartClient()
-    state = client.query_network_state(NipartstateQueryOption.saved())
+    state = client.query_network_state(NipartQueryOption.saved())
     for iface in state["interfaces"]:
         if iface["name"] == iface_name:
             return iface

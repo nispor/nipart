@@ -13,8 +13,8 @@ use futures_util::StreamExt;
 use mozim::{DhcpV4Client, DhcpV4Config, DhcpV4Lease, DhcpV4State};
 use nipart::{
     BaseInterface, DhcpState, ErrorKind, Interface, InterfaceIpAddr,
-    InterfaceIpv4, NetworkState, NipartError, NipartNoDaemon,
-    NmstateApplyOption, RouteEntry, Routes,
+    InterfaceIpv4, NetworkState, NipartApplyOption, NipartError,
+    NipartNoDaemon, RouteEntry, Routes,
 };
 
 use crate::TaskWorker;
@@ -351,7 +351,7 @@ async fn apply_lease(
 
     net_state.routes = gen_routes(lease, base_iface);
 
-    let apply_opt = NmstateApplyOption::new().memory_only().no_verify();
+    let apply_opt = NipartApplyOption::new().memory_only().no_verify();
     NipartNoDaemon::apply_network_state(net_state, apply_opt).await?;
     Ok(())
 }

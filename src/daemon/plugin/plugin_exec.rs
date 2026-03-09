@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    NetworkState, NipartError, NipartPluginClient, NipartPluginInfo,
-    NmstateApplyOption, NmstateInterface, NmstateQueryOption,
+    NetworkState, NipartApplyOption, NipartError, NipartInterface,
+    NipartPluginClient, NipartPluginInfo, NipartQueryOption,
 };
 
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ impl NipartDaemonPlugin {
     // * Ignore failure of plugins
     pub(crate) async fn query_network_state(
         &self,
-        opt: &NmstateQueryOption,
+        opt: &NipartQueryOption,
     ) -> Result<NetworkState, NipartError> {
         let mut cli = NipartPluginClient::new(&self.socket_path).await?;
         cli.query_network_state(opt.clone()).await
@@ -30,7 +30,7 @@ impl NipartDaemonPlugin {
     pub(crate) async fn apply_network_state(
         &self,
         apply_state: &NetworkState,
-        opt: &NmstateApplyOption,
+        opt: &NipartApplyOption,
     ) -> Result<(), NipartError> {
         let mut new_state = NetworkState::new();
         // Include only interfaces supported by plugin

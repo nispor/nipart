@@ -4,8 +4,8 @@ use futures_channel::{mpsc::UnboundedReceiver, oneshot::Sender};
 use nipart::{
     BaseInterface, ErrorKind, Interface, InterfaceIpv4, InterfaceIpv6,
     InterfaceState, InterfaceTrigger, InterfaceType, MergedNetworkState,
-    NetworkState, NipartError, NipartNoDaemon, NmstateApplyOption,
-    NmstateInterface, NmstateQueryOption,
+    NetworkState, NipartApplyOption, NipartError, NipartInterface,
+    NipartNoDaemon, NipartQueryOption,
 };
 
 use super::super::{
@@ -99,7 +99,7 @@ impl NipartEventWorker {
         log::trace!("Handle link event {event}");
         let saved_state = commander.conf_manager.query_state().await?;
         let cur_state =
-            NipartNoDaemon::query_network_state(NmstateQueryOption::running())
+            NipartNoDaemon::query_network_state(NipartQueryOption::running())
                 .await?;
 
         let cur_iface = cur_state
@@ -212,7 +212,7 @@ impl NipartEventWorker {
             let merged_state = MergedNetworkState::new(
                 desired_state,
                 cur_state,
-                NmstateApplyOption::new().no_verify(),
+                NipartApplyOption::new().no_verify(),
             )?;
             commander.apply_merged_state(None, &merged_state).await?;
         } else {

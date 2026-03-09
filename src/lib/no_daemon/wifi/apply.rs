@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     ErrorKind, Interface, InterfaceType, MergedInterfaces, NipartError,
-    NmstateInterface, WifiConfig,
+    NipartInterface, WifiConfig,
 };
 
 const MAX_SCAN_RETRY: usize = 5;

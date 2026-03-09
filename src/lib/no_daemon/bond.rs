@@ -14,7 +14,7 @@ use crate::{
     BondArpValidate, BondConfig, BondFailOverMac, BondInterface, BondLacpRate,
     BondMode, BondOptions, BondPortConfig, BondPrimaryReselect,
     BondXmitHashPolicy, ErrorKind, MergedInterfaces, NipartError,
-    NmstateInterface,
+    NipartInterface,
 };
 
 impl From<nispor::BondMode> for BondMode {
@@ -138,16 +138,8 @@ impl From<&nispor::BondInfo> for BondConfig {
     fn from(np_bond: &nispor::BondInfo) -> Self {
         BondConfig {
             mode: Some(np_bond.mode.into()),
-            options: Some(np_bond_options_to_nmstate(np_bond)),
-            port: Some(
-                np_bond
-                    .ports
-                    .as_slice()
-                    .iter()
-                    .map(|iface_name| iface_name.to_string())
-                    .collect(),
-            ),
-            ports_config: Some(
+            options: Some(np_bond_options_to_nipart(np_bond)),
+            ports: Some(
                 np_bond
                     .ports
                     .as_slice()
@@ -352,14 +344,14 @@ impl BondInterface {
         }
 
         if let Some(bond_conf) = self.bond.as_mut() {
-            bond_conf.ports_config = Some(port_confs);
+            bond_conf.ports = Some(port_confs);
         }
     }
 
     pub(crate) fn apply_bond_port_configs(&self) -> Vec<nispor::IfaceConf> {
         let mut ret: Vec<nispor::IfaceConf> = Vec::new();
         if let Some(ports_conf) =
-            self.bond.as_ref().and_then(|b| b.ports_config.as_ref())
+            self.bond.as_ref().and_then(|b| b.ports.as_ref())
         {
             for port_conf in ports_conf.iter().filter(|p| !p.is_name_only()) {
                 let np_bond_port_conf: nispor::BondPortConf = port_conf.into();
@@ -373,7 +365,7 @@ impl BondInterface {
     }
 }
 
-fn np_bond_options_to_nmstate(np_bond: &nispor::BondInfo) -> BondOptions {
+fn np_bond_options_to_nipart(np_bond: &nispor::BondInfo) -> BondOptions {
     BondOptions {
         ad_actor_sys_prio: np_bond.ad_actor_sys_prio,
         ad_actor_system: np_bond.ad_actor_system.clone(),
