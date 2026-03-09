@@ -23,9 +23,6 @@ def bond_over_dummy():
                 bond:
                   mode: active-backup
                   ports:
-                    - {TEST_PORT2}
-                    - {TEST_PORT1}
-                  ports-config:
                   - name: {TEST_PORT1}
                     queue-id: 1
                     priority: 1
@@ -56,8 +53,11 @@ def bond_over_dummy():
 
 def test_create_and_remove_bond(bond_over_dummy):
     bond_iface = show_only(TEST_BOND_NIC)
-    assert bond_iface["link-aggregation"]["mode"] == "active-backup"
-    assert bond_iface["link-aggregation"]["port"] == [TEST_PORT1, TEST_PORT2]
+    assert bond_iface["bond"]["mode"] == "active-backup"
+    assert state_match(
+        [{"name": TEST_PORT1}, {"name": TEST_PORT2}],
+        bond_iface["bond"]["ports"],
+    )
 
 
 def test_bond_change_mode(bond_over_dummy):
@@ -72,8 +72,11 @@ def test_bond_change_mode(bond_over_dummy):
     nipart.apply(state)
     bond_iface = show_only(TEST_BOND_NIC)
     assert bond_iface["state"] == "up"
-    assert bond_iface["link-aggregation"]["mode"] == "balance-rr"
-    assert bond_iface["link-aggregation"]["port"] == [TEST_PORT1, TEST_PORT2]
+    assert bond_iface["bond"]["mode"] == "balance-rr"
+    assert state_match(
+        [{"name": TEST_PORT1}, {"name": TEST_PORT2}],
+        bond_iface["bond"]["ports"],
+    )
 
 
 def test_bond_change_port_config(bond_over_dummy):
@@ -83,7 +86,7 @@ def test_bond_change_port_config(bond_over_dummy):
             type: bond
             state: up
             bond:
-              ports-config:
+              ports:
               - name: {TEST_PORT1}
                 queue-id: 0
                 priority: 10
@@ -107,5 +110,5 @@ def test_bond_change_port_config(bond_over_dummy):
                 "priority": 20,
             },
         ],
-        bond_iface["link-aggregation"]["ports-config"],
+        bond_iface["bond"]["ports"],
     )

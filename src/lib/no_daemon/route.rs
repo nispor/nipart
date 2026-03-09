@@ -76,9 +76,9 @@ pub(crate) async fn get_routes(_ifaces: &Interfaces) -> Routes {
                 running_routes.push(route);
             }
         } else if route_type.contains(&np_route.route_type) {
-            running_routes.push(np_routetype_to_nmstate(np_route));
+            running_routes.push(np_routetype_to_nipart(np_route));
         } else if np_route.oif.is_some() {
-            running_routes.push(np_route_to_nmstate(np_route));
+            running_routes.push(np_route_to_nipart(np_route));
         }
     }
     ret.running = Some(running_routes);
@@ -93,16 +93,16 @@ pub(crate) async fn get_routes(_ifaces: &Interfaces) -> Routes {
                 config_routes.push(route);
             }
         } else if route_type.contains(&np_route.route_type) {
-            config_routes.push(np_routetype_to_nmstate(np_route));
+            config_routes.push(np_routetype_to_nipart(np_route));
         } else if np_route.oif.is_some() {
-            config_routes.push(np_route_to_nmstate(np_route));
+            config_routes.push(np_route_to_nipart(np_route));
         }
     }
     ret.config = Some(config_routes);
     ret
 }
 
-fn np_routetype_to_nmstate(np_route: &nispor::Route) -> RouteEntry {
+fn np_routetype_to_nipart(np_route: &nispor::Route) -> RouteEntry {
     let destination = match &np_route.dst {
         Some(dst) => Some(dst.to_string()),
         None => match np_route.address_family {
@@ -157,7 +157,7 @@ fn np_routetype_to_nmstate(np_route: &nispor::Route) -> RouteEntry {
     route_entry
 }
 
-fn np_route_to_nmstate(np_route: &nispor::Route) -> RouteEntry {
+fn np_route_to_nipart(np_route: &nispor::Route) -> RouteEntry {
     let destination = match &np_route.dst {
         Some(dst) => Some(dst.to_string()),
         None => match np_route.address_family {
@@ -238,7 +238,7 @@ fn flat_multipath_route(np_route: &nispor::Route) -> Vec<RouteEntry> {
             let mut new_np_route = np_route.clone();
             new_np_route.via = Some(mp_route.via.to_string());
             new_np_route.oif = Some(mp_route.iface.to_string());
-            let mut route = np_route_to_nmstate(&new_np_route);
+            let mut route = np_route_to_nipart(&new_np_route);
             if np_route.address_family == nispor::AddressFamily::Ipv4 {
                 route.weight = Some(mp_route.weight);
             }
@@ -248,17 +248,17 @@ fn flat_multipath_route(np_route: &nispor::Route) -> Vec<RouteEntry> {
     ret
 }
 
-fn nmstate_to_nispor_route_conf(
-    nmstate_rt: &RouteEntry,
+fn nipart_to_nispor_route_conf(
+    nipart_rt: &RouteEntry,
 ) -> Result<nispor::RouteConf, NipartError> {
     let mut ret = nispor::RouteConf::default();
 
-    ret.remove = nmstate_rt.is_absent();
-    ret.dst = nmstate_rt.destination.clone().unwrap_or_default();
-    ret.oif.clone_from(&nmstate_rt.next_hop_iface);
-    ret.via.clone_from(&nmstate_rt.next_hop_addr);
-    ret.metric = nmstate_rt.metric.and_then(|m| u32::try_from(m).ok());
-    if let Some(table_id) = nmstate_rt.table_id {
+    ret.remove = nipart_rt.is_absent();
+    ret.dst = nipart_rt.destination.clone().unwrap_or_default();
+    ret.oif.clone_from(&nipart_rt.next_hop_iface);
+    ret.via.clone_from(&nipart_rt.next_hop_addr);
+    ret.metric = nipart_rt.metric.and_then(|m| u32::try_from(m).ok());
+    if let Some(table_id) = nipart_rt.table_id {
         if table_id > u8::MAX.into() {
             return Err(NipartError::new(
                 ErrorKind::NoSupport,
@@ -273,21 +273,21 @@ fn nmstate_to_nispor_route_conf(
             ret.table = Some(table_id as u8);
         }
     }
-    if nmstate_rt.weight.is_some() {
+    if nipart_rt.weight.is_some() {
         return Err(NipartError::new(
             ErrorKind::NoSupport,
             "nispor apply does not support route weight yet".into(),
         ));
     }
 
-    if nmstate_rt.route_type.is_some() {
+    if nipart_rt.route_type.is_some() {
         return Err(NipartError::new(
             ErrorKind::NoSupport,
             "nispor apply does not support route type yet".into(),
         ));
     }
 
-    if nmstate_rt.cwnd.is_some() {
+    if nipart_rt.cwnd.is_some() {
         return Err(NipartError::new(
             ErrorKind::NoSupport,
             "nispor apply does not support route congestion window yet".into(),
@@ -305,8 +305,8 @@ pub(crate) async fn apply_routes(
     }
     validate_routes(merged_routes)?;
     let mut np_route_confs = Vec::new();
-    for nmstate_rt in merged_routes.changed_routes.as_slice() {
-        np_route_confs.push(nmstate_to_nispor_route_conf(nmstate_rt)?)
+    for nipart_rt in merged_routes.changed_routes.as_slice() {
+        np_route_confs.push(nipart_to_nispor_route_conf(nipart_rt)?)
     }
 
     if !np_route_confs.is_empty() {

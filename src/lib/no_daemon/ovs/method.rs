@@ -22,7 +22,7 @@ impl OvsDbMethodEcho {
         ret.insert("method".to_string(), Value::String("echo".to_string()));
         ret.insert(
             "params".to_string(),
-            Value::Array(vec![Value::String("hello_from_nmstate".to_string())]),
+            Value::Array(vec![Value::String("hello_from_nipart".to_string())]),
         );
         ret.insert("id".to_string(), Value::Number(transaction_id.into()));
         Value::Object(ret)

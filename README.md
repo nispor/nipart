@@ -19,7 +19,7 @@ facing network management including:
 ## Features
  * No Daemon mode (apply and quit)
  * Simply plugin design
- * Native support of [Nmstate][nmstate_url] schema
+ * Native support of [Nmstate][nmstate_url] schema for apply action
 
 ## Run Server
 

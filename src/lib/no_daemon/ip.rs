@@ -4,11 +4,10 @@ use std::str::FromStr;
 
 use super::iface::init_np_iface;
 use crate::{
-    NipartError,
-    nmstate::{BaseInterface, InterfaceIpAddr, InterfaceIpv4, InterfaceIpv6},
+    BaseInterface, InterfaceIpAddr, InterfaceIpv4, InterfaceIpv6, NipartError,
 };
 
-pub(crate) fn np_ipv4_to_nmstate(
+pub(crate) fn np_ipv4_to_nipart(
     np_iface: &nispor::Iface,
 ) -> Option<InterfaceIpv4> {
     if let Some(np_ip) = &np_iface.ipv4 {
@@ -65,7 +64,7 @@ pub(crate) fn np_ipv4_to_nmstate(
     }
 }
 
-pub(crate) fn np_ipv6_to_nmstate(
+pub(crate) fn np_ipv6_to_nipart(
     np_iface: &nispor::Iface,
 ) -> Option<InterfaceIpv6> {
     if let Some(np_ip) = &np_iface.ipv6 {
@@ -161,7 +160,7 @@ pub(crate) fn apply_iface_ip_changes(
         {
             cur_addrs = c;
         }
-        let np_addrs = nmstate_ip_addrs_to_nispor(des_addrs, cur_addrs);
+        let np_addrs = nipart_ip_addrs_to_nispor(des_addrs, cur_addrs);
 
         if !np_addrs.is_empty() {
             let mut np_ip_conf = nispor::IpConf::default();
@@ -187,7 +186,7 @@ pub(crate) fn apply_iface_ip_changes(
         {
             cur_addrs = c;
         }
-        let np_addrs = nmstate_ip_addrs_to_nispor(des_addrs, cur_addrs);
+        let np_addrs = nipart_ip_addrs_to_nispor(des_addrs, cur_addrs);
 
         if !np_addrs.is_empty() {
             let mut np_ip_conf = nispor::IpConf::default();
@@ -203,7 +202,7 @@ pub(crate) fn apply_iface_ip_changes(
     }
 }
 
-fn nmstate_ip_addr_to_nispor(
+fn nipart_ip_addr_to_nispor(
     ip_addr: &InterfaceIpAddr,
     remove: bool,
 ) -> nispor::IpAddrConf {
@@ -223,7 +222,7 @@ fn nmstate_ip_addr_to_nispor(
     np_ip_addr
 }
 
-fn nmstate_ip_addrs_to_nispor(
+fn nipart_ip_addrs_to_nispor(
     des_addrs: &[InterfaceIpAddr],
     cur_addrs: &[InterfaceIpAddr],
 ) -> Vec<nispor::IpAddrConf> {
@@ -232,25 +231,25 @@ fn nmstate_ip_addrs_to_nispor(
     if is_appending(des_addrs, cur_addrs) {
         for cur_addr in cur_addrs {
             if !des_addrs.contains(cur_addr) {
-                ret.push(nmstate_ip_addr_to_nispor(cur_addr, true));
+                ret.push(nipart_ip_addr_to_nispor(cur_addr, true));
             }
         }
         for des_addr in des_addrs {
             if !cur_addrs.contains(des_addr) {
-                ret.push(nmstate_ip_addr_to_nispor(des_addr, false));
+                ret.push(nipart_ip_addr_to_nispor(des_addr, false));
             }
         }
     } else if is_replacing(des_addrs, cur_addrs) {
         for des_addr in des_addrs {
-            ret.push(nmstate_ip_addr_to_nispor(des_addr, false));
+            ret.push(nipart_ip_addr_to_nispor(des_addr, false));
         }
     } else {
         // Purge all current IP address, so we get expected IP address order.
         for cur_addr in cur_addrs {
-            ret.push(nmstate_ip_addr_to_nispor(cur_addr, true));
+            ret.push(nipart_ip_addr_to_nispor(cur_addr, true));
         }
         for des_addr in des_addrs {
-            ret.push(nmstate_ip_addr_to_nispor(des_addr, false));
+            ret.push(nipart_ip_addr_to_nispor(des_addr, false));
         }
     }
 

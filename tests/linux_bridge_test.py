@@ -82,7 +82,7 @@ def test_create_and_remove_linux_bridge(linux_bridge_over_dummy):
                 "stp-hairpin-mode": True,
             },
         ],
-        linux_bridge_iface["bridge"]["port"],
+        linux_bridge_iface["bridge"]["ports"],
     )
 
 
@@ -206,7 +206,7 @@ def test_modify_linux_bridge_port_options(linux_bridge_over_dummy):
                 "stp-hairpin-mode": False,
             },
         ],
-        linux_bridge_iface["bridge"]["port"],
+        linux_bridge_iface["bridge"]["ports"],
     )
 
 
@@ -261,7 +261,7 @@ def test_modify_linux_bridge_vlan(linux_bridge_over_dummy):
                 },
             },
         ],
-        linux_bridge_iface["bridge"]["port"],
+        linux_bridge_iface["bridge"]["ports"],
     )
     assert state_match(
         {

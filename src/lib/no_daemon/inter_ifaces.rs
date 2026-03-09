@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{
-    iface::{apply_iface_link_changes, nmstate_iface_type_to_nispor},
+    iface::{apply_iface_link_changes, nipart_iface_type_to_nispor},
     ip::apply_iface_ip_changes,
     wifi::NipartWpaConn,
 };
 use crate::{
     ErrorKind, Interface, InterfaceType, MergedInterface, MergedInterfaces,
-    NipartError, NmstateInterface,
+    NipartError, NipartInterface,
 };
 
 pub(crate) async fn apply_ifaces(
@@ -46,7 +46,7 @@ async fn delete_ifaces_before_apply(
             let mut np_iface = nispor::IfaceConf::default();
             np_iface.name = for_apply.name().to_string();
             np_iface.iface_type =
-                Some(nmstate_iface_type_to_nispor(for_apply.iface_type()));
+                Some(nipart_iface_type_to_nispor(for_apply.iface_type()));
             np_iface.state = nispor::IfaceState::Absent;
             np_ifaces.push(np_iface)
         }

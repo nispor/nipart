@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use nipart::{
-    NetworkState, NipartError, NipartIpcConnection, NipartPlugin,
-    NipartPluginInfo, NmstateApplyOption, NmstateQueryOption,
+    NetworkState, NipartApplyOption, NipartError, NipartIpcConnection,
+    NipartPlugin, NipartPluginInfo, NipartQueryOption,
 };
 
 #[derive(Debug)]
@@ -29,7 +29,7 @@ impl NipartPlugin for NipartPluginDemo {
 
     async fn query_network_state(
         _plugin: &Arc<Self>,
-        opt: NmstateQueryOption,
+        opt: NipartQueryOption,
         conn: &mut NipartIpcConnection,
     ) -> Result<NetworkState, NipartError> {
         conn.log_trace(format!(
@@ -42,7 +42,7 @@ impl NipartPlugin for NipartPluginDemo {
     async fn apply_network_state(
         _plugin: &Arc<Self>,
         desired_state: NetworkState,
-        opt: NmstateApplyOption,
+        opt: NipartApplyOption,
         conn: &mut NipartIpcConnection,
     ) -> Result<(), NipartError> {
         conn.log_trace(format!(

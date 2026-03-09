@@ -3,7 +3,7 @@
 use futures_channel::mpsc::UnboundedSender;
 use nipart::{
     Interface, InterfaceTrigger, MergedNetworkState, NetworkState, NipartError,
-    NmstateInterface,
+    NipartInterface,
 };
 
 use super::{

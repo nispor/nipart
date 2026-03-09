@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    Interface, MergedNetworkState, NetworkState, NipartError,
-    NipartIpcConnection, NipartNoDaemon, NmstateApplyOption, NmstateInterface,
+    Interface, MergedNetworkState, NetworkState, NipartApplyOption,
+    NipartError, NipartInterface, NipartIpcConnection, NipartNoDaemon,
 };
 
 use super::commander::NipartCommander;
@@ -16,7 +16,7 @@ impl NipartCommander {
         &mut self,
         mut conn: Option<&mut NipartIpcConnection>,
         mut desired_state: NetworkState,
-        opt: NmstateApplyOption,
+        opt: NipartApplyOption,
     ) -> Result<NetworkState, NipartError> {
         if desired_state.is_empty() {
             log_info(
@@ -159,7 +159,7 @@ impl NipartCommander {
         mut conn: Option<&mut NipartIpcConnection>,
         revert_state: NetworkState,
     ) -> Result<(), NipartError> {
-        let mut opt = NmstateApplyOption::default();
+        let mut opt = NipartApplyOption::default();
         opt.no_verify = true;
 
         let current_state = self

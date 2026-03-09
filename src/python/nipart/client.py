@@ -8,8 +8,8 @@ from .cmd import NipartCmdPing
 from .cmd import NipartCmdQueryNetworkState
 from .error import NipartError
 from .log import NipartLogEntry
-from .nmstate.state_option import NipartstateApplyOption
-from .nmstate.state_option import NipartstateQueryOption
+from .schema.state_option import NipartApplyOption
+from .schema.state_option import NipartQueryOption
 
 U32_MAX = 0xFFFFFFFF
 
@@ -60,10 +60,10 @@ class NipartClient:
 
     def query_network_state(self, opt=None):
         if not opt:
-            opt = NipartstateQueryOption()
+            opt = NipartQueryOption()
         return self._conn.exec(NipartCmdQueryNetworkState(opt))
 
     def apply_network_state(self, desired_state, opt=None):
         if not opt:
-            opt = NipartstateApplyOption()
+            opt = NipartApplyOption()
         return self._conn.exec(NipartCmdApplyNetworkState(desired_state, opt))

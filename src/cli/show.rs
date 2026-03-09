@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use nipart::{
-    NetworkState, NipartClient, NipartNoDaemon, NmstateInterface,
-    NmstateQueryOption,
+    NetworkState, NipartClient, NipartInterface, NipartNoDaemon,
+    NipartQueryOption,
 };
 
 use crate::CliError;
@@ -58,9 +58,9 @@ impl CommandShow {
         } else {
             let mut cli = NipartClient::new().await?;
             let opt = if matches.get_flag("SAVED") {
-                NmstateQueryOption::saved()
+                NipartQueryOption::saved()
             } else {
-                NmstateQueryOption::running()
+                NipartQueryOption::running()
             };
             cli.query_network_state(opt).await?
         };

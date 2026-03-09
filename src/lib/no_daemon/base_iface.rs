@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{
-    iface::nmstate_iface_state_to_nispor,
-    ip::{np_ipv4_to_nmstate, np_ipv6_to_nmstate},
+    iface::nipart_iface_state_to_nispor,
+    ip::{np_ipv4_to_nipart, np_ipv6_to_nipart},
 };
 use crate::{
     BaseInterface, InterfaceLinkState, InterfaceState, InterfaceType,
     NipartError,
 };
 
-fn np_iface_type_to_nmstate(
-    np_iface_type: &nispor::IfaceType,
-) -> InterfaceType {
+fn np_iface_type_to_nipart(np_iface_type: &nispor::IfaceType) -> InterfaceType {
     match np_iface_type {
         nispor::IfaceType::Bond => InterfaceType::Bond,
         nispor::IfaceType::Bridge => InterfaceType::LinuxBridge,
@@ -40,7 +38,7 @@ fn np_iface_type_to_nmstate(
     }
 }
 
-fn np_iface_state_to_nmstate(
+fn np_iface_state_to_nipart(
     state: &nispor::IfaceState,
     flags: &[nispor::IfaceFlag],
 ) -> InterfaceState {
@@ -49,7 +47,7 @@ fn np_iface_state_to_nmstate(
     // state Up or Unknown.
     // [1] https://www.kernel.org/doc/Documentation/networking/operstates.txt
     //
-    // For nmstate the `state: up` also means administratively up, hence
+    // For nipart the `state: up` also means administratively up, hence
     // `IfaceFlag::Up` also means `state: up`
     if *state == nispor::IfaceState::Up
         || flags.contains(&nispor::IfaceFlag::Running)
@@ -81,13 +79,13 @@ pub(crate) fn np_iface_to_base_iface(
 ) -> BaseInterface {
     let mut base_iface = BaseInterface {
         name: np_iface.name.to_string(),
-        state: np_iface_state_to_nmstate(
+        state: np_iface_state_to_nipart(
             &np_iface.state,
             np_iface.flags.as_slice(),
         ),
         link_state: Some((&np_iface.state).into()),
         iface_index: Some(np_iface.index),
-        iface_type: np_iface_type_to_nmstate(&np_iface.iface_type),
+        iface_type: np_iface_type_to_nipart(&np_iface.iface_type),
         mac_address: Some(np_iface.mac_address.to_uppercase()),
         permanent_mac_address: get_permanent_mac_address(np_iface),
         controller: np_iface.controller.as_ref().map(|c| c.to_string()),
@@ -116,8 +114,8 @@ pub(crate) fn np_iface_to_base_iface(
         );
         base_iface.state = InterfaceState::Ignore;
     }
-    base_iface.ipv4 = np_ipv4_to_nmstate(np_iface);
-    base_iface.ipv6 = np_ipv6_to_nmstate(np_iface);
+    base_iface.ipv4 = np_ipv4_to_nipart(np_iface);
+    base_iface.ipv6 = np_ipv6_to_nipart(np_iface);
 
     base_iface
 }
@@ -148,7 +146,7 @@ pub(crate) fn apply_base_iface_link_changes(
     // We do not check current property state, nispor will ignore unchanged
     // property.
 
-    np_iface.state = nmstate_iface_state_to_nispor(apply_iface.state);
+    np_iface.state = nipart_iface_state_to_nispor(apply_iface.state);
     // It is OK to use `as` action here:
     // 1. Pre-apply sanitize checker already confirmed it never exceed max_mtu,
     //    in linux kernel, the ethernet max MTU is u32::MAX.

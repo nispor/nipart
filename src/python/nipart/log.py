@@ -17,7 +17,7 @@ class NipartLogEntry:
         return NipartLogEntry(data["source"], data["level"], data["message"])
 
     def emit(self):
-        logger = logging.getLogger("libnmstate")
+        logger = logging.getLogger("nipart")
         match self.level:
             case "trace":
                 logger.debug(self.message, extra={"source": self.source})

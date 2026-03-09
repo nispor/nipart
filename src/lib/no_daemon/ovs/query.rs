@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     BaseInterface, Interface, InterfaceType, Interfaces, NetworkState,
-    NipartError, NmstateInterface, OvsBridgeConfig, OvsBridgeInterface,
+    NipartError, NipartInterface, OvsBridgeConfig, OvsBridgeInterface,
     OvsBridgePortConfig,
 };
 

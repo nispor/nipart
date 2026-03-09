@@ -7,13 +7,13 @@ use super::{
 use crate::{
     BondInterface, DummyInterface, ErrorKind, EthernetInterface, Interface,
     InterfaceType, LinuxBridgeInterface, LoopbackInterface, NetworkState,
-    NipartError, NipartNoDaemon, NmstateInterface, NmstateQueryOption,
+    NipartError, NipartInterface, NipartNoDaemon, NipartQueryOption,
     UnknownInterface, VlanInterface, WifiPhyInterface, WireguardInterface,
 };
 
 impl NipartNoDaemon {
     pub async fn query_network_state(
-        option: NmstateQueryOption,
+        option: NipartQueryOption,
     ) -> Result<NetworkState, NipartError> {
         if option.version != 1 {
             return Err(NipartError::new(
@@ -24,7 +24,7 @@ impl NipartNoDaemon {
                 ),
             ));
         }
-        // TODO: check other property in NmstateQueryOption
+        // TODO: check other property in NipartQueryOption
 
         let mut net_state = NetworkState::default();
         let mut filter = nispor::NetStateFilter::default();

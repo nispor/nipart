@@ -2,8 +2,8 @@
 
 import json
 
-from .nmstate.state_option import NipartstateApplyOption
-from .nmstate.state_option import NipartstateQueryOption
+from .schema.state_option import NipartApplyOption
+from .schema.state_option import NipartQueryOption
 
 
 class NipartCmdPing:
@@ -21,7 +21,7 @@ class NipartCmdPing:
 class NipartCmdQueryNetworkState:
     IPC_KIND = "query-network-state"
 
-    def __init__(self, opt: NipartstateQueryOption):
+    def __init__(self, opt: NipartQueryOption):
         self.opt = opt
 
     def to_json(self):
@@ -38,7 +38,7 @@ class NipartCmdQueryNetworkState:
 class NipartCmdApplyNetworkState:
     IPC_KIND = "apply-network-state"
 
-    def __init__(self, desired_state, opt: NipartstateApplyOption):
+    def __init__(self, desired_state, opt: NipartApplyOption):
         self.desired_state = desired_state
         self.opt = opt
 

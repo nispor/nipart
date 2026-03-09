@@ -3,9 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    JsonDisplayHideSecrets, NetworkState, NipartCanIpc, NipartError,
-    NipartIpcConnection, NipartPluginInfo, NmstateApplyOption,
-    NmstateQueryOption,
+    JsonDisplayHideSecrets, NetworkState, NipartApplyOption, NipartCanIpc,
+    NipartError, NipartIpcConnection, NipartPluginInfo, NipartQueryOption,
 };
 
 #[derive(Debug)]
@@ -23,8 +22,8 @@ pub enum NipartPluginCmd {
     /// Query plugin info, should reply with [NipartPluginInfo]
     QueryPluginInfo,
     /// Query network state, should reply with [NetworkState]
-    QueryNetworkState(Box<NmstateQueryOption>),
-    ApplyNetworkState(Box<(NetworkState, NmstateApplyOption)>),
+    QueryNetworkState(Box<NipartQueryOption>),
+    ApplyNetworkState(Box<(NetworkState, NipartApplyOption)>),
     Quit,
 }
 
@@ -76,7 +75,7 @@ impl NipartPluginClient {
 
     pub async fn query_network_state(
         &mut self,
-        opt: NmstateQueryOption,
+        opt: NipartQueryOption,
     ) -> Result<NetworkState, NipartError> {
         self.ipc
             .send(Ok(NipartPluginCmd::QueryNetworkState(Box::new(opt))))
@@ -87,7 +86,7 @@ impl NipartPluginClient {
     pub async fn apply_network_state(
         &mut self,
         desired_state: NetworkState,
-        opt: NmstateApplyOption,
+        opt: NipartApplyOption,
     ) -> Result<(), NipartError> {
         self.ipc
             .send(Ok(NipartPluginCmd::ApplyNetworkState(Box::new((

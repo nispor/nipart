@@ -7,10 +7,10 @@ use super::{
 };
 use crate::{
     BaseInterface, Interface, InterfaceState, InterfaceType, MergedInterfaces,
-    NipartError, NmstateInterface,
+    NipartError, NipartInterface,
 };
 
-pub(crate) fn nmstate_iface_type_to_nispor(
+pub(crate) fn nipart_iface_type_to_nispor(
     iface_type: &InterfaceType,
 ) -> nispor::IfaceType {
     match iface_type {
@@ -32,7 +32,7 @@ pub(crate) fn nmstate_iface_type_to_nispor(
     }
 }
 
-pub(crate) fn nmstate_iface_state_to_nispor(
+pub(crate) fn nipart_iface_state_to_nispor(
     iface_state: InterfaceState,
 ) -> nispor::IfaceState {
     match iface_state {
@@ -51,8 +51,8 @@ pub(crate) fn nmstate_iface_state_to_nispor(
 pub(crate) fn init_np_iface(iface: &BaseInterface) -> nispor::IfaceConf {
     let mut np_iface = nispor::IfaceConf::default();
     np_iface.name = iface.name.to_string();
-    np_iface.iface_type = Some(nmstate_iface_type_to_nispor(&iface.iface_type));
-    np_iface.state = nmstate_iface_state_to_nispor(iface.state);
+    np_iface.iface_type = Some(nipart_iface_type_to_nispor(&iface.iface_type));
+    np_iface.state = nipart_iface_state_to_nispor(iface.state);
     np_iface
 }
 

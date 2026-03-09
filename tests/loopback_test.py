@@ -7,7 +7,7 @@ from .testlib.statelib import load_yaml
 import pytest
 
 import nipart
-from nipart import NipartstateStateKind
+from nipart import NipartStateKind
 
 
 def test_query_loopback():
@@ -35,17 +35,13 @@ def test_query_loopback():
 @pytest.fixture
 def clean_up_loopback():
     yield
-    nipart.apply(
-        load_yaml(
-            """---
+    nipart.apply(load_yaml("""---
                 version: 1
                 interfaces:
                 - name: lo
                   type: loopback
                   state: absent
-                """
-        )
-    )
+                """))
     iface_state = show_only("lo")
     assert state_match(
         [
@@ -64,8 +60,8 @@ def clean_up_loopback():
 @pytest.mark.parametrize(
     "query_kind",
     [
-        NipartstateStateKind.RUNNING,
-        NipartstateStateKind.SAVED,
+        NipartStateKind.RUNNING,
+        NipartStateKind.SAVED,
     ],
     ids=[
         "query_running",
@@ -73,9 +69,7 @@ def clean_up_loopback():
     ],
 )
 def test_add_ip_to_loopback(clean_up_loopback, query_kind):
-    nipart.apply(
-        load_yaml(
-            """---
+    nipart.apply(load_yaml("""---
                 version: 1
                 interfaces:
                 - name: lo
@@ -90,9 +84,7 @@ def test_add_ip_to_loopback(clean_up_loopback, query_kind):
                     address:
                     - ip: ::2
                       prefix-length: 128
-                """
-        )
-    )
+                """))
 
     iface_state = show_only("lo", kind=query_kind)
     assert state_match(

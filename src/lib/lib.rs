@@ -4,9 +4,9 @@ mod client;
 mod error;
 mod ipc;
 mod logging;
-mod nmstate;
 mod no_daemon;
 mod plugin;
+mod schema;
 mod uuid;
 
 pub use nipart_derive::{JsonDisplay, JsonDisplayHideSecrets};
@@ -16,11 +16,11 @@ pub use self::{
     error::{ErrorKind, NipartError},
     ipc::{NipartCanIpc, NipartIpcConnection},
     logging::{NipartLogEntry, NipartLogLevel},
-    nmstate::*,
     no_daemon::NipartNoDaemon,
     plugin::{
         NipartIpcListener, NipartPlugin, NipartPluginClient, NipartPluginCmd,
         NipartPluginInfo,
     },
+    schema::*,
     uuid::NipartUuid,
 };

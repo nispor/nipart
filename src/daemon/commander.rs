@@ -4,8 +4,8 @@ use std::collections::HashSet;
 
 use futures_channel::mpsc::UnboundedSender;
 use nipart::{
-    InterfaceType, NetworkState, NipartError, NipartNoDaemon,
-    NmstateApplyOption, NmstateInterface, NmstateQueryOption,
+    InterfaceType, NetworkState, NipartApplyOption, NipartError,
+    NipartInterface, NipartNoDaemon, NipartQueryOption,
 };
 
 use super::{
@@ -79,7 +79,7 @@ impl NipartCommander {
                     self.apply_network_state(
                         None,
                         nic_ready_state,
-                        NmstateApplyOption::new().no_verify().memory_only(),
+                        NipartApplyOption::new().no_verify().memory_only(),
                     )
                     .await?;
                     log::debug!("Remaining saved state: {saved_state}");
@@ -111,7 +111,7 @@ async fn get_initialized_nics(
     saved_state: &NetworkState,
 ) -> Result<Vec<String>, NipartError> {
     let cur_state =
-        NipartNoDaemon::query_network_state(NmstateQueryOption::running())
+        NipartNoDaemon::query_network_state(NipartQueryOption::running())
             .await?;
 
     let mut ret = Vec::new();
