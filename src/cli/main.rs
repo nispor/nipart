@@ -6,15 +6,20 @@ mod error;
 mod merge;
 mod show;
 mod state;
+mod wait_online;
 mod wifi;
 
-use nipart::NipartClient;
+use nipart::{ErrorKind, NipartClient};
 
 pub(crate) use self::error::CliError;
 use self::{
     apply::CommandApply, diff::CommandDiff, merge::CommandMerge,
-    show::CommandShow, wifi::CommandWifi,
+    show::CommandShow, wait_online::CommandWaitOnline, wifi::CommandWifi,
 };
+
+const RC_FAIL: i32 = 1;
+// The error code used by /usr/bin/timeout
+const RC_TIMEOUT: i32 = 124;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), CliError> {
@@ -41,6 +46,7 @@ async fn main() -> Result<(), CliError> {
         .subcommand(CommandApply::new_cmd())
         .subcommand(CommandWifi::new_cmd())
         .subcommand(CommandDiff::new_cmd())
+        .subcommand(CommandWaitOnline::new_cmd())
         .subcommand(CommandMerge::new_cmd());
 
     let matches = cli_cmd.get_matches_mut();
@@ -69,7 +75,11 @@ async fn main() -> Result<(), CliError> {
 
     if let Err(e) = call_subcommand(&matches).await {
         eprintln!("{e}");
-        std::process::exit(1);
+        if e.nipart_error.as_ref().map(|e| e.kind) == Some(ErrorKind::Timeout) {
+            std::process::exit(RC_TIMEOUT);
+        } else {
+            std::process::exit(RC_FAIL);
+        }
     }
 
     Ok(())
@@ -96,6 +106,9 @@ async fn call_subcommand(matches: &clap::ArgMatches) -> Result<(), CliError> {
         Ok(())
     } else if let Some(matches) = matches.subcommand_matches(CommandDiff::CMD) {
         CommandDiff::handle(matches).await?;
+        Ok(())
+    } else if matches.subcommand_matches(CommandWaitOnline::CMD).is_some() {
+        CommandWaitOnline::handle().await?;
         Ok(())
     } else {
         Err(CliError::from("Unknown command"))

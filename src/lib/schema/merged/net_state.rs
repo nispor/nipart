@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     InterfaceType, JsonDisplayHideSecrets, MergedInterfaces, MergedRoutes,
     NetworkState, NipartApplyOption, NipartError, NipartInterface,
+    NipartWaitOnline,
 };
 
 #[derive(
@@ -22,7 +23,9 @@ pub struct MergedNetworkState {
     pub description: Option<String>,
     pub ifaces: MergedInterfaces,
     pub routes: MergedRoutes,
+    pub wait_online: NipartWaitOnline,
     pub option: NipartApplyOption,
+    pub desired: NetworkState,
 }
 
 impl MergedNetworkState {
@@ -31,6 +34,7 @@ impl MergedNetworkState {
         current: NetworkState,
         option: NipartApplyOption,
     ) -> Result<Self, NipartError> {
+        let desired_clone = desired.clone();
         let merged_ifaces =
             MergedInterfaces::new(desired.ifaces, current.ifaces)?;
         let merged_routes =
@@ -41,7 +45,12 @@ impl MergedNetworkState {
             description: desired.description.clone(),
             ifaces: merged_ifaces,
             routes: merged_routes,
+            wait_online: desired
+                .wait_online
+                .or(current.wait_online)
+                .unwrap_or_default(),
             option,
+            desired: desired_clone,
         })
     }
 
@@ -53,6 +62,7 @@ impl MergedNetworkState {
         NetworkState {
             ifaces: self.ifaces.gen_state_for_apply(),
             routes: self.routes.gen_state_for_apply(),
+            wait_online: self.desired.wait_online.clone(),
             version: self.version,
             description: self.description.clone(),
         }
@@ -113,6 +123,10 @@ impl NetworkState {
                 .or_else(|| self.description.clone()),
             ifaces: self.ifaces.merge(&new_state.ifaces)?,
             routes: self.routes.merge(&new_state.routes)?,
+            wait_online: new_state
+                .wait_online
+                .clone()
+                .or(self.wait_online.clone()),
         };
         Ok(())
     }

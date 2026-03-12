@@ -1,0 +1,14 @@
+[Unit]
+Description=Wait nipart daemon to setup network and reach online state
+#Documentation=man:npt(8)
+After=nipart.service
+Requires=nipart.service
+Before=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/npt wait-online
+RemainAfterExit=yes
+
+[Install]
+WantedBy=network-online.target

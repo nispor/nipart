@@ -8,11 +8,14 @@ use nipart::{
     ErrorKind, NipartClient, NipartError, NipartIpcConnection,
     NipartIpcListener,
 };
+use tokio::sync::SetOnce;
 
 use super::{
     api::process_api_connection, commander::NipartCommander,
     link_event::NipartLinkEvent,
 };
+
+pub(crate) static DAEMON_IS_ONLINE: SetOnce<()> = SetOnce::const_new();
 
 #[derive(Debug, Clone)]
 pub(crate) enum NipartManagerCmd {

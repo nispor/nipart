@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     CUR_SCHEMA_VERSION, ErrorKind, Interfaces, JsonDisplayHideSecrets,
-    NipartError, Routes,
+    NipartError, NipartWaitOnline, Routes,
 };
 
 #[derive(
@@ -19,6 +19,11 @@ pub struct NetworkState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description for the whole desire state.
     pub description: Option<String>,
+    /// Daemon wait-online configuration, if undefined, wait IPv4 or IPv6
+    /// gateway been set or previous saved configuration. If defined, override
+    /// previous saved configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wait_online: Option<NipartWaitOnline>,
     /// Routes
     #[serde(default)]
     pub routes: Routes,
@@ -32,6 +37,7 @@ impl Default for NetworkState {
         Self {
             version: Some(CUR_SCHEMA_VERSION),
             description: None,
+            wait_online: None,
             ifaces: Default::default(),
             routes: Default::default(),
         }
@@ -56,13 +62,16 @@ impl NetworkState {
         self == &Self {
             version: self.version,
             ..Default::default()
-        } || (self.ifaces.is_empty() && self.routes.is_empty())
+        } || (self.ifaces.is_empty()
+            && self.routes.is_empty()
+            && self.wait_online.is_none())
     }
 
     pub fn new() -> Self {
         Self::default()
     }
 
+    // TODO(Gris): Use `rmsd-yml` to show error location in YAML.
     /// Wrapping function of [serde_yaml::from_str()] with error mapped to
     /// [NipartError].
     pub fn new_from_yaml(net_state_yaml: &str) -> Result<Self, NipartError> {
