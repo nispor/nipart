@@ -16,6 +16,7 @@ mod state_options;
 mod trigger;
 mod value;
 mod version;
+mod wait_online;
 
 #[allow(dead_code)]
 pub(crate) mod deserializer;
@@ -54,6 +55,7 @@ pub use self::{
     state_options::{NipartApplyOption, NipartQueryOption, NipartStateKind},
     trigger::InterfaceTrigger,
     version::CUR_SCHEMA_VERSION,
+    wait_online::{NipartWaitOnline, NipartWaitOnlineCondition},
 };
 
 #[cfg(test)]

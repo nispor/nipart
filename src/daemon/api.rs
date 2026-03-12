@@ -82,6 +82,10 @@ pub(crate) async fn process_api_connection(
                 drop(lock);
                 conn.send(result).await?;
             }
+            NipartClientCmd::WaitOnline => {
+                let result = commander.wait_online().await;
+                conn.send(result).await?;
+            }
             _ => {
                 conn.send::<Result<NetworkState, NipartError>>(Err(
                     NipartError::new(
@@ -109,7 +113,7 @@ fn get_peer_info(
     .map_err(|e| {
         NipartError::new(
             ErrorKind::Bug,
-            format!("Failed to getsockopt SO_PEERCRED failed: {e}"),
+            format!("Failed to getsockopt SO_PEERCRED: {e}"),
         )
     })?;
 
@@ -124,7 +128,7 @@ fn permission_check(
         Ok(())
     } else {
         match command {
-            NipartClientCmd::Ping => Ok(()),
+            NipartClientCmd::Ping | NipartClientCmd::WaitOnline => Ok(()),
             NipartClientCmd::QueryNetworkState(s) => {
                 if s.include_secrets {
                     Err(NipartError::new(

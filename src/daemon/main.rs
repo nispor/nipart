@@ -15,6 +15,7 @@ mod plugin;
 mod query;
 mod task;
 mod udev;
+mod wait_online;
 
 pub(crate) use self::{
     logger::{log_debug, log_error, log_info, log_trace, log_warn},

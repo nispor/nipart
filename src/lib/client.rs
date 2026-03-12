@@ -27,6 +27,7 @@ pub enum NipartClientCmd {
     Ping,
     QueryNetworkState(Box<NipartQueryOption>),
     ApplyNetworkState(Box<(NetworkState, NipartApplyOption)>),
+    WaitOnline,
 }
 
 impl NipartCanIpc for NipartClientCmd {
@@ -35,6 +36,7 @@ impl NipartCanIpc for NipartClientCmd {
             Self::Ping => "ping".to_string(),
             Self::QueryNetworkState(_) => "query-network-state".to_string(),
             Self::ApplyNetworkState(_) => "apply-network-state".to_string(),
+            Self::WaitOnline => "wait-online".to_string(),
         }
     }
 }
@@ -94,5 +96,10 @@ impl NipartClient {
             )))))
             .await?;
         self.ipc.recv::<NetworkState>().await
+    }
+
+    pub async fn wait_online(&mut self) -> Result<(), NipartError> {
+        self.ipc.send(Ok(NipartClientCmd::WaitOnline)).await?;
+        self.ipc.recv::<()>().await
     }
 }

@@ -151,6 +151,8 @@ impl NipartCommander {
         };
         diff_state.hide_secrets();
 
+        self.try_set_daemon_online(Some(&saved_state), None).await?;
+
         Ok(diff_state)
     }
 
@@ -232,6 +234,8 @@ impl NipartCommander {
         )
         .await;
         merged_state.verify(&post_apply_current_state)?;
+        self.try_set_daemon_online(None, Some(&post_apply_current_state))
+            .await?;
         Ok(())
     }
 
