@@ -154,27 +154,23 @@ impl WireguardConfig {
                         iface_name,
                     ),
                 ));
-            } else {
-                if self.private_key.as_deref()
-                    == Some(crate::NetworkState::HIDE_SECRET_STR)
-                {
-                    return Err(NipartError::new(
-                        ErrorKind::InvalidArgument,
-                        format!(
-                            "Private key cannot be set to {}  for creating \
-                             new wireguard interface {}",
-                            crate::NetworkState::HIDE_SECRET_STR,
-                            iface_name,
-                        ),
-                    ));
-                }
-            }
-        } else {
-            if self.private_key.as_deref()
+            } else if self.private_key.as_deref()
                 == Some(crate::NetworkState::HIDE_SECRET_STR)
             {
-                self.private_key = None;
+                return Err(NipartError::new(
+                    ErrorKind::InvalidArgument,
+                    format!(
+                        "Private key cannot be set to {} for creating new \
+                         wireguard interface {}",
+                        crate::NetworkState::HIDE_SECRET_STR,
+                        iface_name,
+                    ),
+                ));
             }
+        } else if self.private_key.as_deref()
+            == Some(crate::NetworkState::HIDE_SECRET_STR)
+        {
+            self.private_key = None;
         }
 
         if let Some(peers) = self.peers.as_mut() {
