@@ -171,12 +171,17 @@ impl NipartEventWorker {
                 && let Some(Interface::WifiPhy(cur_wifi_iface)) = cur_iface
                 && cur_wifi_iface.ssid().is_some()
                 && let Interface::WifiCfg(saved_wifi_iface) = saved_iface
-                && cur_wifi_iface.ssid() == saved_wifi_iface.ssid()
             {
-                desired_state.ifaces.push(wifi_cfg_to_wifi_phy(
-                    event.iface_name.as_str(),
-                    saved_iface,
-                ));
+                if cur_wifi_iface.ssid() == saved_wifi_iface.ssid() {
+                    desired_state.ifaces.push(wifi_cfg_to_wifi_phy(
+                        event.iface_name.as_str(),
+                        saved_iface,
+                    ));
+                }
+                // Since the WIFI interface is already up, we should not
+                // try to configure more SSID on it which should be done
+                // at link_down event. Hence we continue regardless whether
+                // SSID match or not.
                 continue;
             }
 
