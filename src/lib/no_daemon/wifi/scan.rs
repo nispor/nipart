@@ -33,7 +33,7 @@ pub(crate) async fn bss_active_scan(
 ) -> Result<HashMap<(String, String), WpaSupBss>, NipartError> {
     // Interface name to dbus object path map
     let mut iface_obj_paths: HashMap<String, String> = HashMap::new();
-    // HashMap key is (iface_name, ssid)
+    // HashMap key is (iface_name, ssid) - stores best BSSID per SSID
     let mut ret: HashMap<(String, String), WpaSupBss> = HashMap::new();
 
     for iface in ifaces {
