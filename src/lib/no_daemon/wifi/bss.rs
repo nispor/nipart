@@ -183,7 +183,7 @@ impl TryFrom<zvariant::OwnedValue> for WpaSupBssRsn {
     }
 }
 
-fn mac_to_string(data: &[u8]) -> String {
+pub(crate) fn mac_to_string(data: &[u8]) -> String {
     let mut rt = String::new();
     for (i, m) in data.iter().enumerate() {
         write!(rt, "{m:02x}").ok();
