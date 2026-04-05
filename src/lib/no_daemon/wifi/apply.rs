@@ -16,19 +16,6 @@ use crate::{
 
 const MAX_SCAN_RETRY: usize = 5;
 
-/// Find the BSSID with the best signal strength for a given interface and SSID
-fn find_best_bss_by_signal<'a>(
-    existing_bsses: &'a HashMap<(String, String), WpaSupBss>,
-    iface_name: &str,
-    ssid: &str,
-) -> Option<&'a WpaSupBss> {
-    existing_bsses
-        .iter()
-        .filter(|((iface, s), _)| iface == iface_name && s == ssid)
-        .max_by_key(|(_, bss)| bss.signal_dbm.unwrap_or(i16::MIN))
-        .map(|(_, bss)| bss)
-}
-
 impl NipartWpaConn {
     pub(crate) async fn apply(
         ifaces: &[&Interface],
@@ -150,13 +137,8 @@ async fn add_networks(
     log::trace!("Got WIFI scan result: {existing_bsses:?}");
 
     for (iface_name, wifi_cfg) in wifi_cfg_to_add {
-        // If BSSID is not specified, find the best BSSID by signal strength
-        let best_bss = if wifi_cfg.bssid.is_none() {
-            find_best_bss_by_signal(&existing_bsses, iface_name, &wifi_cfg.ssid)
-        } else {
-            existing_bsses
-                .get(&(iface_name.to_string(), wifi_cfg.ssid.to_string()))
-        };
+        let best_bss = existing_bsses
+            .get(&(iface_name.to_string(), wifi_cfg.ssid.to_string()));
         add_wifi_cfg(iface_name, wifi_cfg, dbus, best_bss).await?;
     }
     Ok(())
