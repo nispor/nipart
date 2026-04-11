@@ -2,8 +2,7 @@
 
 use futures_channel::mpsc::UnboundedSender;
 use nipart::{
-    Interface, InterfaceTrigger, MergedNetworkState, NetworkState, NipartError,
-    NipartInterface,
+    Interface, MergedNetworkState, NetworkState, NipartError, NipartInterface,
 };
 
 use super::{
@@ -69,8 +68,12 @@ impl NipartMonitorManager {
         {
             if iface.is_absent() {
                 self.del_iface_from_monitor(iface.name()).await?;
-            } else if iface.base_iface().trigger.as_ref()
-                == Some(&InterfaceTrigger::Carrier)
+            } else if iface
+                .base_iface()
+                .trigger
+                .as_ref()
+                .map(|t| t.is_carrier())
+                .unwrap_or(false)
             {
                 self.add_iface_to_monitor(iface.name()).await?;
             }

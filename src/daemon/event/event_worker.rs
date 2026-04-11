@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
+
 use futures_channel::{mpsc::UnboundedReceiver, oneshot::Sender};
 use nipart::{
     BaseInterface, ErrorKind, Interface, InterfaceIpv4, InterfaceIpv6,
@@ -45,6 +50,9 @@ type FromManager = (
 pub(crate) struct NipartEventWorker {
     receiver: UnboundedReceiver<FromManager>,
     commander: Option<NipartCommander>,
+    /// Tracks pending debounce events by interface name
+    /// Maps iface_name -> (desired_state, scheduled_execution_time)
+    pending_debounce: HashMap<String, (bool, Instant)>,
 }
 
 impl TaskWorker for NipartEventWorker {
@@ -57,6 +65,7 @@ impl TaskWorker for NipartEventWorker {
         Ok(Self {
             receiver,
             commander: None,
+            pending_debounce: HashMap::new(),
         })
     }
 
@@ -97,7 +106,52 @@ impl NipartEventWorker {
             ));
         };
         log::trace!("Handle link event {event}");
+
+        // Query saved state to check for trigger configuration
         let saved_state = commander.conf_manager.query_state().await?;
+
+        // Check debounce delay (defaults to 5 seconds if not configured)
+        let delay_secs = get_debounce_delay(&saved_state, &event.iface_name);
+
+        // Record this event as pending debounce
+        let event_time = Instant::now();
+        self.pending_debounce
+            .insert(event.iface_name.clone(), (event.is_up, event_time));
+
+        log::debug!(
+            "Debouncing event for {} with delay {}s",
+            event.iface_name,
+            delay_secs
+        );
+
+        // Wait for the debounce delay
+        tokio::time::sleep(Duration::from_secs(delay_secs)).await;
+
+        // Check if this event has been superseded by a newer one
+        if let Some((pending_state, pending_time)) =
+            self.pending_debounce.get(&event.iface_name)
+        {
+            // If the pending event is different or newer, skip this one
+            if *pending_state != event.is_up
+                || pending_time.elapsed() < Duration::from_secs(delay_secs)
+            {
+                log::debug!(
+                    "Event for {} superseded, skipping",
+                    event.iface_name
+                );
+                return Ok(());
+            }
+        }
+
+        // Remove from pending debounce
+        self.pending_debounce.remove(&event.iface_name);
+
+        // Re-query current state after delay to get stable state
+        log::trace!(
+            "Debounce delay expired for {}, processing event",
+            event.iface_name
+        );
+
         let cur_state =
             NipartNoDaemon::query_network_state(NipartQueryOption::running())
                 .await?;
@@ -228,6 +282,22 @@ impl NipartEventWorker {
     }
 }
 
+/// Returns the debounce delay in seconds.
+/// If a delay is explicitly configured in the trigger, uses that value.
+/// Otherwise, defaults to 5 seconds for all interface types to prevent
+/// rapid up/down event oscillations.
+fn get_debounce_delay(saved_state: &NetworkState, iface_name: &str) -> u64 {
+    const DEFAULT_DEBOUNCE_DELAY_SECS: u64 = 5;
+
+    saved_state
+        .ifaces
+        .iter()
+        .find(|iface| iface.name() == iface_name)
+        .and_then(|iface| iface.base_iface().trigger.as_ref())
+        .and_then(|trigger| trigger.delay())
+        .unwrap_or(DEFAULT_DEBOUNCE_DELAY_SECS)
+}
+
 fn gen_desired_iface_up(
     saved_iface: &Interface,
     saved_state: &NetworkState,
@@ -260,7 +330,7 @@ fn gen_desired_iface_down(
     saved_iface: &Interface,
 ) -> Interface {
     let mut desired_iface = saved_iface.clone();
-    if trigger != &InterfaceTrigger::Carrier
+    if !trigger.is_carrier()
         && saved_iface.iface_type() != &InterfaceType::WifiCfg
     {
         desired_iface.base_iface_mut().state = if saved_iface.is_virtual() {
