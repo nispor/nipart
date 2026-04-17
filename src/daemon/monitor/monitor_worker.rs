@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     io::Read,
+    time::{Duration, Instant},
 };
 
 use futures_channel::{
@@ -29,9 +30,16 @@ use super::super::{
     daemon::NipartManagerCmd, link_event::NipartLinkEvent, task::TaskWorker,
 };
 
-// When the same event happens, only consider previous event expired after
-// 30 seconds.
-const EVENT_EXPIRE_TIME_SEC: u64 = 30;
+// When the same event happens, when should we consider previous event expired.
+const EVENT_EXPIRE_TIME_SEC: u64 = 300;
+
+// When the event changed to down, we wait 10 seconds to prevent flipping
+const DOWN_WAIT_SEC: u64 = 10;
+// Check delay queue event every second if delay_queue is not empty
+const DELAY_TICK_SEC_IF_BUSY: u64 = 1;
+// Check delay queue event every day if delay_queue is empty, we cannot use
+// Duration::MAX which will cause overflow on Interval::reset_after()
+const DELAY_TICK_SEC_IF_FREE: u64 = 24 * 60 * 60;
 
 #[derive(Debug, Clone)]
 pub(crate) enum NipartMonitorCmd {
@@ -103,6 +111,7 @@ pub(crate) struct NipartMonitorWorker {
     msg_to_commander: Option<UnboundedSender<NipartManagerCmd>>,
     manual_paused: bool,
     emited: HashMap<String, NipartLinkEvent>,
+    delay_queue: HashMap<String, (NipartLinkEvent, Instant)>,
 }
 
 impl TaskWorker for NipartMonitorWorker {
@@ -121,6 +130,7 @@ impl TaskWorker for NipartMonitorWorker {
             manual_paused: false,
             msg_to_commander: None,
             emited: HashMap::new(),
+            delay_queue: HashMap::new(),
         })
     }
 
@@ -180,7 +190,16 @@ impl TaskWorker for NipartMonitorWorker {
     }
 
     async fn run(&mut self) {
+        let mut ticker =
+            tokio::time::interval(Duration::from_secs(DELAY_TICK_SEC_IF_BUSY));
+        // First tick happen immediately
+        ticker.tick().await;
         loop {
+            if self.delay_queue.is_empty() {
+                ticker.reset_after(Duration::from_secs(DELAY_TICK_SEC_IF_FREE));
+            } else {
+                ticker.reset_after(Duration::from_secs(DELAY_TICK_SEC_IF_BUSY));
+            }
             if let Some(mut netlink_msg_receiver) =
                 self.netlink_msg_receiver.take()
             {
@@ -205,6 +224,11 @@ impl TaskWorker for NipartMonitorWorker {
                             ).await {
                                 log::error!("{e}");
                             }
+                    }
+                    _ = ticker.tick() => {
+                        if let Err(e) = self.process_delay_queue().await {
+                            log::error!("{e}");
+                        }
                     }
                 }
                 if !self.manual_paused {
@@ -261,6 +285,45 @@ impl NipartMonitorWorker {
         }
     }
 
+    async fn process_delay_queue(&mut self) -> Result<(), NipartError> {
+        // holding processed interface names
+        let mut pending_changes = Vec::new();
+        for (iface_name, (_, time)) in self.delay_queue.iter() {
+            if time < &Instant::now() {
+                pending_changes.push(iface_name.to_string());
+            }
+        }
+        for iface_name in pending_changes {
+            log::trace!("Emit delayed event on {iface_name}");
+            if let Some((event, _)) = self.delay_queue.remove(&iface_name) {
+                if let Some(previous_event) =
+                    self.emited.get(event.iface_name.as_str())
+                    && previous_event.is_up
+                    && event.is_up
+                {
+                    log::trace!(
+                        "Link restored to up after delay, no need to emit \
+                         event"
+                    );
+                } else {
+                    self.notify(event).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn delay_notify(&mut self, event: NipartLinkEvent) {
+        log::trace!("NipartMonitorWorker delay notify {event:?}");
+        self.delay_queue
+            .entry(event.iface_name.clone())
+            .and_modify(|(e, _)| *e = event.clone())
+            .or_insert((
+                event,
+                Instant::now() + Duration::from_secs(DOWN_WAIT_SEC),
+            ));
+    }
+
     async fn resume(&mut self) -> Result<(), NipartError> {
         let (conn, handle, msg) =
             new_multicast_connection(&[MulticastGroup::Link]).map_err(|e| {
@@ -278,9 +341,8 @@ impl NipartMonitorWorker {
         while let Some(Ok(link_msg)) = link_handle.next().await {
             if let Some(event) =
                 parse_link_msg(&link_msg, self.wifi_monitor_enabled, false)
-                && self.should_emit(&event)
             {
-                self.notify(event).await?;
+                self.try_notify(event).await?;
             }
         }
 
@@ -295,38 +357,52 @@ impl NipartMonitorWorker {
     ) -> Result<(), NipartError> {
         if let Some(event) =
             parse_route_netlink_msg(nl_msg, self.wifi_monitor_enabled)
-            && self.should_emit(&event)
         {
-            self.notify(event).await?;
+            self.try_notify(event).await?;
         }
         Ok(())
     }
 
-    fn is_previous_event_expired_or_changed(
-        &self,
-        event: &NipartLinkEvent,
-    ) -> bool {
-        if event.is_delete {
-            true
-        } else if let Some(previous_event) =
-            self.emited.get(event.iface_name.as_str())
-            && (event.ssid.is_none() || event.ssid != previous_event.ssid)
-            && let Ok(elapsed) = previous_event.time_stamp.elapsed()
-        {
-            previous_event.is_up != event.is_up
-                || elapsed
-                    > std::time::Duration::from_secs(EVENT_EXPIRE_TIME_SEC)
-        } else {
-            true
-        }
+    fn event_is_interested(&self, event: &NipartLinkEvent) -> bool {
+        self.iface_monitor_list.contains(&event.iface_name)
+            || (self.wifi_monitor_enabled && event.ssid.is_some())
+            || (self.wifi_monitor_enabled
+                && event.iface_type == InterfaceType::WifiPhy)
     }
 
-    fn should_emit(&self, event: &NipartLinkEvent) -> bool {
-        self.is_previous_event_expired_or_changed(event)
-            && (self.iface_monitor_list.contains(&event.iface_name)
-                || (self.wifi_monitor_enabled && event.ssid.is_some())
-                || (self.wifi_monitor_enabled
-                    && event.iface_type == InterfaceType::WifiPhy))
+    async fn try_notify(
+        &mut self,
+        event: NipartLinkEvent,
+    ) -> Result<(), NipartError> {
+        if !self.event_is_interested(&event) {
+            log::trace!("Event {event} is not interested");
+            return Ok(());
+        }
+        // When SSID changes, normally it should go thought down->up chain,
+        // hence no need to handle specially here.
+        if event.is_delete {
+            // delete event, emit now.
+            self.notify(event).await?;
+        } else if let Some(previous_event) =
+            self.emited.get(event.iface_name.as_str())
+        {
+            if let Ok(elapsed) = previous_event.time_stamp.elapsed()
+                && elapsed > Duration::from_secs(EVENT_EXPIRE_TIME_SEC)
+            {
+                // If previous event expired, emit now.
+                self.notify(event).await?;
+            } else if !previous_event.is_up && event.is_up {
+                // If change from down to up, emit now.
+                self.notify(event).await?;
+            } else {
+                // delay emit
+                self.delay_notify(event);
+            }
+        } else {
+            // If no previous event, emit now.
+            self.notify(event).await?;
+        }
+        Ok(())
     }
 }
 
