@@ -27,7 +27,7 @@ jobs:
 
       - name: Install mdbook
         run: |
-          sudo cargo install mdbook --root /usr
+          cargo install mdbook
 
       - name: Build book
         run: mdbook build docs
