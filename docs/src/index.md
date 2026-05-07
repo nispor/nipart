@@ -1,4 +1,60 @@
-# Nipart Quick User Guide
+# Nipart
+
+<https://nispor.github.io/nipart/>
+
+Nipart is a network management tool written in Rust providing descriptive
+API for network management.
+
+Nipart can work in common daemon-client mode, or one-shot daemon-free mode.
+
+The `nipartd` daemon provides complex network management features, such as
+DHCP, conditional network up/down.
+
+The `npt` client by default, send request to daemon for querying and applying
+network changes. With `npt apply <YAML> --no-daemon`, it bypass daemon and
+apply network changes directly to Linux kernel or related daemon(e.g. OVS).
+
+Example YAML connecting to a WIFI network(works both in daemon and no-daemon
+mode):
+
+```yaml
+---
+version: 1
+routes:
+  config:
+  - destination: 0.0.0.0/0
+    next-hop-interface: wlan0
+    next-hop-address: 192.0.2.1
+    metric: 100
+interfaces:
+- name: wlan0
+  type: wifi-phy
+  wifi:
+    ssid: Test-WIFI
+    password: 12345678
+  ipv4:
+    enabled: true
+    dhcp: false
+    address:
+    - ip: 192.0.2.99
+      prefix-length: 24
+```
+
+
+## Features
+
+* [Base Interface Management](features/base.md)
+* [IP Address](features/ip.md)
+* [No Daemon Mode](features/no_daemon_mode.md)
+* [WIFI](features/wifi.md)
+* [Route](features/route.md)
+* [Conditional Network Up/Down](features/trigger.md)
+* [Wait Online](features/wait-online.md)
+* [Vlan](features/vlan.md)
+* [Bond](features/bond.md)
+* [Linux Bridge](features/bridge.md)
+* [OpenvSwitch Bridge](features/ovs.md)
+* [Wireguard](features/wireguard.md)
 
 ## Installation
 
@@ -23,58 +79,38 @@ TODO: Upload to AUR
 
 TODO: Upload to COPR
 
-## Connect WIFI
+## Usage
 
-1. Scan existing WIFI networks
-
-```bash
-sudo npt wifi scan
-```
-
-2. Connect to a WIFI network
+### Show current network state
 
 ```bash
-# This command will ask you to input your password
-sudo npt wifi connect <SSID>
+# daemon mode
+sudo npt show
+# no-daemon mode
+sudo npt show -n
 ```
 
-3. Check saved WIFI config
+### Show saved config of daemon
 
 ```bash
-sudo npt show wlan0 -s
+sudo npt show -s
 ```
 
-4. Check running status of WIFI connection
+### Show running status of certain interface
 
 ```bash
 sudo npt show wlan0
 ```
 
-## Connect wireguard VPN
-
-**Note**: Nipart does not support auto-route yet. You need to add route
-manually.
+### Scan WIFI networks
 
 ```bash
-echo '
-interfaces:
-- name: wg0
-  type: wireguard
-  state: up
-  wireguard:
-    public-key: "JKossUAjywXuJ2YVcaeD6PaHs+afPmIthDuqEVlspwA="
-    private-key: "6LTHiAM4vgKEgi5vm30f/EBIEWFDmySkTc9EWCcIqEs="
-    listen-ports: 51820
-    peers:
-      - endpoint: 192.0.2.0:51820
-        public-key: 8bdQrVLqiw3ZoHCucNh1YfH0iCWuyStniRr8t7H24Fk=
-        preshared-key: TqIkTsTSxWJ1vSnhUW2oXFAtB5l9hRFWdgn2BrKX3ik=
-        persistent-keepalive: 0
-        allowed-ips:
-        - ip: 0.0.0.0
-          prefix-length: 0
-        - ip: '::'
-          prefix-length: 0
-        protocol-version: 1
-' | sudo npt apply -
+sudo npt wifi scan
+```
+
+### Connect to WIFI
+
+```bash
+# This command will ask you to input your wifi password
+sudo npt wifi connect <SSID>
 ```
