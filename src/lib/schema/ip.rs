@@ -378,7 +378,7 @@ impl InterfaceIpv6 {
                     if ip_addr.is_unicast_link_local() {
                         log::info!(
                             "Ignoring IPv6 link local address {}/{}",
-                            &addr.ip,
+                            addr.ip,
                             addr.prefix_length
                         );
                         false
