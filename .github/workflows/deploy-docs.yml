@@ -20,10 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Rust Stable
+        run: |
+          rustup override set stable
+          rustup update stable
+
       - name: Install mdbook
         run: |
-          sudo apt-get update
-          sudo apt-get -y install mdbook
+          sudo cargo install mdbook --root /usr
 
       - name: Build book
         run: mdbook build docs
