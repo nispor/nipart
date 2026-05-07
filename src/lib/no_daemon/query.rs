@@ -37,7 +37,7 @@ impl NipartNoDaemon {
         let mut has_wifi_nic = false;
         let mut has_ovs_datapath_nic = false;
 
-        for (_, np_iface) in np_state.ifaces.iter() {
+        for np_iface in np_state.ifaces.values() {
             // The `ovs-system` is reserved for OVS kernel datapath
             if np_iface.name == "ovs-system" {
                 has_ovs_datapath_nic = true;
