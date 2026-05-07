@@ -507,7 +507,5 @@ fn np_bond_options_to_nipart(np_bond: &nispor::BondInfo) -> BondOptions {
         lacp_active: np_bond.lacp_active,
         ns_ip6_target: np_bond.ns_ip6_target.clone(),
         peer_notif_delay: np_bond.peer_notif_delay,
-        // balance_slb is userspace property
-        balance_slb: None,
     }
 }

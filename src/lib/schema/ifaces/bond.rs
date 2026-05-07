@@ -221,7 +221,6 @@ impl NipartInterface for BondInterface {
     /// * Validate `ad_actor_system` is not multicast address.
     /// * Validate `arp_interval`.
     /// * Validate conflict between `miimon` and `arp_interval`.
-    /// * Validate `balance_slb` option.
     /// * Validate conflict between `num_grat_arp` and `num_grat_arp`
     fn sanitize_iface_specfic(
         &mut self,
@@ -254,7 +253,6 @@ impl NipartInterface for BondInterface {
                 bond_opts.validate_lacp_opts(bond_mode)?;
                 bond_opts.validate_arp_interval(cur_bond_opts, bond_mode)?;
                 bond_opts.validate_miimon_and_arp_interval()?;
-                bond_opts.validate_balance_slb(cur_bond_opts, bond_mode)?;
 
                 if let Some(num_grat_arp) = bond_opts.num_grat_arp
                     && let Some(num_unsol_na) = bond_opts.num_unsol_na
@@ -564,13 +562,6 @@ pub struct BondOptions {
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
-        deserialize_with = "crate::deserializer::option_bool_or_string",
-        alias = "balance-slb"
-    )]
-    pub balance_slb: Option<bool>,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        default,
         deserialize_with = "crate::deserializer::option_u8_or_string"
     )]
     pub arp_missed_max: Option<u8>,
@@ -618,33 +609,6 @@ impl BondOptions {
             );
             log::error!("{e}");
             return Err(e);
-        }
-        Ok(())
-    }
-
-    fn validate_balance_slb(
-        &self,
-        current: Option<&Self>,
-        mode: BondMode,
-    ) -> Result<(), NipartError> {
-        if self
-            .balance_slb
-            .or_else(|| current.and_then(|c| c.balance_slb))
-            == Some(true)
-        {
-            let xmit_hash_policy = self
-                .xmit_hash_policy
-                .or_else(|| current.and_then(|c| c.xmit_hash_policy));
-            if mode != BondMode::XOR
-                || xmit_hash_policy != Some(BondXmitHashPolicy::VlanSrcMac)
-            {
-                return Err(NipartError::new(
-                    ErrorKind::InvalidArgument,
-                    "To enable balance-slb, bond mode should be balance-xor \
-                     and xmit_hash_policy: 'vlan+srcmac'"
-                        .to_string(),
-                ));
-            }
         }
         Ok(())
     }
