@@ -1,0 +1,7 @@
+[book]
+title = "Nipart Document"
+authors = ["Gris Ge"]
+description = "Nipart Document"
+
+[rust]
+edition = "2024"
